@@ -7,7 +7,14 @@ import type { CliDeps } from "../io.js";
 import type { FragDenStaatClient } from "../../client/client.js";
 import type { RawResponse } from "../../client/engine.js";
 import type { QueryParams } from "../../client/query.js";
-import { action, addPagination, paginationParams, renderJson, renderRaw } from "../shared.js";
+import {
+  action,
+  addPagination,
+  paginationParams,
+  parseNonEmpty,
+  renderJson,
+  renderRaw,
+} from "../shared.js";
 import { FdsError } from "../../client/errors.js";
 
 type Client = FragDenStaatClient;
@@ -88,7 +95,8 @@ export function addAutocomplete(
   doAuto: (client: Client, q: string) => Promise<unknown>,
 ): Command {
   return parent
-    .command("autocomplete <query>")
+    .command("autocomplete")
+    .argument("<query>", "text to autocomplete (must be non-empty)", parseNonEmpty)
     .description(description)
     .action(
       action(deps, async ({ client, global }, [q]) => {

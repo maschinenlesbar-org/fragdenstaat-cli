@@ -5,6 +5,7 @@ import {
   addPagination,
   choiceOption,
   paginationParams,
+  parseNonEmpty,
   parseNonNegativeNumber,
   pruneUndefined,
   renderJson,
@@ -116,7 +117,8 @@ export function registerRequestCommands(program: Command, deps: CliDeps): void {
   );
 
   requests
-    .command("tags <query>")
+    .command("tags")
+    .argument("<query>", "tag name fragment to autocomplete (must be non-empty)", parseNonEmpty)
     .description("Autocomplete request tag names")
     .action(
       action(deps, async ({ client, global }, [q]) => {
