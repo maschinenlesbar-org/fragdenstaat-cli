@@ -39,12 +39,17 @@ export interface RequestListParams extends Pagination {
   follower?: Id;
 }
 
-/** Filters for `GET /api/v1/request/search/` (full-text request search). */
+/**
+ * Filters for `GET /api/v1/request/search/` (full-text request search).
+ *
+ * NOTE: the search endpoint's `status` filter is intentionally not modelled — its
+ * server-side choice set rejects every documented request status (HTTP 400), so it
+ * is unusable. Use `RequestListParams.status` on the plain list endpoint instead.
+ */
 export interface RequestSearchParams extends Pagination {
   q?: string;
   jurisdiction?: string;
   category?: string;
-  status?: RequestStatus;
 }
 
 /** Filters for `GET /api/v1/publicbody/` (public bodies). */

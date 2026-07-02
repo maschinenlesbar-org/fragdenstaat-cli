@@ -14,7 +14,7 @@ IDs are numeric — resolve names via `autocomplete`/`list --q` first.
 ```bash
 fragdenstaat request list [filters]
 fragdenstaat request get <id>
-fragdenstaat request search --q "<text>" [--jurisdiction <slug>] [--category <slug>] [--status <s>]
+fragdenstaat request search --q "<text>" [--jurisdiction <slug>] [--category <slug>]
 fragdenstaat request tags <query>        # autocomplete tag names
 ```
 

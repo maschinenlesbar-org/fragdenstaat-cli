@@ -71,7 +71,6 @@ function buildSearchParams(opts: Record<string, unknown>): QueryParams {
     q: opts["q"],
     jurisdiction: opts["jurisdiction"],
     category: opts["category"],
-    status: opts["status"],
   }) as QueryParams;
 }
 
@@ -92,14 +91,17 @@ export function registerRequestCommands(program: Command, deps: CliDeps): void {
     client.requests.get(id),
   );
 
+  // NOTE: the search endpoint also exposes a `status` filter, but its server-side
+  // choice set rejects every value (all documented request statuses return HTTP
+  // 400 "keine gültige Auswahl"), so it is deliberately not offered here — an
+  // option where no value can ever succeed is worse than no option.
   const search = addPagination(
     requests
       .command("search")
       .description("Full-text search over public requests")
       .option("--q <text>", "full-text query")
       .option("--jurisdiction <slug>", "restrict to a jurisdiction")
-      .option("--category <slug>", "restrict to a category")
-      .addOption(choiceOption("--status <status>", "restrict to a status", RequestStatusValues)),
+      .option("--category <slug>", "restrict to a category"),
   ).option("--csv", "output the server-rendered CSV export instead of JSON");
   search.action(
     action(deps, async ({ client, global, opts }) => {
