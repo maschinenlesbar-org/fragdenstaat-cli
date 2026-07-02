@@ -1,16 +1,16 @@
 import { Command } from "commander";
 import type { CliDeps } from "../io.js";
-import { pruneUndefined } from "../shared.js";
+import { parseIntArg, pruneUndefined } from "../shared.js";
 import { addList, addGet, addAutocomplete, asBool } from "./common.js";
 import type { QueryParams } from "../../client/query.js";
 
 function addLawFilters(cmd: Command): Command {
   return cmd
     .option("--q <text>", "full-text query over name/description")
-    .option("--jurisdiction <id>", "filter by jurisdiction id")
-    .option("--mediator <id>", "filter by mediator public-body id")
+    .option("--jurisdiction <id>", "filter by jurisdiction id", parseIntArg)
+    .option("--mediator <id>", "filter by mediator public-body id", parseIntArg)
     .option("--meta [bool]", "only meta-laws (combinations) — true/false")
-    .option("--id <id>", "filter by law id");
+    .option("--id <id>", "filter by law id", parseIntArg);
 }
 
 function buildLawParams(opts: Record<string, unknown>): QueryParams {
