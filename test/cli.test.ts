@@ -174,3 +174,93 @@ test("--help exits 0", async () => {
   const code = await run(["--help"], cli.deps);
   assert.equal(code, 0);
 });
+
+// --- Regression tests for bugs found in exploratory testing (see findings.md) ---
+// The shared shape here is "bad input is rejected before any request is issued":
+// a non-zero exit code AND `mt.calls.length === 0` (nothing reached the network).
+
+// #1 — the search endpoint rejects every value of its old --status choice set, so
+// the option was removed rather than left as a filter that can never succeed.
+test("request search no longer offers the always-failing --status option", async () => {
+  const cli = makeCli(() => jsonResponse(fx.requestList));
+  const code = await run(["request", "search", "--q", "wasser", "--status", "resolved"], cli.deps);
+  assert.notEqual(code, 0);
+  assert.equal(cli.mt.calls.length, 0);
+  assert.match(cli.err.join("\n"), /unknown option '--status'/);
+});
+
+// #2 — a non-numeric id used to be forwarded and silently ignored by the server,
+// returning the full unfiltered list with exit 0.
+test("law list --id rejects a non-numeric value instead of silently dropping the filter", async () => {
+  const cli = makeCli(() => jsonResponse(fx.lawList));
+  const code = await run(["law", "list", "--id", "abc"], cli.deps);
+  assert.notEqual(code, 0);
+  assert.equal(cli.mt.calls.length, 0);
+});
+
+test("law list --id forwards a valid numeric id", async () => {
+  const cli = makeCli(() => jsonResponse(fx.lawList));
+  const code = await run(["law", "list", "--id", "145"], cli.deps);
+  assert.equal(code, 0);
+  assert.equal(new URL(cli.mt.last().url).searchParams.get("id"), "145");
+});
+
+// #3 — --costs-* were free-form, so non-numeric input reached the server as a 400.
+test("request list --costs-min rejects a non-numeric amount before any request", async () => {
+  const cli = makeCli(() => jsonResponse(fx.requestList));
+  const code = await run(["request", "list", "--costs-min", "notanumber"], cli.deps);
+  assert.notEqual(code, 0);
+  assert.equal(cli.mt.calls.length, 0);
+});
+
+test("request list --costs-min accepts a decimal EUR amount", async () => {
+  const cli = makeCli(() => jsonResponse(fx.requestList));
+  const code = await run(["request", "list", "--costs-min", "12.50"], cli.deps);
+  assert.equal(code, 0);
+  assert.equal(new URL(cli.mt.last().url).searchParams.get("costs_min"), "12.5");
+});
+
+// #4 — a blank <query> used to be sent as an empty q= and returned the whole dataset.
+test("publicbody autocomplete rejects a whitespace-only query", async () => {
+  const cli = makeCli(() => jsonResponse(fx.autocomplete));
+  const code = await run(["publicbody", "autocomplete", "   "], cli.deps);
+  assert.notEqual(code, 0);
+  assert.equal(cli.mt.calls.length, 0);
+});
+
+test("request tags rejects an empty query", async () => {
+  const cli = makeCli(() => jsonResponse(fx.tagsAutocomplete));
+  const code = await run(["request", "tags", ""], cli.deps);
+  assert.notEqual(code, 0);
+  assert.equal(cli.mt.calls.length, 0);
+});
+
+// #5 — an empty -o used to fall through to stdout because "" is falsy.
+test("empty --output is rejected rather than silently falling back to stdout", async () => {
+  const cli = makeCli(() => jsonResponse(fx.requestList));
+  const code = await run(["--output", "", "request", "list", "--limit", "1"], cli.deps);
+  assert.notEqual(code, 0);
+  assert.equal(cli.mt.calls.length, 0);
+  assert.equal(cli.out.length, 0);
+});
+
+// #6 — a CR/LF --user-agent used to surface via the generic "Unexpected error:" catch-all.
+test("a control-char --user-agent is rejected with a clean error, not 'Unexpected error:'", async () => {
+  const cli = makeCli(() => jsonResponse(fx.jurisdictionList));
+  const code = await run(
+    ["--user-agent", "evil\r\nX-Injected: 1", "jurisdiction", "list"],
+    cli.deps,
+  );
+  assert.notEqual(code, 0);
+  assert.equal(cli.mt.calls.length, 0);
+  const errText = cli.err.join("\n");
+  assert.match(errText, /control characters/);
+  assert.doesNotMatch(errText, /Unexpected error/);
+});
+
+test("a normal --user-agent is forwarded as the User-Agent header", async () => {
+  const cli = makeCli(() => jsonResponse(fx.jurisdictionList));
+  const code = await run(["--user-agent", "my-cli/1.0", "jurisdiction", "list"], cli.deps);
+  assert.equal(code, 0);
+  assert.equal(cli.mt.last().headers?.["User-Agent"], "my-cli/1.0");
+});
