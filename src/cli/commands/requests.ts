@@ -5,6 +5,7 @@ import {
   addPagination,
   choiceOption,
   paginationParams,
+  parseNonNegativeNumber,
   pruneUndefined,
   renderJson,
   renderRaw,
@@ -31,8 +32,8 @@ function addRequestFilters(cmd: Command): Command {
     .option("--is-foi [bool]", "only genuine FOI requests (true/false)")
     .option("--checked [bool]", "only moderator-checked requests (true/false)")
     .option("--has-same [bool]", "only requests with identical copies (true/false)")
-    .option("--costs-min <eur>", "minimum charged costs in EUR")
-    .option("--costs-max <eur>", "maximum charged costs in EUR")
+    .option("--costs-min <eur>", "minimum charged costs in EUR", parseNonNegativeNumber)
+    .option("--costs-max <eur>", "maximum charged costs in EUR", parseNonNegativeNumber)
     .option("--created-after <date>", "created on/after this date (YYYY-MM-DD)")
     .option("--created-before <date>", "created on/before this date (YYYY-MM-DD)")
     .option("--project <id>", "filter by project id")

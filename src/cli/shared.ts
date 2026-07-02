@@ -56,6 +56,18 @@ export function parseNonEmpty(value: string): string {
 }
 
 /**
+ * commander value-parser: a non-negative number, integer or decimal (e.g. a EUR
+ * amount like `12.50`). Rejects non-numeric input, negatives, and the alternative
+ * forms `Number()` would silently accept (hex, scientific, whitespace-padded).
+ */
+export function parseNonNegativeNumber(value: string): number {
+  if (!/^\d+(\.\d+)?$/.test(value)) {
+    throw new InvalidArgumentError("Expected a non-negative number.");
+  }
+  return Number(value);
+}
+
+/**
  * Validate a positional argument against an allowed set (commander does not
  * support .choices() on positional args). Throws a FdsError so run() prints a
  * clear message and exits 1.
