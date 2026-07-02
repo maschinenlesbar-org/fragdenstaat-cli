@@ -1,0 +1,40 @@
+{
+  "name": "fragdenstaat-skills",
+  "owner": {
+    "name": "Sebastian Schürmann",
+    "email": "sebs@2xs.org"
+  },
+  "metadata": {
+    "description": "German Freedom-of-Information intelligence skills powered by the fragdenstaat-cli (FragDenStaat.de / Froide read API)"
+  },
+  "plugins": [
+    {
+      "name": "fragdenstaat",
+      "source": "./",
+      "description": "Find and analyse FOI requests, look up the right authority, explore the German FOI legal landscape, and dig out and export released documents — all over the public, key-free FragDenStaat.de API via the fragdenstaat-cli.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Sebastian Schürmann",
+        "email": "sebs@2xs.org"
+      },
+      "license": "AGPL-3.0-or-later",
+      "repository": "https://github.com/maschinenlesbar-org/fragdenstaat-cli",
+      "homepage": "https://github.com/maschinenlesbar-org/fragdenstaat-cli#readme",
+      "category": "government",
+      "keywords": [
+        "fragdenstaat",
+        "froide",
+        "informationsfreiheit",
+        "freedom-of-information",
+        "foi",
+        "ifg",
+        "uig",
+        "vig",
+        "transparency",
+        "opendata",
+        "germany",
+        "bund.dev"
+      ]
+    }
+  ]
+}
