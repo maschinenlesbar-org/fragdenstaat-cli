@@ -8,7 +8,7 @@ import { Command } from "commander";
 import type { CliDeps } from "./io.js";
 import { defaultIO } from "./io.js";
 import { FragDenStaatClient } from "../client/client.js";
-import { parseIntArg, parseNonEmpty } from "./shared.js";
+import { parseHeaderValue, parseIntArg, parseNonEmpty } from "./shared.js";
 import { registerRequestCommands } from "./commands/requests.js";
 import { registerPublicBodyCommands } from "./commands/publicbodies.js";
 import { registerLawCommands } from "./commands/laws.js";
@@ -52,7 +52,7 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     .version(VERSION)
     .option("--base-url <url>", "API base URL", "https://fragdenstaat.de")
     .option("--timeout <ms>", "per-request timeout in milliseconds", parseIntArg)
-    .option("--user-agent <ua>", "User-Agent header value", parseNonEmpty)
+    .option("--user-agent <ua>", "User-Agent header value", parseHeaderValue)
     .option("--max-retries <n>", "retries for transient 429/503 responses", parseIntArg)
     .option(
       "--max-response-bytes <n>",

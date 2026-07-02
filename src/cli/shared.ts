@@ -68,6 +68,24 @@ export function parseNonNegativeNumber(value: string): number {
 }
 
 /**
+ * commander value-parser for a value sent verbatim as an HTTP header (e.g.
+ * User-Agent). Non-empty, and free of control characters — notably CR/LF, which
+ * Node's http layer rejects with an opaque ERR_INVALID_CHAR at send time. Catching
+ * them here yields a clean parse-time error instead of the generic "Unexpected
+ * error:" fallthrough. Tab is allowed, matching Node's own header-value rule.
+ */
+export function parseHeaderValue(value: string): string {
+  const v = parseNonEmpty(value);
+  // Reject control characters (except tab) illegal in an HTTP header value —
+  // notably CR/LF — which Node otherwise rejects with an opaque error at send time.
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u0008\u000a-\u001f\u007f]/.test(v)) {
+    throw new InvalidArgumentError("Must not contain control characters (e.g. newlines).");
+  }
+  return v;
+}
+
+/**
  * Validate a positional argument against an allowed set (commander does not
  * support .choices() on positional args). Throws a FdsError so run() prints a
  * clear message and exits 1.
