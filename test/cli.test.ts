@@ -169,6 +169,14 @@ test("global --base-url is honoured", async () => {
   assert.equal(new URL(cli.mt.last().url).origin, "https://example.test");
 });
 
+test("a non-http --base-url is rejected at parse time before any request", async () => {
+  const cli = makeCli(() => jsonResponse(fx.jurisdictionList));
+  const code = await run(["--base-url", "ftp://example.test", "jurisdiction", "list"], cli.deps);
+  assert.notEqual(code, 0);
+  assert.equal(cli.mt.calls.length, 0);
+  assert.match(cli.err.join("\n"), /Unsupported protocol/);
+});
+
 test("--help exits 0", async () => {
   const cli = makeCli(() => jsonResponse({}));
   const code = await run(["--help"], cli.deps);

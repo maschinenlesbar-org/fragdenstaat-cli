@@ -56,6 +56,27 @@ export function parseNonEmpty(value: string): string {
 }
 
 /**
+ * commander value-parser for `--base-url`: a syntactically valid absolute URL
+ * whose scheme is `http:` or `https:`. The transport already rejects other
+ * schemes at request time, but doing it here — at parse time — matches the
+ * sibling repos' blueprint: the error is about the value the user passed
+ * (`ftp://x`), not the fully-built request URL, and it exits with commander's
+ * usage exit code rather than surfacing later as a network error.
+ */
+export function parseBaseUrl(value: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new InvalidArgumentError(`Invalid URL "${value}".`);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new InvalidArgumentError(`Unsupported protocol "${parsed.protocol}" (use http or https).`);
+  }
+  return value;
+}
+
+/**
  * commander value-parser: a non-negative number, integer or decimal (e.g. a EUR
  * amount like `12.50`). Rejects non-numeric input, negatives, and the alternative
  * forms `Number()` would silently accept (hex, scientific, whitespace-padded).

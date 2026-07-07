@@ -81,6 +81,10 @@ When in doubt, trust the live API, not the schema.
   `APPEND_SLASH`). Every client path ends in `/`, and the engine does **not** follow
   redirects (a 3xx surfaces as an `FdsApiError`), so this matters. `http://`
   likewise 301s to `https://`.
+- **`--base-url` scheme is validated at parse time** (`parseBaseUrl` in `shared.ts`):
+  only `http:`/`https:` are accepted, with a commander usage error for anything else,
+  matching the sibling repos' blueprint. The transport (`http.ts`) still re-checks the
+  fully-built request URL as a backstop for library callers who bypass the CLI.
 - **CSV is a first-class server feature.** `?format=csv` (with `Accept: text/csv`)
   returns a flattened CSV (nested objects become dotted columns). Exposed as `--csv`
   on `list`/`search` commands via `client.<resource>.listCsv()` (`getRaw`). Note:
