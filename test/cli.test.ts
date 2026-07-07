@@ -154,6 +154,39 @@ test("--output writes CSV to a file and keeps stdout clean", async () => {
   assert.match(cli.err.join("\n"), /Wrote \d+ bytes to \/tmp\/out\.csv/);
 });
 
+// FDS-01 — a hostile/MITM'd upstream can lace "CSV" with ANSI/OSC escape
+// sequences. When --csv prints to the terminal (stdout, no -o) the escape/control
+// bytes must be stripped while the CSV field/record separators (tab, CR, LF)
+// survive; the -o file path must keep the bytes verbatim.
+test("--csv to stdout strips terminal escape bytes but keeps CSV structure", async () => {
+  const ESC = String.fromCharCode(0x1b); // never a raw literal in source
+  const NUL = String.fromCharCode(0x00);
+  // An OSC 52 clipboard-write plus a stray NUL embedded in a normal CSV cell.
+  const hostileCsv =
+    "id,title\r\n1," + ESC + "]52;c;ZXZpbA==" + String.fromCharCode(0x07) + "safe" + NUL + "\r\n";
+  const cli = makeCli(() => rawResponse(hostileCsv, "text/csv"));
+  const code = await run(["request", "list", "--csv"], cli.deps);
+  assert.equal(code, 0);
+  const printed = cli.out.join("");
+  // No ESC, BEL, or NUL reaches the terminal.
+  assert.ok(!printed.includes(ESC));
+  assert.ok(!printed.includes(String.fromCharCode(0x07)));
+  assert.ok(!printed.includes(NUL));
+  // CSV structure (CRLF record separators, comma fields) and the visible text survive.
+  assert.ok(printed.includes("id,title\r\n"));
+  assert.ok(printed.includes("safe"));
+});
+
+test("--csv to a file keeps escape bytes verbatim (only the terminal is at risk)", async () => {
+  const ESC = String.fromCharCode(0x1b);
+  const hostileCsv = "id\r\n" + ESC + "]52;c;x\r\n";
+  const cli = makeCli(() => rawResponse(hostileCsv, "text/csv"));
+  const code = await run(["--output", "/tmp/raw.csv", "request", "list", "--csv"], cli.deps);
+  assert.equal(code, 0);
+  assert.equal(cli.files.get("/tmp/raw.csv")?.toString("utf8"), hostileCsv);
+  assert.equal(cli.out.length, 0);
+});
+
 test("publicbody autocomplete hits the autocomplete endpoint", async () => {
   const cli = makeCli(() => jsonResponse(fx.autocomplete));
   const code = await run(["publicbody", "autocomplete", "umwelt"], cli.deps);

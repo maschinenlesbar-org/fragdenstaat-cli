@@ -193,9 +193,36 @@ export function renderJson(deps: CliDeps, global: GlobalOptions, value: unknown)
  * exits 1 with a clean `Error: could not write ...` message rather than falling
  * through to the generic "Unexpected error" handler.
  */
+/**
+ * Strip terminal control/escape bytes from server-rendered text that is about to
+ * be printed to the terminal (stdout). A hostile/MITM'd upstream can return a
+ * "CSV" body laced with ANSI/OSC escape sequences (clipboard writes, title
+ * spoofing, cursor tricks) that the user's terminal would execute on print. We
+ * drop the C0 range (except the field/record separators CSV legitimately uses —
+ * tab 0x09, LF 0x0a, CR 0x0d) plus DEL and the C1 range, without touching the CSV
+ * structure. The JSON path needs no equivalent because `JSON.stringify` already
+ * escapes these. The file (`-o`) path writes the bytes verbatim — only the
+ * terminal is at risk — so this is applied on the stdout branch only.
+ */
+function sanitizeTerminalText(text: string): string {
+  let out = "";
+  for (const ch of text) {
+    const n = ch.codePointAt(0) ?? 0;
+    // Keep tab (0x09), LF (0x0a), CR (0x0d); drop the rest of C0, DEL, and C1.
+    if (n === 0x09 || n === 0x0a || n === 0x0d) {
+      out += ch;
+      continue;
+    }
+    if (n <= 0x1f || (n >= 0x7f && n <= 0x9f)) continue;
+    out += ch;
+  }
+  return out;
+}
+
 export function renderRaw(deps: CliDeps, global: GlobalOptions, response: RawResponse): void {
   const typeNote = response.contentType ? ` (Content-Type: ${response.contentType})` : "";
   if (global.output) {
+    // File path: write the server's bytes verbatim (only the terminal is at risk).
     try {
       deps.io.writeFile(global.output, response.data);
     } catch (err) {
@@ -204,8 +231,11 @@ export function renderRaw(deps: CliDeps, global: GlobalOptions, response: RawRes
     }
     deps.io.err(`Wrote ${response.data.length} bytes to ${global.output}${typeNote}`);
   } else {
-    deps.io.outBinary(response.data);
-    deps.io.err(`Wrote ${response.data.length} bytes to stdout${typeNote}`);
+    // Terminal path: strip control/escape bytes so a hostile response cannot drive
+    // ANSI/OSC sequences into the user's terminal, while preserving CSV structure.
+    const cleaned = Buffer.from(sanitizeTerminalText(response.data.toString("utf8")), "utf8");
+    deps.io.outBinary(cleaned);
+    deps.io.err(`Wrote ${cleaned.length} bytes to stdout${typeNote}`);
   }
 }
 
