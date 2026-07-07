@@ -110,9 +110,40 @@ test("times out slow responses", async () => {
     },
     async (base) => {
       await assert.rejects(
+        // A server that never responds trips either the idle timeout or the
+        // wall-clock deadline (both armed at the same duration); either is a
+        // correct timeout outcome.
         () => nodeHttpTransport({ method: "GET", url: `${base}/`, timeoutMs: 50 }),
-        (err) => err instanceof FdsNetworkError && /timed out/.test(err.message),
+        (err) => err instanceof FdsNetworkError && /(timed out|deadline)/.test(err.message),
       );
     },
   );
+});
+
+test("a slow-drip response is bounded by the wall-clock deadline", async () => {
+  // The server dribbles one byte at a time and never ends. Each byte resets the
+  // idle-socket timeout, so without a separate wall-clock deadline the request
+  // would hang forever while staying under maxResponseBytes. The deadline must
+  // still fire and surface a FdsNetworkError.
+  const timers: NodeJS.Timeout[] = [];
+  await withServer(
+    (_req, res) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      const t = setInterval(() => res.write("x"), 20);
+      timers.push(t);
+      res.on("close", () => clearInterval(t));
+    },
+    async (base) => {
+      await assert.rejects(
+        () => nodeHttpTransport({ method: "GET", url: `${base}/`, timeoutMs: 80 }),
+        (err: unknown) => {
+          assert.ok(err instanceof FdsNetworkError);
+          // The wall-clock deadline, not the idle timeout, is what caught it.
+          assert.match(err.message, /deadline/);
+          return true;
+        },
+      );
+    },
+  );
+  for (const t of timers) clearInterval(t);
 });

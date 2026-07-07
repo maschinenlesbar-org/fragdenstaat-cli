@@ -57,6 +57,22 @@ export const nodeHttpTransport: Transport = (request) =>
     const isHttps = url.protocol === "https:";
     const driver = isHttps ? https : http;
     const maxBytes = request.maxResponseBytes;
+    const timeoutMs = request.timeoutMs;
+
+    // Wall-clock deadline for the whole request. `req.setTimeout()` alone is an
+    // *idle-socket* timeout that resets on every received byte, so a slow-drip
+    // server that sends one byte just under the idle window (and stays under
+    // maxResponseBytes) could keep the request alive indefinitely. A single fixed
+    // timer bounds the total time from request start to `end`, independent of the
+    // byte cadence. Cleared on end/error/cap and unref'd so it never keeps the
+    // event loop alive on its own.
+    let deadline: NodeJS.Timeout | undefined;
+    const clearDeadline = (): void => {
+      if (deadline !== undefined) {
+        clearTimeout(deadline);
+        deadline = undefined;
+      }
+    };
 
     const req = driver.request(
       url,
@@ -74,6 +90,7 @@ export const nodeHttpTransport: Transport = (request) =>
           received += chunk.length;
           if (maxBytes !== undefined && received > maxBytes) {
             aborted = true;
+            clearDeadline();
             res.destroy();
             reject(new FdsNetworkError(`Response exceeded maxResponseBytes (${maxBytes})`));
             return;
@@ -82,6 +99,7 @@ export const nodeHttpTransport: Transport = (request) =>
         });
         res.on("end", () => {
           if (aborted) return;
+          clearDeadline();
           resolve({
             status: res.statusCode ?? 0,
             headers: res.headers,
@@ -90,18 +108,28 @@ export const nodeHttpTransport: Transport = (request) =>
         });
         res.on("error", (err) => {
           if (aborted) return; // we already rejected with the size-cap error
+          clearDeadline();
           reject(new FdsNetworkError(`Response stream error: ${err.message}`, { cause: err }));
         });
       },
     );
 
-    if (request.timeoutMs && request.timeoutMs > 0) {
-      req.setTimeout(request.timeoutMs, () => {
-        req.destroy(new FdsNetworkError(`Request timed out after ${request.timeoutMs}ms`));
+    if (timeoutMs && timeoutMs > 0) {
+      // Idle-socket timeout (resets on activity)...
+      req.setTimeout(timeoutMs, () => {
+        req.destroy(new FdsNetworkError(`Request timed out after ${timeoutMs}ms`));
       });
+      // ...plus a hard wall-clock deadline (does not reset) so a slow drip cannot
+      // outlast the caller's timeout budget.
+      deadline = setTimeout(() => {
+        req.destroy(new FdsNetworkError(`Request exceeded the ${timeoutMs}ms deadline`));
+      }, timeoutMs);
+      // Don't let the deadline timer keep the event loop alive on its own.
+      deadline.unref?.();
     }
 
     req.on("error", (err) => {
+      clearDeadline();
       // A timeout destroy already passes a FdsNetworkError; don't double-wrap.
       reject(err instanceof FdsNetworkError ? err : new FdsNetworkError(err.message, { cause: err }));
     });
