@@ -135,6 +135,28 @@ export interface GlobalOptions {
   maxResponseBytes?: number;
   compact?: boolean;
   output?: string;
+  force?: boolean;
+}
+
+/**
+ * Write bytes to the --output path, refusing to overwrite an existing file unless
+ * --force was given. A failed write (missing dir, permissions, or an existing file
+ * without --force) is wrapped in a FdsError so it exits 1 with a clean message
+ * rather than the generic "Unexpected error" handler. The EEXIST case gets a
+ * dedicated hint pointing at --force.
+ */
+function writeOutput(deps: CliDeps, global: GlobalOptions, path: string, data: Buffer): void {
+  try {
+    deps.io.writeFile(path, data, !global.force);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException | undefined)?.code === "EEXIST") {
+      throw new FdsError(`refusing to overwrite existing file ${path} (use --force)`, {
+        cause: err,
+      });
+    }
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new FdsError(`could not write ${path}: ${reason}`, { cause: err });
+  }
 }
 
 /** Translate resolved global CLI options into client EngineOptions. */
@@ -166,12 +188,7 @@ export function renderJson(deps: CliDeps, global: GlobalOptions, value: unknown)
   const text = global.compact ? JSON.stringify(value) : JSON.stringify(value, null, 2);
   if (global.output) {
     const data = Buffer.from(text + "\n", "utf8");
-    try {
-      deps.io.writeFile(global.output, data);
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : String(err);
-      throw new FdsError(`could not write ${global.output}: ${reason}`, { cause: err });
-    }
+    writeOutput(deps, global, global.output, data);
     deps.io.err(`Wrote ${data.length} bytes to ${global.output}`);
   } else {
     deps.io.out(text);
@@ -223,12 +240,7 @@ export function renderRaw(deps: CliDeps, global: GlobalOptions, response: RawRes
   const typeNote = response.contentType ? ` (Content-Type: ${response.contentType})` : "";
   if (global.output) {
     // File path: write the server's bytes verbatim (only the terminal is at risk).
-    try {
-      deps.io.writeFile(global.output, response.data);
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : String(err);
-      throw new FdsError(`could not write ${global.output}: ${reason}`, { cause: err });
-    }
+    writeOutput(deps, global, global.output, response.data);
     deps.io.err(`Wrote ${response.data.length} bytes to ${global.output}${typeNote}`);
   } else {
     // Terminal path: strip control/escape bytes so a hostile response cannot drive

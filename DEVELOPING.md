@@ -85,6 +85,11 @@ When in doubt, trust the live API, not the schema.
   only `http:`/`https:` are accepted, with a commander usage error for anything else,
   matching the sibling repos' blueprint. The transport (`http.ts`) still re-checks the
   fully-built request URL as a backstop for library callers who bypass the CLI.
+- **`-o/--output` never silently overwrites.** The write opens exclusively (`wx`), so
+  an existing file is refused with a clear "refusing to overwrite … (use --force)"
+  error; pass `--force` to overwrite deliberately. This holds for both the JSON and
+  `--csv` output paths. Applied via `writeOutput` in `shared.ts`; the `CliIO.writeFile`
+  seam takes an `exclusive` flag so tests can drive both branches.
 - **CSV is a first-class server feature.** `?format=csv` (with `Accept: text/csv`)
   returns a flattened CSV (nested objects become dotted columns). Exposed as `--csv`
   on `list`/`search` commands via `client.<resource>.listCsv()` (`getRaw`). Note:

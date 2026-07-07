@@ -65,6 +65,7 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
       "write output (JSON, or CSV with --csv) to this file",
       parseNonEmpty,
     )
+    .option("--force", "with -o, overwrite the output file if it already exists")
     .showHelpAfterError();
 
   registerRequestCommands(program, deps);

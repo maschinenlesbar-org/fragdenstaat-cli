@@ -17,7 +17,16 @@ function makeCli(responder: (req: HttpRequest) => HttpResponse) {
     io: {
       out: (s) => out.push(s),
       err: (s) => err.push(s),
-      writeFile: (p, d) => files.set(p, d),
+      writeFile: (p, d, exclusive) => {
+        // Mirror the real fs `wx` behaviour: an exclusive write to an existing
+        // path fails with an EEXIST error rather than overwriting.
+        if (exclusive && files.has(p)) {
+          const e = new Error(`EEXIST: file already exists, open '${p}'`) as NodeJS.ErrnoException;
+          e.code = "EEXIST";
+          throw e;
+        }
+        files.set(p, d);
+      },
       outBinary: (d) => out.push(d.toString("utf8")),
     },
     createClient: (opts) => new FragDenStaatClient({ ...opts, transport: mt.transport }),
@@ -152,6 +161,41 @@ test("--output writes CSV to a file and keeps stdout clean", async () => {
   assert.equal(cli.files.get("/tmp/out.csv")?.toString("utf8"), fx.csvBody);
   assert.equal(cli.out.length, 0);
   assert.match(cli.err.join("\n"), /Wrote \d+ bytes to \/tmp\/out\.csv/);
+});
+
+// FDS-02 — -o must not silently clobber an existing file; --force opts back in.
+test("--output refuses to overwrite an existing file without --force", async () => {
+  const cli = makeCli(() => jsonResponse(fx.requestList));
+  cli.files.set("/tmp/exists.json", Buffer.from("keep me"));
+  const code = await run(["--output", "/tmp/exists.json", "request", "list", "--limit", "1"], cli.deps);
+  assert.notEqual(code, 0);
+  // The existing file is untouched, and the message points at --force.
+  assert.equal(cli.files.get("/tmp/exists.json")?.toString("utf8"), "keep me");
+  assert.match(cli.err.join("\n"), /refusing to overwrite/);
+  assert.match(cli.err.join("\n"), /--force/);
+  assert.doesNotMatch(cli.err.join("\n"), /Unexpected error/);
+});
+
+test("--output --force overwrites an existing file", async () => {
+  const cli = makeCli(() => jsonResponse(fx.requestList));
+  cli.files.set("/tmp/exists.json", Buffer.from("old"));
+  const code = await run(
+    ["--output", "/tmp/exists.json", "--force", "request", "list", "--limit", "1"],
+    cli.deps,
+  );
+  assert.equal(code, 0);
+  assert.deepEqual(JSON.parse(cli.files.get("/tmp/exists.json")!.toString("utf8")), fx.requestList);
+});
+
+test("--output --force overwrites an existing CSV file", async () => {
+  const cli = makeCli(() => rawResponse(fx.csvBody, "text/csv"));
+  cli.files.set("/tmp/out.csv", Buffer.from("stale"));
+  const code = await run(
+    ["--output", "/tmp/out.csv", "--force", "request", "list", "--csv"],
+    cli.deps,
+  );
+  assert.equal(code, 0);
+  assert.equal(cli.files.get("/tmp/out.csv")?.toString("utf8"), fx.csvBody);
 });
 
 // FDS-01 — a hostile/MITM'd upstream can lace "CSV" with ANSI/OSC escape
