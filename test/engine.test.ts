@@ -81,6 +81,31 @@ test("maps a 400 field->messages body to the error message", async () => {
   );
 });
 
+test("strips control/escape bytes from a hostile error detail", async () => {
+  // A hostile/MITM'd endpoint embeds an OSC 52 clipboard-write escape plus a NUL
+  // in the error `detail`. JSON.parse turns the backslash-u001b escape into a real
+  // ESC byte; toApiError must strip it so nothing drives the terminal via stderr.
+  const ESC = String.fromCharCode(0x1b); // never a raw literal in source
+  const BEL = String.fromCharCode(0x07);
+  const NUL = String.fromCharCode(0x00);
+  const detail = "not found " + ESC + "]52;c;ZXZpbA==" + BEL + "rest" + NUL;
+  const mt = makeMockTransport(() => jsonResponse({ detail }, 404));
+  await assert.rejects(
+    () => engine(mt.transport).getJson("/api/v1/request/9/"),
+    (err) => {
+      assert.ok(err instanceof FdsApiError);
+      assert.ok(typeof err.detail === "string");
+      assert.ok(!err.detail.includes(ESC));
+      assert.ok(!err.detail.includes(BEL));
+      assert.ok(!err.detail.includes(NUL));
+      // The visible text survives.
+      assert.match(err.detail, /not found/);
+      assert.match(err.detail, /rest/);
+      return true;
+    },
+  );
+});
+
 test("getRaw returns bytes and the content-type", async () => {
   const mt = makeMockTransport(() => rawResponse(fx.csvBody, "text/csv; charset=utf-8"));
   const res = await engine(mt.transport).getRaw("/api/v1/request/", "text/csv", { format: "csv" });

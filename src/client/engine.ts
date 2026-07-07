@@ -150,8 +150,30 @@ export class RequestEngine {
     } catch {
       // Non-JSON error body (e.g. an HTML error page); leave detail undefined.
     }
+    // `detail` came from the attacker-controllable response body; JSON.parse
+    // decodes a backslash-u001b escape into a real ESC byte, so without stripping
+    // control characters a hostile/MITM'd endpoint could drive ANSI/OSC escape
+    // sequences into the user's terminal when this error message is printed to
+    // stderr. The success path is already safe (JSON.stringify escapes these).
+    if (detail !== undefined) detail = sanitizeServerText(detail);
     return new FdsApiError({ status, url, method, body: text, detail });
   }
+}
+
+/**
+ * Strip control/escape characters from server-supplied text that flows into an
+ * error message printed to the terminal (stderr). Removes the C0 range, DEL, and
+ * the C1 range; error messages are single-line, so CR/LF are dropped too. This is
+ * a char-code filter (no control-char literals in source).
+ */
+function sanitizeServerText(text: string): string {
+  let out = "";
+  for (const ch of text) {
+    const n = ch.codePointAt(0) ?? 0;
+    if (n <= 8 || (n >= 0x0b && n <= 0x1f) || (n >= 0x7f && n <= 0x9f)) continue;
+    out += ch;
+  }
+  return out;
 }
 
 function firstString(value: unknown): string | undefined {
