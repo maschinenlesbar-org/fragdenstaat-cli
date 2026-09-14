@@ -138,7 +138,26 @@ Tests must keep passing on Node 20/22/24.
 
 `.github/workflows/`: `ci.yml` (typecheck + build + test on Node 20/22/24),
 `release.yml` (on a `v*` tag: test, `npm pack`, CycloneDX SBOMs, GitHub Release),
-`publish.yml` (manual npm publish via OIDC trusted publishing), `docs.yml` (TypeDoc
+`publish.yml` (manual npm publish via OIDC trusted publishing), `docs.yml` (website + TypeDoc
 → GitHub Pages, via the isolated `tools/docs/` toolchain). The npm tarball ships only `dist/src` + `LICENSING.md` +
 `CONTRIBUTING.md` (see `package.json` `files` and `.npmignore`); `skills/`,
 `.claude-plugin/`, tests and the spec are excluded.
+
+## Website
+
+The project website — <https://maschinenlesbar-org.github.io/fragdenstaat-cli/> in English and
+<https://maschinenlesbar-org.github.io/fragdenstaat-cli/de/> in German — is built from `site/`
+with [Jekyll](https://jekyllrb.com/), [banira](https://sebs.github.io/banira/) web components
+and [Fylgja](https://fylgja.dev/) CSS, and deployed by `docs.yml` together with the TypeDoc API
+reference under `/api/`. Its content comes from this repository: the README intro and quick
+start, the command tree of the built CLI (`site/scripts/cli-reference.mjs`), `Usage.md`,
+`GLOSSARY.md` and the skills. The only repo-specific files are `site/_config.yml` and
+`site/_data/project.yml` (the German intro and the access requirements); the rest of `site/` is
+identical in every maschinenlesbar.org CLI, so change it in all of them together. When the
+README intro changes, update the German intro in `site/_data/project.yml`.
+
+```bash
+npm run build                        # the CLI, for the command reference
+cd site && npm ci && bundle install  # once (Node >= 22.12, Ruby 3.4, Bundler)
+npm run serve                        # http://127.0.0.1:4000/fragdenstaat-cli/
+```

@@ -1,5 +1,7 @@
 # fragdenstaat-cli
 
+**Website:** [English](https://maschinenlesbar-org.github.io/fragdenstaat-cli/) · [Deutsch](https://maschinenlesbar-org.github.io/fragdenstaat-cli/de/) — command reference, guides and API docs
+
 A command-line client and TypeScript library for the public, read-only API of
 **[FragDenStaat.de](https://fragdenstaat.de)** — Germany's central Freedom-of-Information
 (*Informationsfreiheit*) portal, run by the Open Knowledge Foundation Deutschland.
