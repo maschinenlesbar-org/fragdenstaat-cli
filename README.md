@@ -128,8 +128,8 @@ autocomplete. Errors are typed (`FdsApiError` with `.status`/`.detail`,
 
 ## Skills
 
-This repo ships four [Claude Code Agent Skills](SKILLS.md) (packaged as a plugin
-marketplace) that drive the CLI for common tasks: finding & analysing requests,
+This repo ships four [Claude Code Agent Skills](SKILLS.md) (packaged as a Claude
+Code plugin) that drive the CLI for common tasks: finding & analysing requests,
 looking up authorities, exploring the FOI legal landscape, and digging out /
 exporting documents.
 
