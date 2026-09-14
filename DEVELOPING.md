@@ -15,7 +15,7 @@ npm run build       # tsc -> dist/
 npm run typecheck   # tsc --noEmit
 npm test            # pretest builds, then `node --test dist/test/*.test.js`
 npm start -- --help # run the built CLI
-npm run docs        # TypeDoc -> out/
+npm run docs        # TypeDoc -> out/ (first: npm ci --prefix tools/docs)
 ```
 
 Run one test file after building: `node --test dist/test/cli.test.js`.
@@ -139,6 +139,6 @@ Tests must keep passing on Node 20/22/24.
 `.github/workflows/`: `ci.yml` (typecheck + build + test on Node 20/22/24),
 `release.yml` (on a `v*` tag: test, `npm pack`, CycloneDX SBOMs, GitHub Release),
 `publish.yml` (manual npm publish via OIDC trusted publishing), `docs.yml` (TypeDoc
-→ GitHub Pages). The npm tarball ships only `dist/src` + `LICENSING.md` +
+→ GitHub Pages, via the isolated `tools/docs/` toolchain). The npm tarball ships only `dist/src` + `LICENSING.md` +
 `CONTRIBUTING.md` (see `package.json` `files` and `.npmignore`); `skills/`,
 `.claude-plugin/`, tests and the spec are excluded.
