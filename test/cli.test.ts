@@ -254,6 +254,18 @@ test("publicbody autocomplete hits the autocomplete endpoint", async () => {
   assert.equal(url.searchParams.get("q"), "umwelt");
 });
 
+test("--timeout accepts up to the largest timer Node supports", async () => {
+  const cli = makeCli(() => jsonResponse(fx.requestDetail));
+  assert.equal(await run(["--timeout", "2147483647", "request", "get", "1"], cli.deps), 0);
+  assert.equal(cli.mt.last().timeoutMs, 2_147_483_647);
+
+  // Commander parse errors exit 1 in this CLI.
+  const over = makeCli(() => jsonResponse(fx.requestDetail));
+  assert.equal(await run(["--timeout", "2147483648", "request", "get", "1"], over.deps), 1);
+  assert.equal(over.mt.calls.length, 0);
+  assert.match(over.err.join("\n"), /Must be <= 2147483647/);
+});
+
 test("global --base-url is honoured", async () => {
   const cli = makeCli(() => jsonResponse(fx.jurisdictionList));
   await run(["--base-url", "https://example.test", "jurisdiction", "list"], cli.deps);

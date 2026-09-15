@@ -88,7 +88,7 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
 | Flag | Purpose |
 |---|---|
 | `--base-url <url>` | override the API base (default `https://fragdenstaat.de`) |
-| `--timeout <ms>` | per-request timeout |
+| `--timeout <ms>` | per-request timeout (at most `2147483647`) |
 | `--user-agent <ua>` | override the `User-Agent` |
 | `--max-retries <n>` | retries for transient 429/503 |
 | `--max-response-bytes <n>` | cap the response body size (0 = unlimited) |
