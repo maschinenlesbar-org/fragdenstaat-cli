@@ -104,7 +104,8 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
 - **Page size is capped at 50** by the server. `--limit` accepts `1..50`; page with
   `--offset`. `meta.total_count` is the real total (search endpoints cap it at 10000).
 - **IDs are numeric.** Resolve a name to its id first via `autocomplete` or
-  `list --q`, then filter by id.
+  `list --q`, then filter by id. `category autocomplete` returns names, not ids; use
+  `category list --q` for categories.
 - **Anonymous = public only.** `resolution` is empty until a request is `resolved`.
 - **Exit codes:** `0` success; `4` for a 404 (not found); `1` for any other API or
   runtime error. Errors print to stderr; stdout stays clean for piping.

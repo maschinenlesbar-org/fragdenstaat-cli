@@ -98,7 +98,8 @@ skills encode the non-obvious parts of this API, for example:
   **hard-capped at 50** — page with `--offset`, and read `meta.total_count` for the
   real total (search endpoints cap it at 10000);
 - **IDs are numeric** — a jurisdiction/law/category/classification/public-body name
-  must be resolved to its id via `autocomplete` or `list --q` before filtering;
+  must be resolved to its id via `autocomplete` or `list --q` before filtering
+  (`category autocomplete` returns names, so use `category list --q` there);
 - **`request list` uses plural `--categories` and `--public-body`**, while
   **`publicbody list` uses singular `--category`** (`--categories` is rejected) and
   distinguishes `--classification` (subtree) from `--classification-id` (exact);

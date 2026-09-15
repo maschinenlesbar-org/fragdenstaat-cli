@@ -8,7 +8,7 @@ description: >
   has this ministry answered?", "who do I ask about building permits in Munich?",
   "list all Grundschulen public bodies", or wants an authority's address, type,
   jurisdiction, request_note, or activity level. Resolves names to numeric ids,
-  filters by jurisdiction / classification / category / region / proximity, and
+  filters by jurisdiction / classification / category / region / a point, and
   hands the body id to the request-finder to inspect its FOI track record.
 version: 1.0.0
 userInvocable: true
@@ -36,11 +36,11 @@ name → id:
 fragdenstaat --compact publicbody autocomplete "Umweltbundesamt"
 ```
 
-Each hit is `{"value":<id>, "label":<name>}`. Take the `value` (numeric id) and
-fetch the full profile:
+Each hit is `{"value":<id>, "label":<name>}` (here `{"value":875,"label":"Umweltbundesamt"}`).
+Take the `value` (numeric id) and fetch the full profile:
 
 ```bash
-fragdenstaat --compact publicbody get 123
+fragdenstaat --compact publicbody get 875
 ```
 
 ## Step 2 — No name yet? Discover by topic + place
@@ -53,6 +53,9 @@ Hamburg", "building permits in Munich"), you filter — but the filters take
   rows), take the id.
 - **Type of body** (Ministerium, Grundschule, Polizei…) → `fragdenstaat
   classification list --q "<type>"`, take the id.
+- **Topic category** → `fragdenstaat category list --q "<name>"`, take the `id`
+  (`category list --q "Digitales"` → id 259). Not `category autocomplete`: it returns
+  names only (`{"value":"Digitales","label":"Digitales"}`).
 
 Then filter with `publicbody list` (faceted) or `publicbody search` (full text):
 
@@ -64,8 +67,8 @@ fragdenstaat --compact publicbody list --classification 42 --jurisdiction 7 --li
 # Full-text search restricted to a jurisdiction
 fragdenstaat --compact publicbody search --q "Umwelt" --jurisdiction 7 --limit 50
 
-# Nearest bodies to a point (Munich Marienplatz) — note lng,lat order
-fragdenstaat --compact publicbody list --lnglat "11.5755,48.1372" --limit 20
+# Bodies whose region contains a point (Munich Marienplatz) — note lng,lat order
+fragdenstaat --compact publicbody list --lnglat "11.5755,48.1372" --limit 50
 ```
 
 ## Step 3 — Read the profile
@@ -99,18 +102,26 @@ That surfaces this body's resolved requests (and with `--resolution successful`,
 its wins) — a concrete read on responsiveness beyond `number_of_requests`.
 
 > **Traps.**
-> - **`publicbody` uses SINGULAR `--category`** — a plural `categories` flag does
->   not exist here and is silently ignored. (The *request* commands use
->   `--categories`; don't carry that habit over.)
+> - **`publicbody` uses SINGULAR `--category`** — `--categories` is rejected with
+>   `error: unknown option '--categories' (Did you mean --category?)` and exit 1. (The
+>   *request* commands use `--categories`; don't carry that habit over.)
 > - **`--classification` vs `--classification-id` differ.** `--classification`
 >   matches the whole **subtree** under a Behördentyp (e.g. all ministries);
 >   `--classification-id` is an **exact** single-node match. Pick deliberately.
 > - **IDs are numeric.** Resolve jurisdiction / classification / category names to
->   ids via `jurisdiction list` / `classification list --q` / `category
->   autocomplete` first; passing a name string won't filter.
+>   ids via `jurisdiction list` / `classification list --q` / `category list --q`
+>   first; passing a name string won't filter. `category autocomplete` gives names,
+>   not ids.
 > - **`--lnglat` is `lng,lat`** (longitude first) — the reverse of the usual
 >   spoken "lat, long". Swapping them lands you in the wrong hemisphere. (The
 >   `georegion --latlng` flag is the *other* order — `lat,lng` — don't conflate.)
+> - **`--lnglat` is not "nearest".** It keeps bodies whose `regions` contain the point,
+>   in name order, not by distance. For a Leipzig point (2026-09-15) it returned 38
+>   bodies: Leipzig offices, but also Land-wide ones seated in Dresden or Chemnitz, the
+>   Ostdeutscher Sparkassenverband (Berlin) and the Saxon liaison office in Wrocław. Most
+>   rows had `geo: null`, and Stadt Leipzig and Zoo Leipzig appeared twice (once per
+>   matching region). Dedupe by `id`, and don't call the list "closest"; to rank by
+>   distance, only the rows that have a `geo` point can be used.
 > - **`--limit` maxes at 50.** For "list all Grundschulen" style asks, page with
 >   `--offset 50`, `--offset 100`, … until `objects` empties; report the honest
 >   `meta.total_count`.

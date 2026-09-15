@@ -7,7 +7,8 @@ for the authoritative, always-current flag list. Global options
 
 Conventions: `list`/`search` accept `--offset <n>` and `--limit <1..50>`; where the
 server supports it they also accept `--csv` (streams the flattened CSV export).
-IDs are numeric — resolve names via `autocomplete`/`list --q` first.
+IDs are numeric — resolve names via `autocomplete`/`list --q` first
+(`category autocomplete` returns names only; use `category list --q` for category ids).
 
 ## request — FOI requests
 
