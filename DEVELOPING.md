@@ -110,7 +110,8 @@ When in doubt, trust the live API, not the schema.
   descriptive `User-Agent` (`fragdenstaat-cli`). Be a good citizen when paging.
 - **Filter-name quirks** (verified live): `request list` uses **plural**
   `--categories` and `--public-body`; `publicbody list` uses **singular** `--category`
-  (plural is ignored) and distinguishes `--classification` (subtree) from
+  (the API silently ignores a plural `categories` there, and the CLI rejects
+  `--categories` as an unknown option) and distinguishes `--classification` (subtree) from
   `--classification-id` (exact). `document --tag` needs a numeric tag id, while
   `request --tags` takes a tag-name string.
 

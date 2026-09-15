@@ -50,8 +50,11 @@ fragdenstaat publicbody search --q "<text>" [--jurisdiction <id>] [--classificat
 fragdenstaat publicbody autocomplete <query>
 ```
 
-Note: **singular** `--category` here (plural is ignored). `--classification` matches a
-subtree; `--classification-id` is exact. `--lnglat` is `lng,lat` (longitude first).
+Note: **singular** `--category` here (`--categories` is rejected as an unknown option).
+`--classification` matches a subtree; `--classification-id` is exact. `--lnglat` is
+`lng,lat` (longitude first) and keeps only bodies whose `regions` contain that point, in
+name order rather than by distance, and a body appears once per region that contains
+the point (Stadt Leipzig twice for a Leipzig point).
 
 ## law — FOI laws
 

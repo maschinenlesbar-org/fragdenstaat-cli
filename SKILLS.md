@@ -20,7 +20,7 @@ rediscover them each time.
 | Skill | What it does | Ask it… |
 |---|---|---|
 | **fds-request-finder** | Finds and analyses FOI requests — full-text search + faceted filtering by status/resolution/jurisdiction/law/body/tags/dates/costs — and interprets outcomes. | "how did requests about video surveillance go?", "successful IFG requests to the Umweltbundesamt", "refused requests in Bayern" |
-| **fds-authority-lookup** | Finds the right public body to address a request to and profiles it (FOI contact, type, jurisdiction, request history), incl. proximity search. | "who handles building permits in Munich?", "FOI email for the Umweltbundesamt", "how many requests has this ministry answered?" |
+| **fds-authority-lookup** | Finds the right public body to address a request to and profiles it (FOI contact, type, jurisdiction, request history), incl. a point-in-region lookup. | "who handles building permits in Munich?", "FOI email for the Umweltbundesamt", "how many requests has this ministry answered?" |
 | **fds-law-explorer** | Explains the German FOI legal landscape: which law applies where, IFG/UIG/VIG, state Transparenzgesetze, response deadlines, signature requirements. | "what FOI law applies in Sachsen?", "response deadline under the IFG", "list transparency acts by state" |
 | **fds-document-digger** | Locates published FOI documents (scoped by authority/request/collection/portal) and exports request or document datasets to CSV. | "documents from the Umweltbundesamt", "export FOI requests about lobbying to CSV", "documents from request 12345" |
 
@@ -100,7 +100,7 @@ skills encode the non-obvious parts of this API, for example:
 - **IDs are numeric** — a jurisdiction/law/category/classification/public-body name
   must be resolved to its id via `autocomplete` or `list --q` before filtering;
 - **`request list` uses plural `--categories` and `--public-body`**, while
-  **`publicbody list` uses singular `--category`** (plural is ignored) and
+  **`publicbody list` uses singular `--category`** (`--categories` is rejected) and
   distinguishes `--classification` (subtree) from `--classification-id` (exact);
 - **`resolution` is empty until `status = resolved`** — filter by `--status resolved`
   before judging an outcome; only *public* objects are visible anonymously;

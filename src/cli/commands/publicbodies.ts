@@ -20,7 +20,10 @@ function addPublicBodyFilters(cmd: Command): Command {
     .option("--category <id>", "filter by category id")
     .option("--regions <id>", "filter by geo-region id")
     .option("--slug <slug>", "filter by exact slug")
-    .option("--lnglat <lng,lat>", "sort/limit by proximity to a lng,lat point");
+    .option(
+      "--lnglat <lng,lat>",
+      "filter to bodies whose regions contain a lng,lat point (not sorted by distance)",
+    );
 }
 
 function buildPublicBodyParams(opts: Record<string, unknown>): QueryParams {

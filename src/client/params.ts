@@ -61,7 +61,10 @@ export interface PublicBodyListParams extends Pagination {
   category?: Id;
   regions?: Id;
   slug?: string;
-  /** `lng,lat` pair to sort/filter by proximity. */
+  /**
+   * `lng,lat` point: keeps bodies whose `regions` contain it. Results are not
+   * sorted by distance, and a body matching through several regions repeats.
+   */
   lnglat?: string;
 }
 
