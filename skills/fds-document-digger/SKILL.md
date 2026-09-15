@@ -70,20 +70,29 @@ fragdenstaat --compact document list --publicbody 123 --limit 50
 `fragdenstaat document get <id>` returns one document in full, including its
 `pages[]`, `num_pages`, `file_url` and `file_size`.
 
+To get numeric ids out of the URIs (e.g. to feed `request get` or `--foirequest`):
+
+```bash
+fragdenstaat --compact document list --publicbody 92 --created-after 2026-01-01 --limit 50 \
+  | jq -c '.objects[] | {id, title,
+      request_id: (.foirequest // "" | [scan("/request/([0-9]+)/")[0] | tonumber][0]),
+      publicbody_id: (.publicbody // "" | [scan("/publicbody/([0-9]+)/")[0] | tonumber][0])}'
+```
+
 Key `objects[]` fields:
 
 | Field | Meaning |
 |---|---|
 | `id` | document id — what `--ids` / `get` reference |
-| `title` / `slug` | label and URL slug |
+| `title` / `slug` | label and URL slug; `title` is often a file-name slug with umlauts dropped (`organisationsplneseit2019`) |
 | `description` | free-text description |
-| `foirequest` | source request id (nullable) |
-| `publicbody` | publishing authority id |
+| `foirequest` | source request as a **resource URI** (`https://fragdenstaat.de/api/v1/request/372583/`), nullable |
+| `publicbody` | publishing authority as a **resource URI** (`https://fragdenstaat.de/api/v1/publicbody/92/`) |
 | `num_pages` | page count (OCR'd docs) |
 | `file_url` | **URL to the raw file on the server** (metadata only — see Traps) |
 | `file_size` | bytes |
 | `site_url` | human page on fragdenstaat.de |
-| `published_at` | publication timestamp |
+| `published_at` | publication timestamp — usually `null` (all 15 BMG documents from 2026 and the first 50 Umweltbundesamt documents, checked 2026-09-15); use `last_modified_at`, which was set on all of them |
 | `public` / `listed` | visibility flags |
 
 > **Traps.**
@@ -101,8 +110,12 @@ Key `objects[]` fields:
 > - **The CLI returns metadata/URLs, not the binary.** `file_url` points at the raw
 >   file on the server; downloading it (e.g. `curl "$file_url" -o doc.pdf`) is a
 >   separate step the CLI does not perform.
-> - **CSV columns for nested fields are dotted** (e.g. `public_body.name`,
->   `foirequest.id`) — the server flattens nested objects into dotted column names.
+> - **CSV columns: only embedded objects are dotted.** In the `document list` CSV,
+>   `foirequest` and `publicbody` are single columns holding resource URLs
+>   (`https://fragdenstaat.de/api/v1/request/365257/?format=csv`); there is no
+>   `public_body.name` or `foirequest.id`. Only the embedded `properties` object becomes
+>   dotted columns (`properties.author`, `properties.creator`, …). Parse the id out of
+>   the URL, or join names in a second step.
 
 ## Step 3 — Export a dataset to CSV
 
@@ -127,13 +140,13 @@ fragdenstaat request list --tags lobbyismus --created-after 2024-01-01 --csv -o 
 ## Worked example — export all documents from one authority
 
 1. Resolve the authority id:
-   `fragdenstaat --compact publicbody autocomplete "Umweltbundesamt"` → `value: 123`.
-2. Size the pull (optional): `fragdenstaat --compact document list --publicbody 123 --limit 1`
+   `fragdenstaat --compact publicbody autocomplete "Umweltbundesamt"` → `value: 875`.
+2. Size the pull (optional): `fragdenstaat --compact document list --publicbody 875 --limit 1`
    and read `meta.total_count`.
 3. Confirm the output path (`./authority-docs.csv`); if it exists, ask before
    overwriting.
 4. Export:
-   `fragdenstaat document list --publicbody 123 --csv -o authority-docs.csv`.
+   `fragdenstaat document list --publicbody 875 --csv -o authority-docs.csv`.
 5. Report: e.g. "Wrote 412 documents (287 KB) to `./authority-docs.csv`" — count the
    data rows (subtract the header line) and echo the byte size the CLI reported.
 
