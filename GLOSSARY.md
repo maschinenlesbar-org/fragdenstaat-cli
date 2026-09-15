@@ -56,9 +56,10 @@ level. The three federal pillars:
 - **VIG** — *Verbraucherinformationsgesetz* (Consumer Information Act): access to
   consumer-protection / food-safety information.
 
-Each of the 16 *Länder* has its own IFG or **Transparenzgesetz** (transparency act),
-and some districts/municipalities add a local *Informationsfreiheitssatzung* — which
-is why the count is 189, not 3. A **meta law** (`meta: true`) bundles several laws a
+Most *Länder* have their own IFG or **Transparenzgesetz** (transparency act), but
+not all: the catalogue lists neither for Bayern or Niedersachsen (checked
+2026-09-15). Many districts/municipalities add a local *Informationsfreiheitssatzung*
+— which is why the count is 189, not 3. A **meta law** (`meta: true`) bundles several laws a
 requester can invoke together (`combined[]` lists them). Each law records a statutory
 `max_response_time` (+ `max_response_time_unit`, e.g. *working_day*, *month_de*) and
 whether it `requires_signature`.
@@ -67,6 +68,8 @@ whether it `requires_signature`.
 
 The legal/territorial scope a public body and its applicable law belong to. **18**
 in total: **Bund** (federal), the **16 Länder**, and the **Europäische Union**.
+Local *Informationsfreiheitssatzungen* have `jurisdiction: null`, so filtering laws
+by a Land's jurisdiction does not return them.
 
 ## Other resources
 

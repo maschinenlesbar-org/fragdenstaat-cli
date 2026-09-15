@@ -56,9 +56,10 @@ kommunaler Ebene ab. Die drei Säulen auf Bundesebene:
 - **VIG** – *Verbraucherinformationsgesetz*: Zugang zu Informationen über
   Verbraucherschutz und Lebensmittelsicherheit.
 
-Jedes der 16 *Länder* hat ein eigenes IFG oder **Transparenzgesetz**, und manche Kreise
-und Gemeinden ergänzen eine kommunale *Informationsfreiheitssatzung* – deshalb sind es
-189 und nicht 3. Ein **Meta-Gesetz** (`meta: true`) bündelt mehrere Gesetze, auf die sich
+Die meisten *Länder* haben ein eigenes IFG oder **Transparenzgesetz**, aber nicht alle:
+Für Bayern und Niedersachsen führt der Katalog keines von beiden (Stand 15.09.2026). Viele
+Kreise und Gemeinden ergänzen eine kommunale *Informationsfreiheitssatzung* – deshalb sind
+es 189 und nicht 3. Ein **Meta-Gesetz** (`meta: true`) bündelt mehrere Gesetze, auf die sich
 eine Anfrage gemeinsam stützen kann (`combined[]` listet sie auf). Zu jedem Gesetz sind die
 gesetzliche Antwortfrist `max_response_time` (+ `max_response_time_unit`, z. B. *working_day*,
 *month_de*) und die Angabe hinterlegt, ob es eine Unterschrift verlangt (`requires_signature`).
@@ -67,6 +68,8 @@ gesetzliche Antwortfrist `max_response_time` (+ `max_response_time_unit`, z. B. 
 
 Der rechtliche und räumliche Bereich, zu dem eine Behörde und das für sie geltende Gesetz
 gehören. Insgesamt **18**: der **Bund**, die **16 Länder** und die **Europäische Union**.
+Kommunale *Informationsfreiheitssatzungen* haben `jurisdiction: null`; ein Filter auf die
+Zuständigkeit eines Landes liefert sie daher nicht.
 
 ## Weitere Ressourcen
 
