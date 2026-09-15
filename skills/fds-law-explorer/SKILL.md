@@ -37,8 +37,12 @@ Three **federal pillars**, each covering a different kind of information:
 | **UIG** | Umweltinformationsgesetz | environmental information (states have their own, e.g. HUIG for Hessen) |
 | **VIG** | Verbraucherinformationsgesetz | consumer / food-safety information |
 
-Each of the **16 Länder** has its own IFG *or* a broader **Transparenzgesetz** (e.g.
-Hamburg, Rheinland-Pfalz), and some districts add a local
+Most **Länder** have their own IFG *or* a broader **Transparenzgesetz** (e.g.
+Hamburg, Rheinland-Pfalz), but not all: in FragDenStaat's catalogue (checked
+2026-09-15) **Bayern** and **Niedersachsen** have neither. Niedersachsen lists only its
+UIG, the VIG and a press law; Bayern lists its UIG, a press law and the Bayerisches
+Datenschutzgesetz (BayDSG), bundled with the VIG in a meta law. Check a Land with
+`law list --jurisdiction <id>` rather than assuming. Many towns and districts add a local
 **Informationsfreiheitssatzung**. A **"meta law"** (`meta: true`) bundles several
 laws a requester can invoke together in one request; most concrete statutes are
 **non-meta**.
@@ -61,8 +65,11 @@ their `id`, `name`, and `slug`. Read the id you need from there.
 Filter the law catalogue by jurisdiction and/or topic:
 
 ```bash
-# every law for one jurisdiction (use the id from step 1)
+# the Land/Bund-level laws of one jurisdiction (use the id from step 1)
 fragdenstaat --compact law list --jurisdiction 3 --limit 50
+
+# local statutes (Satzungen) have no jurisdiction — find them by name
+fragdenstaat --compact law list --q "München" --limit 50
 
 # environmental-info laws across all jurisdictions
 fragdenstaat --compact law list --q umwelt --limit 50
@@ -81,12 +88,12 @@ fragdenstaat --compact law autocomplete "Umweltinformationsgesetz"
 | `id` | numeric law id — what you filter/`get` by |
 | `name` | e.g. "Informationsfreiheitsgesetz", "Hamburgisches Transparenzgesetz" |
 | `law_type` | Gesetz / Satzung / Verordnung etc. |
-| `jurisdiction` | the owning jurisdiction (id/name) |
+| `jurisdiction` | the owning jurisdiction as a **resource URI** (`https://fragdenstaat.de/api/v1/jurisdiction/92/`); `null` for local Satzungen |
 | `meta` | `true` for combining meta-laws; `false` for a concrete statute |
 | `max_response_time` | numeric deadline, **paired with its unit** |
 | `max_response_time_unit` | e.g. `month_de` (calendar month), `working_day`, `day` — **the unit is load-bearing** |
 | `requires_signature` | whether filing needs a handwritten signature |
-| `mediator` | the mediator/appeals public-body id, if any |
+| `mediator` | the mediator/appeals public body as a resource URI (`…/api/v1/publicbody/15890/`), if any |
 | `priority` | ordering hint when several laws apply |
 | `slug` / `site_url` | canonical slug and the page on fragdenstaat.de |
 
@@ -96,19 +103,30 @@ fragdenstaat --compact law autocomplete "Umweltinformationsgesetz"
 fragdenstaat --compact law get 1
 ```
 
-A `law get` adds the full text and boilerplate: `legal_text` (the statute text),
+A `law get` adds the boilerplate: `legal_text` (the statute text, **usually empty**),
 `letter_start` / `letter_end` (request-letter boilerplate), `max_response_time`
 (+unit), `requires_signature`, `refusal_reasons`, and — for a **meta law** —
-`combined[]` (the ids/names of the laws it bundles).
+`combined[]` (resource URIs of the laws it bundles, e.g.
+`https://fragdenstaat.de/api/v1/law/119/`; `law get` each id for its name).
 
 > **Traps.**
 > - **Resolve the jurisdiction NAME to its id first** (`jurisdiction list`) before
 >   `law list --jurisdiction <id>` — the filter takes the numeric id, not "Sachsen".
+> - **`--jurisdiction` misses every local statute.** All 116 Satzungen in the catalogue
+>   (2026-09-15) have `"jurisdiction": null`, so `law list --jurisdiction 92` (Bayern)
+>   returns 4 laws and never the Informationsfreiheitssatzung der Stadt München (51),
+>   Nürnberg (56) or Schweinfurt (74). Search local statutes with `law list --q
+>   "<town>"`. `law autocomplete` only matches the catalogue's own wording:
+>   "Informationsfreiheitssatzung der Landeshauptstadt München" finds nothing, "… der
+>   Stadt München" finds law 51.
 > - `--meta true` selects the combining meta-laws; **most concrete statutes are
 >   non-meta**, so don't answer "which law applies" from meta-only results. Use
 >   `--meta false` (or no `--meta`) for the real statute.
-> - **`legal_text` can be very large.** Summarise it; only dump the full text on
->   request, and write it out with `-o law.txt` rather than flooding the chat.
+> - **`legal_text` is usually empty.** Only 1 law in each of the first two `law list`
+>   pages of 50 has one; `law get 1` (IFG Bund) has 11,863 characters, while laws 51,
+>   120 and 170 have none. Don't report an empty `legal_text` as "no statute"; point
+>   to `site_url` instead. When it is present it can be long: summarise it, and only
+>   dump the full text on request, written out with `-o law.txt`.
 > - **Always state the response-time unit.** "1" means nothing without knowing it's
 >   `month_de` (a calendar month) vs `working_day` — the semantics differ. Report
 >   `max_response_time` and `max_response_time_unit` together, in plain words.
@@ -120,13 +138,13 @@ A `law get` adds the full text and boilerplate: `legal_text` (the statute text),
 
 ```bash
 # 1. jurisdiction name -> id
-fragdenstaat --compact jurisdiction list         # find "Hessen", read its id (say 6)
+fragdenstaat --compact jurisdiction list         # find "Hessen", read its id (94)
 
 # 2. that jurisdiction's environmental-info law
-fragdenstaat --compact law list --jurisdiction 6 --q umwelt --limit 50
+fragdenstaat --compact law list --jurisdiction 94 --q umwelt --limit 50
 
 # 3. read its deadline + signature rule
-fragdenstaat --compact law get <hessen-uig-id>
+fragdenstaat --compact law get 123               # the HUIG id from step 2
 ```
 
 Then present the UIG-equivalent (here the **HUIG**, Hessisches
