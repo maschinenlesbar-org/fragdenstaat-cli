@@ -154,7 +154,8 @@ export class RequestEngine {
     // decodes a backslash-u001b escape into a real ESC byte, so without stripping
     // control characters a hostile/MITM'd endpoint could drive ANSI/OSC escape
     // sequences into the user's terminal when this error message is printed to
-    // stderr. The success path is already safe (JSON.stringify escapes these).
+    // stderr. The CLI's JSON output is escaped separately (escapeControlChars in
+    // cli/shared.ts): JSON.stringify alone leaves DEL and the C1 range raw.
     if (detail !== undefined) detail = sanitizeServerText(detail);
     return new FdsApiError({ status, url, method, body: text, detail });
   }

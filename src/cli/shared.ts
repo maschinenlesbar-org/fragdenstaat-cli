@@ -180,12 +180,32 @@ export function pruneUndefined<T extends Record<string, unknown>>(obj: T): Parti
 }
 
 /**
+ * Escape the control characters JSON.stringify leaves raw. It escapes C0 (including
+ * ESC) but not DEL or the C1 range U+0080–U+009F, and terminals may act on those —
+ * U+009B is the 8-bit form of CSI. The output is server data, so escape them; the
+ * result is equivalent, valid JSON (these characters only occur inside strings).
+ * Checked by char code so the source stays free of control bytes.
+ */
+export function escapeControlChars(json: string): string {
+  let result = "";
+  let from = 0;
+  for (let i = 0; i < json.length; i++) {
+    const c = json.charCodeAt(i);
+    if (c >= 0x7f && c <= 0x9f) {
+      result += json.slice(from, i) + "\\u" + c.toString(16).padStart(4, "0");
+      from = i + 1;
+    }
+  }
+  return from === 0 ? json : result + json.slice(from);
+}
+
+/**
  * Render a JSON value, pretty by default and compact with --compact. Honors
  * --output by writing the JSON (UTF-8) to that file instead of stdout, so the
  * flag is not silently ignored on JSON commands; otherwise prints to stdout.
  */
 export function renderJson(deps: CliDeps, global: GlobalOptions, value: unknown): void {
-  const text = global.compact ? JSON.stringify(value) : JSON.stringify(value, null, 2);
+  const text = escapeControlChars(global.compact ? JSON.stringify(value) : JSON.stringify(value, null, 2));
   if (global.output) {
     const data = Buffer.from(text + "\n", "utf8");
     writeOutput(deps, global, global.output, data);
@@ -217,8 +237,8 @@ export function renderJson(deps: CliDeps, global: GlobalOptions, value: unknown)
  * spoofing, cursor tricks) that the user's terminal would execute on print. We
  * drop the C0 range (except the field/record separators CSV legitimately uses —
  * tab 0x09, LF 0x0a, CR 0x0d) plus DEL and the C1 range, without touching the CSV
- * structure. The JSON path needs no equivalent because `JSON.stringify` already
- * escapes these. The file (`-o`) path writes the bytes verbatim — only the
+ * structure. The JSON path escapes them instead (`JSON.stringify` the C0 range,
+ * `escapeControlChars` DEL and C1), which keeps the JSON valid. The file (`-o`) path writes the bytes verbatim — only the
  * terminal is at risk — so this is applied on the stdout branch only.
  */
 function sanitizeTerminalText(text: string): string {
