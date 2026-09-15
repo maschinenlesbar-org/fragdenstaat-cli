@@ -90,11 +90,12 @@ Each `objects[]` request carries the fields that matter for outcome analysis:
 | `title` / `url` | subject line and public page |
 | `status` / `readable_status` | machine status + human label |
 | `resolution` | outcome — trust only when `status=resolved` |
-| `jurisdiction` | jurisdiction id (`jurisdiction_name` for the label) |
+| `jurisdiction` | jurisdiction as a resource URI (`https://fragdenstaat.de/api/v1/jurisdiction/94/`); `jurisdiction_name` for the label |
 | `public_body` | embedded object — read `.name` |
-| `law` | FOI law id the request was filed under |
+| `law` | FOI law as a resource URI (`https://fragdenstaat.de/api/v1/law/124/`) in `list`; `request get` embeds the whole law object instead (letter boilerplate included) |
 | `costs` | charged fee in EUR (`0` = free) |
-| `due_date` / `resolved_on` | statutory deadline / resolution date |
+| `due_date` / `resolved_on` | statutory deadline / resolution date — but `resolved_on` is `null` even on resolved requests (see Traps) |
+| `last_message` | timestamp of the latest message — the closest thing to a closing date |
 | `tags` | tag list — reuse to widen or tighten the set |
 | `created_at` | filing date |
 
@@ -104,9 +105,17 @@ page — page with `--offset`. Fetch one request in full, including its complete
 
 > **Traps.**
 > - Filters take **numeric ids**, not names. Resolve first: get a public-body id
->   from the authority-lookup skill / `publicbody autocomplete`, a jurisdiction/law/
->   category id from the relevant `... list --q` or `... autocomplete`. Note the
+>   from the authority-lookup skill / `publicbody autocomplete`, a jurisdiction/law
+>   id from `jurisdiction list` / `law autocomplete`, and a category id from
+>   `category list --q` (`category autocomplete` returns names, not ids). Note the
 >   **plural** `--categories` and the hyphenated `--public-body`.
+> - **Related resources are URIs in `list`.** `law` and `jurisdiction` come back as
+>   `https://fragdenstaat.de/api/v1/<resource>/<id>/`; take the number before the
+>   trailing `/` to filter or `get`.
+> - **`resolved_on` is not filled.** It was `null` on all 45 resolved requests tagged
+>   "Palantir", on the first 50 of `request list --status resolved`, and on
+>   `request get 365257` / `372583` (2026-09-15). Don't compute durations from it; use
+>   `last_message` as an approximate closing date and say so.
 > - `resolution` is `""` until `status=resolved`. Always pass `--status resolved`
 >   before trusting or counting resolutions — an open request has no meaningful
 >   outcome.
