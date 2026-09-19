@@ -10,8 +10,11 @@ description: >
   the OCR'd files, page counts and file URLs behind released requests. Resolves
   authority and campaign names to numeric ids first, then filters and pages the
   document/request datasets and streams the server's flattened CSV export.
-version: 1.0.0
-userInvocable: true
+compatibility: >
+  Requires the `fragdenstaat` CLI (npm package
+  @maschinenlesbar.org/fragdenstaat-cli) on PATH, installed by the user; the
+  skill never installs it. Uses jq for JSON filtering. Network access to
+  fragdenstaat.de.
 ---
 
 # FragDenStaat Document Digger
@@ -23,6 +26,8 @@ for analysis. Scope by authority, request, collection, portal, directory, tag or
 ## Tooling
 
 This skill drives the `fragdenstaat` command. **Before anything else, validate it is available** — run `command -v fragdenstaat` (or `fragdenstaat --version`). If it is not on your PATH, STOP and inform the user that the `fragdenstaat` CLI (`@maschinenlesbar.org/fragdenstaat-cli`) is not installed — installing it is their responsibility; never install it yourself, and do not fall back to `npx` or a local `node dist/...` build.
+
+This skill also filters JSON with `jq`. **Validate it too** — run `command -v jq`. If it is missing, inform the user that `jq` is not installed — installing it is their responsibility; never install it yourself — and carry on without it: filter the CLI output with `node -e` instead (Node is already on your PATH, since the CLI runs on it).
 
 The API is read-only and needs **no key, account, or config**. Pass `--compact` for machine-readable JSON. Responses are Tastypie envelopes: `{"meta":{"total_count":N,"limit":L,"offset":O,"next":...,"previous":...},"objects":[...]}`; autocomplete objects are `{"value":...,"label":...}`. `--limit` is capped at **50** by the server — page with `--offset`. Anonymous access returns only **public** objects. An empty result is `{"meta":{"total_count":0,...},"objects":[]}` and exits `0` — a valid "nothing matched" answer.
 

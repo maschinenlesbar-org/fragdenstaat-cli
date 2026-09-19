@@ -10,8 +10,10 @@ description: >
   precisely by status, resolution, jurisdiction, FOI law, public body, category,
   tags, dates and costs, and interprets outcomes — was a request successful,
   refused, or still open — including topic-level success-rate analysis.
-version: 1.0.0
-userInvocable: true
+compatibility: >
+  Requires the `fragdenstaat` CLI (npm package
+  @maschinenlesbar.org/fragdenstaat-cli) on PATH, installed by the user; the
+  skill never installs it. Network access to fragdenstaat.de.
 ---
 
 # FDS Request Finder

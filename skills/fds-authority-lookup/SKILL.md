@@ -10,8 +10,10 @@ description: >
   jurisdiction, request_note, or activity level. Resolves names to numeric ids,
   filters by jurisdiction / classification / category / region / a point, and
   hands the body id to the request-finder to inspect its FOI track record.
-version: 1.0.0
-userInvocable: true
+compatibility: >
+  Requires the `fragdenstaat` CLI (npm package
+  @maschinenlesbar.org/fragdenstaat-cli) on PATH, installed by the user; the
+  skill never installs it. Network access to fragdenstaat.de.
 ---
 
 # Authority (Behörde) Lookup

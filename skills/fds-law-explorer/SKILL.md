@@ -10,8 +10,10 @@ description: >
   "what's the difference between IFG, UIG and VIG?", or "which law should I use to
   request environmental data in Hessen?". Resolves a jurisdiction name to its id,
   filters the ~189 laws, and always reports the deadline with its unit.
-version: 1.0.0
-userInvocable: true
+compatibility: >
+  Requires the `fragdenstaat` CLI (npm package
+  @maschinenlesbar.org/fragdenstaat-cli) on PATH, installed by the user; the
+  skill never installs it. Network access to fragdenstaat.de.
 ---
 
 # FDS Law Explorer
