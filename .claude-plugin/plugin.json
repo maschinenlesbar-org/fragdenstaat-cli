@@ -1,6 +1,6 @@
 {
   "name": "fragdenstaat",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "German Freedom-of-Information intelligence skills powered by the fragdenstaat-cli (FragDenStaat.de / Froide read API).",
   "author": {
     "name": "Sebastian Schürmann",
