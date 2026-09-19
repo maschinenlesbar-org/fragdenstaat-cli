@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { RequestEngine } from "../src/client/engine.js";
-import { FdsApiError, FdsParseError } from "../src/client/errors.js";
+import { FdsApiError, FdsNetworkError, FdsParseError } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
 import * as fx from "./fixtures.js";
 
@@ -23,6 +23,25 @@ test("getJson builds the URL and parses the body", async () => {
 test("trailing slashes on the base URL are trimmed", () => {
   const e = new RequestEngine({ baseUrl: "https://fragdenstaat.de///" });
   assert.equal(e.buildUrl("/api/v1/law/"), "https://fragdenstaat.de/api/v1/law/");
+});
+
+test("a non-http(s) base URL is rejected at construction, before any request", () => {
+  for (const baseUrl of ["file:///etc/passwd", "ftp://example.org"]) {
+    const mt = makeMockTransport(() => jsonResponse(fx.lawList));
+    assert.throws(
+      () => new RequestEngine({ baseUrl, transport: mt.transport }),
+      (err: unknown) => err instanceof FdsNetworkError && /Unsupported protocol/.test(err.message),
+    );
+    assert.equal(mt.calls.length, 0);
+  }
+});
+
+test("an unparseable base URL is rejected at construction", () => {
+  const mt = makeMockTransport(() => jsonResponse(fx.lawList));
+  assert.throws(
+    () => new RequestEngine({ baseUrl: "not a url", transport: mt.transport }),
+    (err: unknown) => err instanceof FdsNetworkError && /Invalid base URL/.test(err.message),
+  );
 });
 
 test("sends Accept and User-Agent headers", async () => {

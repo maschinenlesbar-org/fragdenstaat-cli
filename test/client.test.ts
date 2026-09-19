@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { FragDenStaatClient } from "../src/client/client.js";
+import { FdsNetworkError } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
 import * as fx from "./fixtures.js";
 
@@ -101,4 +102,15 @@ test("simple resources hit their list paths", async () => {
   assert.equal(new URL(mt.last().url).pathname, "/api/v1/document/");
   await c.georegions.list();
   assert.equal(new URL(mt.last().url).pathname, "/api/v1/georegion/");
+});
+
+test("the client rejects a non-http(s) base URL before any request", () => {
+  for (const baseUrl of ["file:///etc/passwd", "ftp://example.org"]) {
+    const mt = makeMockTransport(() => jsonResponse(fx.lawList));
+    assert.throws(
+      () => new FragDenStaatClient({ baseUrl, transport: mt.transport }),
+      FdsNetworkError,
+    );
+    assert.equal(mt.calls.length, 0);
+  }
 });

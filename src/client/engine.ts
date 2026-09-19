@@ -4,7 +4,7 @@
 
 import { nodeHttpTransport, type Transport } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
-import { FdsApiError, FdsParseError } from "./errors.js";
+import { FdsApiError, FdsNetworkError, FdsParseError } from "./errors.js";
 
 export const DEFAULT_BASE_URL = "https://fragdenstaat.de";
 const DEFAULT_USER_AGENT = "fragdenstaat-cli";
@@ -39,6 +39,26 @@ export interface EngineOptions {
 
 const DEFAULT_MAX_RESPONSE_BYTES = 100 * 1024 * 1024;
 
+/**
+ * Reject a base URL whose scheme is not http(s). The default transport already
+ * gates this per hop, but the engine is exported as a library and may be handed a
+ * custom transport that does no such check, so gate the configured base URL here
+ * too (a `file:`/`ftp:` base URL fails fast with a typed error).
+ */
+function assertHttpScheme(baseUrl: string): void {
+  let url: URL;
+  try {
+    url = new URL(baseUrl);
+  } catch {
+    throw new FdsNetworkError(`Invalid base URL: ${baseUrl}`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new FdsNetworkError(
+      `Unsupported protocol "${url.protocol}" in base URL: ${baseUrl}`,
+    );
+  }
+}
+
 const realSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -54,6 +74,7 @@ export class RequestEngine {
 
   constructor(options: EngineOptions = {}) {
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
+    assertHttpScheme(this.baseUrl);
     this.transport = options.transport ?? nodeHttpTransport;
     this.userAgent = options.userAgent ?? DEFAULT_USER_AGENT;
     this.timeoutMs = options.timeoutMs ?? 30_000;

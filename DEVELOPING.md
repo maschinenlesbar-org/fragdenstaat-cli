@@ -83,8 +83,11 @@ When in doubt, trust the live API, not the schema.
   likewise 301s to `https://`.
 - **`--base-url` scheme is validated at parse time** (`parseBaseUrl` in `shared.ts`):
   only `http:`/`https:` are accepted, with a commander usage error for anything else,
-  matching the sibling repos' blueprint. The transport (`http.ts`) still re-checks the
-  fully-built request URL as a backstop for library callers who bypass the CLI.
+  matching the sibling repos' blueprint. For library callers who bypass the CLI, the
+  engine rejects a non-http(s) base URL at construction (`assertHttpScheme` in
+  `engine.ts`, an `FdsNetworkError`), so a custom transport never receives a `file:`
+  or `ftp:` URL; the default transport (`http.ts`) still re-checks the fully-built
+  request URL as a backstop.
 - **`-o/--output` never silently overwrites.** The write opens exclusively (`wx`), so
   an existing file is refused with a clear "refusing to overwrite … (use --force)"
   error; pass `--force` to overwrite deliberately. This holds for both the JSON and
