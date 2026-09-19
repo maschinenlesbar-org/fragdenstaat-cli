@@ -1,12 +1,12 @@
 import { Command } from "commander";
 import type { CliDeps } from "../io.js";
-import { parseIntArg, pruneUndefined } from "../shared.js";
+import { parseIntArg, parseNonEmpty, pruneUndefined } from "../shared.js";
 import { addList, addGet, addAutocomplete, asBool } from "./common.js";
 import type { QueryParams } from "../../client/query.js";
 
 function addLawFilters(cmd: Command): Command {
   return cmd
-    .option("--q <text>", "full-text query over name/description")
+    .option("--q <text>", "full-text query over name/description", parseNonEmpty)
     .option("--jurisdiction <id>", "filter by jurisdiction id", parseIntArg)
     .option("--mediator <id>", "filter by mediator public-body id", parseIntArg)
     .option("--meta [bool]", "only meta-laws (combinations) — true/false")

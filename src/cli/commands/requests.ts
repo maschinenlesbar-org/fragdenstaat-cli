@@ -21,25 +21,25 @@ function addRequestFilters(cmd: Command): Command {
     .addOption(
       choiceOption("--resolution <resolution>", "filter by outcome (resolved requests)", RequestResolutionValues),
     )
-    .option("--jurisdiction <id>", "filter by jurisdiction id")
-    .option("--law <id>", "filter by FOI law id")
-    .option("--categories <id>", "filter by category id")
-    .option("--classification <id>", "filter by public-body classification id")
-    .option("--campaign <id>", "filter by campaign id")
-    .option("--public-body <id>", "filter by addressed public-body id")
-    .option("--tags <tag>", "filter by tag name")
-    .option("--reference <prefix>", "filter by reference (prefix match)")
-    .option("--slug <slug>", "filter by exact slug")
+    .option("--jurisdiction <id>", "filter by jurisdiction id", parseNonEmpty)
+    .option("--law <id>", "filter by FOI law id", parseNonEmpty)
+    .option("--categories <id>", "filter by category id", parseNonEmpty)
+    .option("--classification <id>", "filter by public-body classification id", parseNonEmpty)
+    .option("--campaign <id>", "filter by campaign id", parseNonEmpty)
+    .option("--public-body <id>", "filter by addressed public-body id", parseNonEmpty)
+    .option("--tags <tag>", "filter by tag name", parseNonEmpty)
+    .option("--reference <prefix>", "filter by reference (prefix match)", parseNonEmpty)
+    .option("--slug <slug>", "filter by exact slug", parseNonEmpty)
     .option("--is-foi [bool]", "only genuine FOI requests (true/false)")
     .option("--checked [bool]", "only moderator-checked requests (true/false)")
     .option("--has-same [bool]", "only requests with identical copies (true/false)")
     .option("--costs-min <eur>", "minimum charged costs in EUR", parseNonNegativeNumber)
     .option("--costs-max <eur>", "maximum charged costs in EUR", parseNonNegativeNumber)
-    .option("--created-after <date>", "created on/after this date (YYYY-MM-DD)")
-    .option("--created-before <date>", "created on/before this date (YYYY-MM-DD)")
-    .option("--project <id>", "filter by project id")
-    .option("--user <id>", "filter by requesting user id")
-    .option("--follower <id>", "filter by follower user id");
+    .option("--created-after <date>", "created on/after this date (YYYY-MM-DD)", parseNonEmpty)
+    .option("--created-before <date>", "created on/before this date (YYYY-MM-DD)", parseNonEmpty)
+    .option("--project <id>", "filter by project id", parseNonEmpty)
+    .option("--user <id>", "filter by requesting user id", parseNonEmpty)
+    .option("--follower <id>", "filter by follower user id", parseNonEmpty);
 }
 
 function buildRequestParams(opts: Record<string, unknown>): QueryParams {
@@ -101,9 +101,9 @@ export function registerRequestCommands(program: Command, deps: CliDeps): void {
     requests
       .command("search")
       .description("Full-text search over public requests")
-      .option("--q <text>", "full-text query")
-      .option("--jurisdiction <slug>", "restrict to a jurisdiction")
-      .option("--category <slug>", "restrict to a category"),
+      .option("--q <text>", "full-text query", parseNonEmpty)
+      .option("--jurisdiction <slug>", "restrict to a jurisdiction", parseNonEmpty)
+      .option("--category <slug>", "restrict to a category", parseNonEmpty),
   ).option("--csv", "output the server-rendered CSV export instead of JSON");
   search.action(
     action(deps, async ({ client, global, opts }) => {

@@ -4,7 +4,7 @@
 
 import { Command } from "commander";
 import type { CliDeps } from "../io.js";
-import { choiceOption, pruneUndefined } from "../shared.js";
+import { choiceOption, parseNonEmpty, pruneUndefined } from "../shared.js";
 import { addList, addGet, addAutocomplete, asBool } from "./common.js";
 import type { QueryParams } from "../../client/query.js";
 import { GeoRegionKindValues } from "../../client/enums.js";
@@ -63,11 +63,11 @@ export function registerReferenceCommands(program: Command, deps: CliDeps): void
     description: "List/filter categories",
     addFilters: (cmd) =>
       cmd
-        .option("--q <text>", "full-text query")
-        .option("--name <name>", "filter by exact name")
-        .option("--parent <id>", "filter to direct children of this category id")
-        .option("--ancestor <id>", "filter to all descendants of this category id")
-        .option("--depth <n>", "filter by tree depth")
+        .option("--q <text>", "full-text query", parseNonEmpty)
+        .option("--name <name>", "filter by exact name", parseNonEmpty)
+        .option("--parent <id>", "filter to direct children of this category id", parseNonEmpty)
+        .option("--ancestor <id>", "filter to all descendants of this category id", parseNonEmpty)
+        .option("--depth <n>", "filter by tree depth", parseNonEmpty)
         .option("--is-topic [bool]", "only topic categories (true/false)"),
     buildParams: buildCategoryParams,
     doList: (client, params) => client.categories.list(params),
@@ -86,11 +86,11 @@ export function registerReferenceCommands(program: Command, deps: CliDeps): void
     description: "List/filter classifications",
     addFilters: (cmd) =>
       cmd
-        .option("--q <text>", "full-text query")
-        .option("--name <name>", "filter by exact name")
-        .option("--parent <id>", "filter to direct children of this classification id")
-        .option("--ancestor <id>", "filter to all descendants of this classification id")
-        .option("--depth <n>", "filter by tree depth"),
+        .option("--q <text>", "full-text query", parseNonEmpty)
+        .option("--name <name>", "filter by exact name", parseNonEmpty)
+        .option("--parent <id>", "filter to direct children of this classification id", parseNonEmpty)
+        .option("--ancestor <id>", "filter to all descendants of this classification id", parseNonEmpty)
+        .option("--depth <n>", "filter by tree depth", parseNonEmpty),
     buildParams: buildClassificationParams,
     doList: (client, params) => client.classifications.list(params),
     doListCsv: (client, params) => client.classifications.listCsv(params),
@@ -118,16 +118,16 @@ export function registerReferenceCommands(program: Command, deps: CliDeps): void
     description: "List/filter geo-regions",
     addFilters: (cmd) =>
       cmd
-        .option("--q <text>", "full-text query")
-        .option("--name <name>", "filter by exact name")
+        .option("--q <text>", "full-text query", parseNonEmpty)
+        .option("--name <name>", "filter by exact name", parseNonEmpty)
         .addOption(choiceOption("--kind <kind>", "filter by region kind", GeoRegionKindValues))
-        .option("--kind-detail <text>", "filter by kind detail label")
-        .option("--level <n>", "filter by hierarchy level")
-        .option("--region-identifier <id>", "filter by region identifier")
-        .option("--slug <slug>", "filter by exact slug")
-        .option("--ancestor <id>", "filter to descendants of this region id")
-        .option("--id <id>", "filter by region id")
-        .option("--latlng <lat,lng>", "point-in-region lookup for a lat,lng point"),
+        .option("--kind-detail <text>", "filter by kind detail label", parseNonEmpty)
+        .option("--level <n>", "filter by hierarchy level", parseNonEmpty)
+        .option("--region-identifier <id>", "filter by region identifier", parseNonEmpty)
+        .option("--slug <slug>", "filter by exact slug", parseNonEmpty)
+        .option("--ancestor <id>", "filter to descendants of this region id", parseNonEmpty)
+        .option("--id <id>", "filter by region id", parseNonEmpty)
+        .option("--latlng <lat,lng>", "point-in-region lookup for a lat,lng point", parseNonEmpty),
     buildParams: buildGeoRegionParams,
     doList: (client, params) => client.georegions.list(params),
     doListCsv: (client, params) => client.georegions.listCsv(params),

@@ -1,20 +1,20 @@
 import { Command } from "commander";
 import type { CliDeps } from "../io.js";
-import { pruneUndefined } from "../shared.js";
+import { parseNonEmpty, pruneUndefined } from "../shared.js";
 import { addList, addGet } from "./common.js";
 import type { QueryParams } from "../../client/query.js";
 
 function addDocumentFilters(cmd: Command): Command {
   return cmd
-    .option("--publicbody <id>", "filter by publishing public-body id")
-    .option("--foirequest <id>", "filter by source request id")
-    .option("--collection <id>", "filter by document-collection id")
-    .option("--portal <id>", "filter by document-portal id")
-    .option("--directory <id>", "filter by directory id")
-    .option("--tag <id>", "filter by tag id (numeric)")
-    .option("--ids <ids>", "filter by a comma-separated list of document ids")
-    .option("--created-after <date>", "created on/after this date (YYYY-MM-DD)")
-    .option("--created-before <date>", "created on/before this date (YYYY-MM-DD)");
+    .option("--publicbody <id>", "filter by publishing public-body id", parseNonEmpty)
+    .option("--foirequest <id>", "filter by source request id", parseNonEmpty)
+    .option("--collection <id>", "filter by document-collection id", parseNonEmpty)
+    .option("--portal <id>", "filter by document-portal id", parseNonEmpty)
+    .option("--directory <id>", "filter by directory id", parseNonEmpty)
+    .option("--tag <id>", "filter by tag id (numeric)", parseNonEmpty)
+    .option("--ids <ids>", "filter by a comma-separated list of document ids", parseNonEmpty)
+    .option("--created-after <date>", "created on/after this date (YYYY-MM-DD)", parseNonEmpty)
+    .option("--created-before <date>", "created on/before this date (YYYY-MM-DD)", parseNonEmpty);
 }
 
 function buildDocumentParams(opts: Record<string, unknown>): QueryParams {

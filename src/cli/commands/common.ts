@@ -78,7 +78,8 @@ export function addGet(
   doGet: (client: Client, id: string) => Promise<unknown>,
 ): Command {
   return parent
-    .command("get <id>")
+    .command("get")
+    .argument("<id>", "resource id (must be non-empty)", parseNonEmpty)
     .description(description)
     .action(
       action(deps, async ({ client, global }, [id]) => {

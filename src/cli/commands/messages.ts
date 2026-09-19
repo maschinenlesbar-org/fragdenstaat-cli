@@ -1,13 +1,13 @@
 import { Command } from "commander";
 import type { CliDeps } from "../io.js";
-import { choiceOption, pruneUndefined } from "../shared.js";
+import { choiceOption, parseNonEmpty, pruneUndefined } from "../shared.js";
 import { addList, addGet, asBool } from "./common.js";
 import type { QueryParams } from "../../client/query.js";
 import { MessageKindValues } from "../../client/enums.js";
 
 function addMessageFilters(cmd: Command): Command {
   return cmd
-    .option("--request <id>", "filter to one request's correspondence")
+    .option("--request <id>", "filter to one request's correspondence", parseNonEmpty)
     .addOption(choiceOption("--kind <kind>", "filter by transport (email, post, fax, ...)", MessageKindValues))
     .option("--is-response [bool]", "only replies from the authority (true/false)");
 }

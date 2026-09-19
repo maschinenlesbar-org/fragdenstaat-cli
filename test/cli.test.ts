@@ -375,3 +375,57 @@ test("a normal --user-agent is forwarded as the User-Agent header", async () => 
   assert.equal(code, 0);
   assert.equal(cli.mt.last().headers?.["User-Agent"], "my-cli/1.0");
 });
+
+// A blank filter/query/id ("" or whitespace, often an unset shell variable) used to
+// be sent as an empty parameter or path segment, so the command ran unfiltered and
+// exited 0. Each is now a parse-time usage error, before any request.
+const blankCases: Array<{ input: string; argv: string[] }> = [
+  { input: "--jurisdiction", argv: ["request", "list", "--jurisdiction", ""] },
+  { input: "--jurisdiction (whitespace)", argv: ["request", "list", "--jurisdiction", "   "] },
+  { input: "--law", argv: ["request", "list", "--law", ""] },
+  { input: "--categories", argv: ["request", "list", "--categories", ""] },
+  { input: "--classification", argv: ["request", "list", "--classification", ""] },
+  { input: "--campaign", argv: ["request", "list", "--campaign", ""] },
+  { input: "--public-body", argv: ["request", "list", "--public-body", ""] },
+  { input: "--tags", argv: ["request", "list", "--tags", ""] },
+  { input: "--reference", argv: ["request", "list", "--reference", ""] },
+  { input: "--slug", argv: ["request", "list", "--slug", ""] },
+  { input: "--created-after", argv: ["request", "list", "--created-after", ""] },
+  { input: "--created-before", argv: ["request", "list", "--created-before", ""] },
+  { input: "--project", argv: ["request", "list", "--project", ""] },
+  { input: "--user", argv: ["request", "list", "--user", ""] },
+  { input: "--follower", argv: ["request", "list", "--follower", ""] },
+  { input: "--q", argv: ["request", "search", "--q", ""] },
+  { input: "--category", argv: ["request", "search", "--category", ""] },
+  { input: "--classification-id", argv: ["publicbody", "list", "--classification-id", ""] },
+  { input: "--regions", argv: ["publicbody", "list", "--regions", ""] },
+  { input: "--lnglat", argv: ["publicbody", "list", "--lnglat", ""] },
+  { input: "--name", argv: ["category", "list", "--name", ""] },
+  { input: "--parent", argv: ["category", "list", "--parent", ""] },
+  { input: "--ancestor", argv: ["classification", "list", "--ancestor", ""] },
+  { input: "--depth", argv: ["classification", "list", "--depth", ""] },
+  { input: "--kind-detail", argv: ["georegion", "list", "--kind-detail", ""] },
+  { input: "--level", argv: ["georegion", "list", "--level", ""] },
+  { input: "--region-identifier", argv: ["georegion", "list", "--region-identifier", ""] },
+  { input: "--id", argv: ["georegion", "list", "--id", ""] },
+  { input: "--latlng", argv: ["georegion", "list", "--latlng", ""] },
+  { input: "--request", argv: ["message", "list", "--request", ""] },
+  { input: "--publicbody", argv: ["document", "list", "--publicbody", ""] },
+  { input: "--foirequest", argv: ["document", "list", "--foirequest", ""] },
+  { input: "--collection", argv: ["document", "list", "--collection", ""] },
+  { input: "--portal", argv: ["document", "list", "--portal", ""] },
+  { input: "--directory", argv: ["document", "list", "--directory", ""] },
+  { input: "--tag", argv: ["document", "list", "--tag", ""] },
+  { input: "--ids", argv: ["document", "list", "--ids", ""] },
+  { input: "<id>", argv: ["request", "get", ""] },
+  { input: "<id> (whitespace)", argv: ["law", "get", "  "] },
+];
+
+for (const { input, argv } of blankCases) {
+  test(`a blank ${input} is rejected before any request (${argv.slice(0, 2).join(" ")})`, async () => {
+    const cli = makeCli(() => jsonResponse(fx.requestList));
+    const code = await run(argv, cli.deps);
+    assert.notEqual(code, 0);
+    assert.equal(cli.mt.calls.length, 0);
+  });
+}
