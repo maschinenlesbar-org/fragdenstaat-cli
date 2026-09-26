@@ -28,6 +28,20 @@ function addPublicBodyFilters(cmd: Command): Command {
     );
 }
 
+/**
+ * Filters for `publicbody search`. The search endpoint reads the category as the
+ * plural `categories` and silently ignores the singular `category` that `publicbody
+ * list` uses, so the same `--category` flag maps to a different key here.
+ */
+function buildPublicBodySearchParams(opts: Record<string, unknown>): QueryParams {
+  return pruneUndefined({
+    q: opts["q"],
+    jurisdiction: opts["jurisdiction"],
+    classification: opts["classification"],
+    categories: opts["category"],
+  }) as QueryParams;
+}
+
 function buildPublicBodyParams(opts: Record<string, unknown>): QueryParams {
   return pruneUndefined({
     q: opts["q"],
@@ -67,7 +81,7 @@ export function registerPublicBodyCommands(program: Command, deps: CliDeps): voi
   ).option("--csv", CSV_HELP);
   search.action(
     action(deps, async ({ client, global, opts }) => {
-      const params: QueryParams = { ...buildPublicBodyParams(opts), ...paginationParams(opts) };
+      const params: QueryParams = { ...buildPublicBodySearchParams(opts), ...paginationParams(opts) };
       if (opts["csv"]) {
         renderCsvPage(deps, global, await client.publicBodies.searchCsv(params), params);
       } else {

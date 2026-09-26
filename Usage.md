@@ -53,6 +53,8 @@ fragdenstaat publicbody autocomplete <query>
 ```
 
 Note: **singular** `--category` here (`--categories` is rejected as an unknown option).
+On `search` the CLI sends it as the API's `categories` parameter, the only name the
+search endpoint reads.
 `--classification` matches a subtree; `--classification-id` is exact. `--lnglat` is
 `lng,lat` (longitude first) and keeps only bodies whose `regions` contain that point, in
 name order rather than by distance, and a body appears once per region that contains

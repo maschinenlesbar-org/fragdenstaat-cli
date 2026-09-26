@@ -460,3 +460,18 @@ test("countCsvRows counts records outside quotes, minus the header", () => {
   assert.equal(countCsvRows('a,b\r\n1,"x\r\ny ""q"""\r\n2,z'), 2);
   assert.equal(countCsvRows("a,b\n1,2\n2,3\n"), 2);
 });
+
+// Exploratory test 2026-09-26, finding 2: the search endpoint ignores `category`.
+test("publicbody search --category is sent as categories; list keeps category", async () => {
+  const search = makeCli(() => jsonResponse(fx.publicBodyList));
+  assert.equal(await run(["publicbody", "search", "--q", "amt", "--category", "1"], search.deps), 0);
+  const sq = new URL(search.mt.last().url).searchParams;
+  assert.equal(sq.get("categories"), "1");
+  assert.equal(sq.has("category"), false);
+
+  const list = makeCli(() => jsonResponse(fx.publicBodyList));
+  assert.equal(await run(["publicbody", "list", "--category", "1"], list.deps), 0);
+  const lq = new URL(list.mt.last().url).searchParams;
+  assert.equal(lq.get("category"), "1");
+  assert.equal(lq.has("categories"), false);
+});

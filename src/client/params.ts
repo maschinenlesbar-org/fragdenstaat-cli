@@ -68,6 +68,16 @@ export interface PublicBodyListParams extends Pagination {
   lnglat?: string;
 }
 
+/**
+ * Filters for `GET /api/v1/publicbody/search/` (public-body full-text search). Like
+ * the list filters, except that the category is the **plural** `categories`: the
+ * search endpoint silently ignores a singular `category`.
+ */
+export interface PublicBodySearchParams extends Omit<PublicBodyListParams, "category"> {
+  /** Category id. */
+  categories?: Id;
+}
+
 /** Filters for `GET /api/v1/law/` (FOI laws). */
 export interface LawListParams extends Pagination {
   q?: string;

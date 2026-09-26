@@ -117,7 +117,11 @@ When in doubt, trust the live API, not the schema.
 - **Filter-name quirks** (verified live): `request list` uses **plural**
   `--categories` and `--public-body`; `publicbody list` uses **singular** `--category`
   (the API silently ignores a plural `categories` there, and the CLI rejects
-  `--categories` as an unknown option) and distinguishes `--classification` (subtree) from
+  `--categories` as an unknown option) — but `publicbody search` is the other way
+  round: its endpoint only reads plural `categories` and ignores `category`, so the
+  CLI maps the same `--category` flag to `categories` there
+  (`buildPublicBodySearchParams`; the library's `PublicBodySearchParams` has
+  `categories`). `publicbody list` distinguishes `--classification` (subtree) from
   `--classification-id` (exact). `document --tag` needs a numeric tag id, while
   `request --tags` takes a tag-name string.
 

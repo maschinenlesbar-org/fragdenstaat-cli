@@ -30,6 +30,7 @@ import type {
   RequestListParams,
   RequestSearchParams,
   PublicBodyListParams,
+  PublicBodySearchParams,
   LawListParams,
   TreeListParams,
   MessageListParams,
@@ -114,12 +115,12 @@ class PublicBodyResource extends ListResource<PublicBodyListItem, PublicBodyList
   }
 
   /** Full-text search over public bodies. */
-  search(params: PublicBodyListParams = {}): Promise<TastypieList<PublicBodyListItem>> {
+  search(params: PublicBodySearchParams = {}): Promise<TastypieList<PublicBodyListItem>> {
     return this.e.getJson("/api/v1/publicbody/search/", params as QueryParams);
   }
 
   /** The public-body search as server-rendered CSV. */
-  searchCsv(params: PublicBodyListParams = {}): Promise<RawResponse> {
+  searchCsv(params: PublicBodySearchParams = {}): Promise<RawResponse> {
     return this.e.getRaw("/api/v1/publicbody/search/", CSV_ACCEPT, {
       ...(params as QueryParams),
       format: "csv",
