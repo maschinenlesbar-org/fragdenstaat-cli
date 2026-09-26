@@ -537,3 +537,17 @@ test("--max-retries above 10 is a usage error", async () => {
   const ok = makeCli(() => jsonResponse(fx.requestList));
   assert.equal(await run(["--max-retries", "10", "request", "list"], ok.deps), 0);
 });
+
+// Exploratory test 2026-09-26, finding 9: deep nesting overflows the pretty printer.
+test("a deeply nested response is a clean error, not 'Unexpected error'", async () => {
+  const depth = 200_000;
+  const deep = "[".repeat(depth) + "]".repeat(depth);
+  const cli = makeCli(() => rawResponse(deep, "application/json"));
+  assert.equal(await run(["request", "search", "--q", "deep"], cli.deps), 1);
+  assert.match(cli.err.join("\n"), /^Error: The response is nested too deeply to pretty-print; try --compact\.$/);
+
+  const compact = makeCli(() => rawResponse(deep, "application/json"));
+  const code = await run(["--compact", "request", "search", "--q", "deep"], compact.deps);
+  if (code === 0) assert.equal(compact.out.join(""), deep);
+  else assert.match(compact.err.join("\n"), /nested too deeply to print\./);
+});
