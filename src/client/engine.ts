@@ -2,7 +2,7 @@
 // requests via a Transport, applies retry/backoff for the statuses the API
 // documents as transient (429, 503), and decodes responses.
 
-import { nodeHttpTransport, type Transport } from "./http.js";
+import { MAX_TIMEOUT_MS, nodeHttpTransport, type Transport } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
 import { FdsApiError, FdsError, FdsNetworkError, FdsParseError, redactUrl } from "./errors.js";
 
@@ -22,19 +22,24 @@ export interface EngineOptions {
   transport?: Transport;
   /** Value of the User-Agent header. */
   userAgent?: string;
-  /** Per-request timeout in milliseconds (0 disables; capped at `MAX_TIMEOUT_MS`, 2^31 - 1 ms). */
+  /** Per-request timeout in milliseconds, 0..`MAX_TIMEOUT_MS` (2^31 - 1 ms); 0 disables. */
   timeoutMs?: number;
   /**
-   * Number of automatic retries for transient (429/503) responses. Each waits the
-   * response's `Retry-After` (up to `MAX_RETRY_AFTER_MS`; a longer one is not
-   * retried), or else `retryDelayMs * attempt`.
+   * Number of automatic retries for transient (429/503) responses, 0..`MAX_RETRIES`
+   * (10). Each waits the response's `Retry-After` (up to `MAX_RETRY_AFTER_MS`; a
+   * longer one is not retried), or else `retryDelayMs * attempt`.
    */
   maxRetries?: number;
-  /** Base backoff between retries in milliseconds (grows linearly); used without a Retry-After. */
+  /**
+   * Base backoff between retries in milliseconds (grows linearly), 0..`MAX_RETRY_AFTER_MS`;
+   * used without a Retry-After.
+   */
   retryDelayMs?: number;
   /**
    * Hard cap on response body size in bytes (defends against memory exhaustion
    * from a hostile/buggy endpoint). Defaults to 100 MiB; set to 0 for no limit.
+   * Every numeric option must be a non-negative safe integer within its range, or
+   * the constructor throws a FdsError.
    */
   maxResponseBytes?: number;
   /** Injectable sleep, primarily for deterministic tests. */
@@ -106,6 +111,22 @@ function assertHttpScheme(baseUrl: string): void {
   }
 }
 
+/**
+ * Validate a numeric engine option: absent means the default; anything but a safe
+ * integer in 0..max is a FdsError. Without this, a negative or NaN `timeoutMs`
+ * silently disabled the timeout, a negative `maxResponseBytes` the size cap, and a
+ * negative `retryDelayMs` produced a Node TimeoutNegativeWarning.
+ */
+function intOption(name: string, value: number | undefined, fallback: number, max: number): number {
+  if (value === undefined) return fallback;
+  if (!Number.isSafeInteger(value) || value < 0 || value > max) {
+    throw new FdsError(
+      `Invalid option ${name}: expected an integer from 0 to ${max}, got ${String(value)}.`,
+    );
+  }
+  return value;
+}
+
 const realSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -124,10 +145,15 @@ export class RequestEngine {
     assertHttpScheme(this.baseUrl);
     this.transport = options.transport ?? nodeHttpTransport;
     this.userAgent = options.userAgent ?? DEFAULT_USER_AGENT;
-    this.timeoutMs = options.timeoutMs ?? 30_000;
-    this.maxRetries = options.maxRetries ?? 2;
-    this.retryDelayMs = options.retryDelayMs ?? 200;
-    this.maxResponseBytes = options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
+    this.timeoutMs = intOption("timeoutMs", options.timeoutMs, 30_000, MAX_TIMEOUT_MS);
+    this.maxRetries = intOption("maxRetries", options.maxRetries, 2, MAX_RETRIES);
+    this.retryDelayMs = intOption("retryDelayMs", options.retryDelayMs, 200, MAX_RETRY_AFTER_MS);
+    this.maxResponseBytes = intOption(
+      "maxResponseBytes",
+      options.maxResponseBytes,
+      DEFAULT_MAX_RESPONSE_BYTES,
+      Number.MAX_SAFE_INTEGER,
+    );
     this.sleep = options.sleep ?? realSleep;
   }
 

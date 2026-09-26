@@ -233,3 +233,25 @@ test("redactUrl hides userinfo and leaves other URLs alone", () => {
     return true;
   });
 });
+
+// Exploratory test 2026-09-26, finding 15: invalid EngineOptions.
+test("invalid numeric engine options throw instead of disabling limits", () => {
+  const bad: Array<[string, number]> = [
+    ["timeoutMs", NaN],
+    ["timeoutMs", -5],
+    ["timeoutMs", 2 ** 31],
+    ["maxResponseBytes", -1],
+    ["maxResponseBytes", 1.5],
+    ["maxRetries", Infinity],
+    ["maxRetries", 11],
+    ["retryDelayMs", -100],
+  ];
+  for (const [name, value] of bad) {
+    assert.throws(() => new RequestEngine({ [name]: value }), {
+      name: "FdsError",
+      message: new RegExp(`^Invalid option ${name}: expected an integer from 0 to \\d+, got ${String(value)}\\.$`),
+    });
+  }
+  // Boundaries and 0 are fine.
+  new RequestEngine({ timeoutMs: 0, maxResponseBytes: 0, maxRetries: 10, retryDelayMs: 30_000 });
+});
