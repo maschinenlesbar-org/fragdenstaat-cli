@@ -214,3 +214,12 @@ test("parseRetryAfter reads seconds and IMF-fixdates only", () => {
   assert.equal(parseRetryAfter("Saturday, 26-Sep-26 12:00:05 GMT", now), undefined);
   assert.equal(parseRetryAfter(undefined, now), undefined);
 });
+
+test("a base URL with a query or fragment is rejected at construction", () => {
+  for (const baseUrl of ["https://h.example/?x=1", "https://h.example/#f"]) {
+    assert.throws(() => new RequestEngine({ baseUrl }), {
+      name: "FdsNetworkError",
+      message: `Base URL must not contain a query or fragment: ${baseUrl}`,
+    });
+  }
+});

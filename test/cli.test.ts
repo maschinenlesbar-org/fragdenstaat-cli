@@ -551,3 +551,23 @@ test("a deeply nested response is a clean error, not 'Unexpected error'", async 
   if (code === 0) assert.equal(compact.out.join(""), deep);
   else assert.match(compact.err.join("\n"), /nested too deeply to print\./);
 });
+
+// Exploratory test 2026-09-26, finding 10: a query/fragment swallows the path.
+for (const [value, message] of [
+  ["http://127.0.0.1:18115/?x=1", /A base URL cannot have a query \(\?\) or fragment \(#\)\./],
+  ["http://127.0.0.1:18115/#frag", /cannot have a query \(\?\) or fragment/],
+  [" https://fragdenstaat.de", /A base URL cannot have surrounding whitespace\./],
+] as const) {
+  test(`--base-url ${JSON.stringify(value)} is a usage error`, async () => {
+    const cli = makeCli(() => jsonResponse(fx.requestList));
+    assert.equal(await run(["--base-url", value, "request", "list"], cli.deps), 1);
+    assert.equal(cli.mt.calls.length, 0);
+    assert.match(cli.err.join("\n"), message);
+  });
+}
+
+test("--base-url with a path prefix still works", async () => {
+  const cli = makeCli(() => jsonResponse(fx.requestList));
+  assert.equal(await run(["--base-url", "https://mirror.example/fds/", "request", "list"], cli.deps), 0);
+  assert.equal(new URL(cli.mt.last().url).pathname, "/fds/api/v1/request/");
+});
