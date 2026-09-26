@@ -143,5 +143,5 @@ fragdenstaat classification list --q "Grundschule"
 fragdenstaat publicbody list --classification 642 --jurisdiction 14 --csv -o schools.csv
 
 # Full message thread of a request
-fragdenstaat request get 374948 | jq '.messages[] | {kind, is_response, subject}'
+fragdenstaat request get 34126 | jq '.messages[] | {kind, is_response, subject}'
 ```

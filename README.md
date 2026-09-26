@@ -47,7 +47,7 @@ fragdenstaat request search --q "Videoüberwachung" --limit 5
 fragdenstaat request list --status resolved --resolution successful --jurisdiction 1 --limit 10
 
 # One request in full, including its message thread
-fragdenstaat request get 374948
+fragdenstaat request get 34126
 
 # Which authority handles a topic? (name -> id, then profile)
 fragdenstaat publicbody autocomplete "Umweltbundesamt"
