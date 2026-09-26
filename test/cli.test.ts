@@ -583,3 +583,16 @@ test("a --base-url password is redacted in API error messages", async () => {
   // The request itself still carries the userinfo (Basic auth for a protected mirror).
   assert.match(cli.mt.last().url, /u:s3cret@/);
 });
+
+// Exploratory test 2026-09-26, finding 12: a non-Latin-1 User-Agent.
+test("a non-Latin-1 --user-agent is a usage error; Latin-1 and tab pass", async () => {
+  const cli = makeCli(() => jsonResponse(fx.jurisdictionList));
+  assert.equal(await run(["--user-agent", "agent☃", "jurisdiction", "list"], cli.deps), 1);
+  assert.equal(cli.mt.calls.length, 0);
+  assert.match(cli.err.join("\n"), /Value contains characters outside Latin-1 \(above U\+00FF\)\./);
+  assert.doesNotMatch(cli.err.join("\n"), /Unexpected error/);
+
+  const ok = makeCli(() => jsonResponse(fx.jurisdictionList));
+  assert.equal(await run(["--user-agent", "agentü\tx", "jurisdiction", "list"], ok.deps), 0);
+  assert.equal(ok.mt.last().headers?.["User-Agent"], "agentü\tx");
+});
