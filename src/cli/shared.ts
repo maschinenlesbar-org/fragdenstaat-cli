@@ -206,6 +206,7 @@ function writeOutput(deps: CliDeps, global: GlobalOptions, path: string, data: B
   try {
     deps.io.writeFile(path, data, !global.force);
   } catch (err) {
+    if (err instanceof FdsError) throw err; // already a clean message (a directory)
     if ((err as NodeJS.ErrnoException | undefined)?.code === "EEXIST") {
       throw new FdsError(`refusing to overwrite existing file ${path} (use --force)`, {
         cause: err,

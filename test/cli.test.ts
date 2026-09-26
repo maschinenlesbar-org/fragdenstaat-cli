@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { run } from "../src/cli/run.js";
 import { FragDenStaatClient } from "../src/client/client.js";
+import { FdsError } from "../src/client/errors.js";
 import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
 import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
@@ -595,4 +596,13 @@ test("a non-Latin-1 --user-agent is a usage error; Latin-1 and tab pass", async 
   const ok = makeCli(() => jsonResponse(fx.jurisdictionList));
   assert.equal(await run(["--user-agent", "agentü\tx", "jurisdiction", "list"], ok.deps), 0);
   assert.equal(ok.mt.last().headers?.["User-Agent"], "agentü\tx");
+});
+
+test("a directory error from writeFile is printed as is, without the --force hint", async () => {
+  const cli = makeCli(() => jsonResponse(fx.requestList));
+  cli.deps.io.writeFile = () => {
+    throw new FdsError('"/tmp" is a directory; give a file path to --output.');
+  };
+  assert.equal(await run(["-o", "/tmp", "request", "list"], cli.deps), 1);
+  assert.equal(cli.err.join("\n"), 'Error: "/tmp" is a directory; give a file path to --output.');
 });
