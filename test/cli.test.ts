@@ -528,3 +528,12 @@ test("bidi controls in server data are escaped in the JSON output", async () => 
   assert.match(cli.out.join(""), /a\\u202eb\\u2066c/);
   assert.deepEqual(JSON.parse(cli.out.join("")).title, served.title);
 });
+
+test("--max-retries above 10 is a usage error", async () => {
+  const cli = makeCli(() => jsonResponse(fx.requestList));
+  assert.equal(await run(["--max-retries", "99999999999999", "request", "list"], cli.deps), 1);
+  assert.equal(cli.mt.calls.length, 0);
+  assert.match(cli.err.join("\n"), /Must be <= 10\./);
+  const ok = makeCli(() => jsonResponse(fx.requestList));
+  assert.equal(await run(["--max-retries", "10", "request", "list"], ok.deps), 0);
+});

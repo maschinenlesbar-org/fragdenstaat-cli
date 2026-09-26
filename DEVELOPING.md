@@ -119,8 +119,11 @@ When in doubt, trust the live API, not the schema.
   (only `/api/v1/user/` is auth-gated, and it is not wrapped). Anonymous responses are
   inherently filtered to public objects; message drafts are excluded and
   `content_hidden` messages come back with blanked content.
-- **No published rate limit** and **no `Retry-After`** header. The engine still
-  retries transient `429`/`503` with linear backoff (defensive), and sends a
+- **No published rate limit** and **no `Retry-After`** header seen so far. The engine
+  still retries transient `429`/`503` (defensive): it waits a `Retry-After` when one
+  comes (delay-seconds or an IMF-fixdate, `parseRetryAfter`), does not retry at all
+  when that asks for more than `MAX_RETRY_AFTER_MS` (30 s), and otherwise backs off
+  linearly (200/400 ms). `maxRetries` is capped at `MAX_RETRIES` (10). It sends a
   descriptive `User-Agent` (`fragdenstaat-cli`). Be a good citizen when paging.
 - **Filter-name quirks** (verified live): `request list` uses **plural**
   `--categories` and `--public-body`; `publicbody list` uses **singular** `--category`

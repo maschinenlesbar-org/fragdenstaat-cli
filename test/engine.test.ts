@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { RequestEngine, isBidiControl, sanitizeServerText } from "../src/client/engine.js";
+import { RequestEngine, isBidiControl, parseRetryAfter, sanitizeServerText } from "../src/client/engine.js";
 import { FdsApiError, FdsNetworkError, FdsParseError } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
 import * as fx from "./fixtures.js";
@@ -161,4 +161,56 @@ test("sanitizeServerText keeps printable text and folds whitespace", () => {
   assert.equal(sanitizeServerText("  a\r\n\tb\u0085c‏d  "), "a bcd");
   assert.equal(isBidiControl(0x202e), true);
   assert.equal(isBidiControl(0x0041), false);
+});
+
+// Exploratory test 2026-09-26, finding 8: Retry-After and the retry bound.
+function retryEngine(retryAfter: string | undefined, maxRetries = 2) {
+  const delays: number[] = [];
+  const mt = makeMockTransport(() => ({
+    status: 429,
+    headers: retryAfter === undefined ? {} : { "retry-after": retryAfter },
+    body: Buffer.from('{"detail":"slow down"}'),
+  }));
+  const e = new RequestEngine({
+    transport: mt.transport,
+    maxRetries,
+    sleep: async (ms) => {
+      delays.push(ms);
+    },
+  });
+  return { e, mt, delays };
+}
+
+test("a 429 with Retry-After waits the server's delay", async () => {
+  const { e, mt, delays } = retryEngine("1");
+  await assert.rejects(e.getJson("/api/v1/request/"), FdsApiError);
+  assert.deepEqual(delays, [1000, 1000]);
+  assert.equal(mt.calls.length, 3);
+});
+
+test("a malformed Retry-After falls back to linear backoff", async () => {
+  for (const bad of ["-1", "1.5", "1e3", "0x10", "Wed, 21 Oct 2026 07:28:00 +0000", ""]) {
+    const { e, delays } = retryEngine(bad);
+    await assert.rejects(e.getJson("/api/v1/request/"), FdsApiError);
+    assert.deepEqual(delays, [200, 400], bad);
+  }
+});
+
+test("a Retry-After beyond 30 s is not retried at all", async () => {
+  for (const long of ["31", "99999999999", "Fri, 01 Jan 2100 00:00:00 GMT"]) {
+    const { e, mt, delays } = retryEngine(long);
+    await assert.rejects(e.getJson("/api/v1/request/"), /HTTP 429 .*: slow down/);
+    assert.equal(mt.calls.length, 1, long);
+    assert.deepEqual(delays, []);
+  }
+});
+
+test("parseRetryAfter reads seconds and IMF-fixdates only", () => {
+  const now = Date.parse("Sat, 26 Sep 2026 12:00:00 GMT");
+  assert.equal(parseRetryAfter("3", now), 3000);
+  assert.equal(parseRetryAfter([" 2 "], now), 2000);
+  assert.equal(parseRetryAfter("Sat, 26 Sep 2026 12:00:05 GMT", now), 5000);
+  assert.equal(parseRetryAfter("Sat, 26 Sep 2026 11:00:00 GMT", now), 0);
+  assert.equal(parseRetryAfter("Saturday, 26-Sep-26 12:00:05 GMT", now), undefined);
+  assert.equal(parseRetryAfter(undefined, now), undefined);
 });

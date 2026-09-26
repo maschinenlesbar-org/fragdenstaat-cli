@@ -96,7 +96,7 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
 | `--base-url <url>` | override the API base (default `https://fragdenstaat.de`) |
 | `--timeout <ms>` | per-request timeout (at most `2147483647`) |
 | `--user-agent <ua>` | override the `User-Agent` |
-| `--max-retries <n>` | retries for transient 429/503 |
+| `--max-retries <n>` | retries for transient 429/503 (0..10; each waits the server's `Retry-After`, up to 30 s) |
 | `--max-response-bytes <n>` | cap the response body size (0 = unlimited) |
 | `--compact` | single-line JSON |
 | `-o, --output <file>` | write JSON (or CSV with `--csv`) to a file instead of stdout |
