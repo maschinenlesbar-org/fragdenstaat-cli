@@ -5,6 +5,7 @@ import { FragDenStaatClient } from "../src/client/client.js";
 import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
 import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
+import { countCsvRows } from "../src/cli/shared.js";
 import * as fx from "./fixtures.js";
 
 function makeCli(responder: (req: HttpRequest) => HttpResponse) {
@@ -429,3 +430,33 @@ for (const { input, argv } of blankCases) {
     assert.equal(cli.mt.calls.length, 0);
   });
 }
+
+// Exploratory test 2026-09-26, finding 1: a CSV body has no total_count / next, so
+// a full page must say that it may not be the whole dataset.
+test("a full CSV page notes on stderr that there may be more rows", async () => {
+  const rows = Array.from({ length: 50 }, (_, i) => `${i + 1},"Zeile\nmit Umbruch",resolved`);
+  const body = `id,title,status\r\n${rows.join("\r\n")}\r\n`;
+  const cli = makeCli(() => rawResponse(body, "text/csv"));
+  const code = await run(["--output", "/tmp/p.csv", "document", "list", "--offset", "100", "--csv"], cli.deps);
+  assert.equal(code, 0);
+  assert.match(
+    cli.err.join("\n"),
+    /Note: the CSV holds one page, rows 101-150; there may be more\. .*--offset 150/,
+  );
+});
+
+test("a CSV page shorter than --limit gets no paging note", async () => {
+  const cli = makeCli(() => rawResponse(fx.csvBody, "text/csv"));
+  assert.equal(await run(["publicbody", "search", "--q", "x", "--limit", "5", "--csv"], cli.deps), 0);
+  assert.doesNotMatch(cli.err.join("\n"), /Note:/);
+  const full = makeCli(() => rawResponse(fx.csvBody, "text/csv"));
+  assert.equal(await run(["request", "search", "--q", "x", "--limit", "2", "--csv"], full.deps), 0);
+  assert.match(full.err.join("\n"), /rows 1-2; there may be more/);
+});
+
+test("countCsvRows counts records outside quotes, minus the header", () => {
+  assert.equal(countCsvRows(""), 0);
+  assert.equal(countCsvRows("a,b\r\n"), 0);
+  assert.equal(countCsvRows('a,b\r\n1,"x\r\ny ""q"""\r\n2,z'), 2);
+  assert.equal(countCsvRows("a,b\n1,2\n2,3\n"), 2);
+});

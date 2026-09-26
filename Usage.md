@@ -6,7 +6,8 @@ for the authoritative, always-current flag list. Global options
 `--compact`, `-o/--output`) work on every command.
 
 Conventions: `list`/`search` accept `--offset <n>` and `--limit <1..50>`; where the
-server supports it they also accept `--csv` (streams the flattened CSV export).
+server supports it they also accept `--csv` (streams the flattened CSV export of
+that one page — at most 50 rows, no `total_count`; a full page prints a stderr note).
 IDs are numeric — resolve names via `autocomplete`/`list --q` first
 (`category autocomplete` returns names only; use `category list --q` for category ids).
 
@@ -131,7 +132,8 @@ fragdenstaat document get <id>        # includes pages[]
 fragdenstaat --compact request list --jurisdiction 1 --status resolved --resolution successful --limit 1 \
   | grep -o '"total_count":[0-9]*'
 
-# All Grundschule public bodies in a jurisdiction, to CSV
+# Grundschule public bodies in a jurisdiction, to CSV (one page of up to 50 rows;
+# a full page prints a stderr note, fetch the next one with --offset 50)
 fragdenstaat classification list --q "Grundschule"
 fragdenstaat publicbody list --classification 642 --jurisdiction 14 --csv -o schools.csv
 

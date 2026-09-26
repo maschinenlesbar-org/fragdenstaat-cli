@@ -97,7 +97,10 @@ When in doubt, trust the live API, not the schema.
   returns a flattened CSV (nested objects become dotted columns). Exposed as `--csv`
   on `list`/`search` commands via `client.<resource>.listCsv()` (`getRaw`). Note:
   `?format=csv` combined with an `Accept: application/json` header 406s, so the CSV
-  path negotiates `Accept: text/csv` explicitly. `format=xml` 404s everywhere;
+  path negotiates `Accept: text/csv` explicitly. A CSV response is **one page**
+  (`limit` capped at 50, like JSON) and carries no `total_count`/`next`, so
+  `renderCsvPage` (`shared.ts`) counts the data rows (quote-aware) and prints a
+  stderr note when the page came back full. `format=xml` 404s everywhere;
   `format=jsonp` works on some resources only — neither is wrapped.
 - **Two error-body shapes** (`engine.ts` handles both):
   `{"detail": "<message>"}` for 404/406/format errors, and

@@ -8,10 +8,10 @@ import {
   parseNonEmpty,
   parseNonNegativeNumber,
   pruneUndefined,
+  renderCsvPage,
   renderJson,
-  renderRaw,
 } from "../shared.js";
-import { addList, addGet, asBool } from "./common.js";
+import { CSV_HELP, addList, addGet, asBool } from "./common.js";
 import type { QueryParams } from "../../client/query.js";
 import { RequestStatusValues, RequestResolutionValues } from "../../client/enums.js";
 
@@ -104,12 +104,12 @@ export function registerRequestCommands(program: Command, deps: CliDeps): void {
       .option("--q <text>", "full-text query", parseNonEmpty)
       .option("--jurisdiction <slug>", "restrict to a jurisdiction", parseNonEmpty)
       .option("--category <slug>", "restrict to a category", parseNonEmpty),
-  ).option("--csv", "output the server-rendered CSV export instead of JSON");
+  ).option("--csv", CSV_HELP);
   search.action(
     action(deps, async ({ client, global, opts }) => {
       const params: QueryParams = { ...buildSearchParams(opts), ...paginationParams(opts) };
       if (opts["csv"]) {
-        renderRaw(deps, global, await client.requests.searchCsv(params));
+        renderCsvPage(deps, global, await client.requests.searchCsv(params), params);
       } else {
         renderJson(deps, global, await client.requests.search(params));
       }

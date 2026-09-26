@@ -107,9 +107,9 @@ skills encode the non-obvious parts of this API, for example:
   before judging an outcome; only *public* objects are visible anonymously;
 - **`document --tag` needs a numeric tag id**, whereas **`request --tags` takes a tag
   name** — a mismatch 400s;
-- **`--csv`** streams the server's flattened export (dotted column names) for
-  datasets past the 50-row JSON cap; file-writing skills confirm the `-o` path and
-  report the row/byte count they wrote;
+- **`--csv`** streams the server's flattened export (dotted column names) — one
+  page of at most 50 rows, like JSON, so a whole dataset is paged with `--offset`;
+  file-writing skills confirm the `-o` path and report the row/byte count they wrote;
 - an empty match is `{"meta":{"total_count":0,…},"objects":[]}` and exits `0` — a
   valid answer, not an error; a missing id exits `4`.
 

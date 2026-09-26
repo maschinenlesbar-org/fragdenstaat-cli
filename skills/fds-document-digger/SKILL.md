@@ -109,9 +109,11 @@ Key `objects[]` fields:
 > - **All `document list` scope ids are numeric.** Resolve authority/collection/portal
 >   names to ids (Step 1) — passing a name silently matches nothing or 400s.
 > - **No `--campaign` on `document list`.** Go via requests (Step 1, Campaign).
-> - **`--limit` maxes at 50 on the JSON path.** For a *full* dataset use `--csv`
->   (Step 3); it streams every matching row server-side. For very large pulls still
->   page with `--offset`, or read `meta.total_count` to size the export first.
+> - **`--limit` maxes at 50, on the JSON *and* the CSV path.** `--csv` is one page
+>   too, not the whole dataset, and a CSV has no `total_count`. Read `meta.total_count`
+>   from the JSON output first, then page with `--offset` (Step 3). When a CSV page
+>   comes back full, the CLI prints a `Note: the CSV holds one page, rows …` line on
+>   stderr.
 > - **The CLI returns metadata/URLs, not the binary.** `file_url` points at the raw
 >   file on the server; downloading it (e.g. `curl "$file_url" -o doc.pdf`) is a
 >   separate step the CLI does not perform.
@@ -125,8 +127,10 @@ Key `objects[]` fields:
 ## Step 3 — Export a dataset to CSV
 
 Both `document list` and `request list` accept `--csv` to stream the
-**server-rendered, flattened CSV export** — the right tool for spreadsheets/pandas
-and for pulling a whole dataset past the 50-row JSON cap. Combine with `-o <file>`.
+**server-rendered, flattened CSV export** — the right tool for spreadsheets/pandas.
+Combine with `-o <file>`. **Each call returns one page of at most 50 rows**, like the
+JSON output: for a whole dataset, size it with `meta.total_count` and fetch one file
+per page with `--offset`.
 
 **This is a file-writing step. Before writing:** echo the resolved output path and,
 if the file already exists, confirm before overwriting rather than clobbering it
@@ -134,26 +138,38 @@ silently. **After writing:** report what was written — the CLI prints
 `Wrote N bytes to <path>` to stderr; surface that plus the row count.
 
 ```bash
-# All documents from one authority -> CSV
-fragdenstaat document list --publicbody 123 --csv -o authority-docs.csv
+# One authority's documents -> CSV, page by page (50 rows per file)
+total=$(fragdenstaat --compact document list --publicbody 123 --limit 1 | jq '.meta.total_count')
+for ((o = 0; o < total; o += 50)); do
+  fragdenstaat document list --publicbody 123 --offset "$o" --limit 50 --csv -o "authority-docs-$o.csv"
+done
 
-# All FOI requests about a topic -> CSV (request list, same --csv path)
+# FOI requests about a topic -> CSV (request list, same --csv path; first page only)
 # request --tags takes a tag NAME (string), not an id:
 fragdenstaat request list --tags lobbyismus --created-after 2024-01-01 --csv -o lobbying-requests.csv
 ```
+
+The page files can have different columns (only embedded objects such as
+`properties` become dotted columns, and a page without a key has no column for it),
+so join them by column name (pandas `concat`), not by stripping headers and
+appending lines. Confirm the file names before the loop, since each page is its own
+`-o` file.
 
 ## Worked example — export all documents from one authority
 
 1. Resolve the authority id:
    `fragdenstaat --compact publicbody autocomplete "Umweltbundesamt"` → `value: 875`.
-2. Size the pull (optional): `fragdenstaat --compact document list --publicbody 875 --limit 1`
-   and read `meta.total_count`.
-3. Confirm the output path (`./authority-docs.csv`); if it exists, ask before
-   overwriting.
-4. Export:
-   `fragdenstaat document list --publicbody 875 --csv -o authority-docs.csv`.
-5. Report: e.g. "Wrote 412 documents (287 KB) to `./authority-docs.csv`" — count the
-   data rows (subtract the header line) and echo the byte size the CLI reported.
+2. Size the pull: `fragdenstaat --compact document list --publicbody 875 --limit 1`
+   and read `meta.total_count` (say 188 → four pages of up to 50 rows).
+3. Confirm the output paths (`./authority-docs-0.csv` … `./authority-docs-150.csv`);
+   if any exists, ask before overwriting.
+4. Export each page:
+   `fragdenstaat document list --publicbody 875 --offset <o> --limit 50 --csv -o authority-docs-<o>.csv`
+   for `o` = 0, 50, 100, 150.
+5. Report: e.g. "Wrote 188 documents in 4 files (`./authority-docs-*.csv`)" — count
+   the data rows of each file (records, not lines: a quoted cell can hold a line
+   break), check the sum against `total_count`, and echo the byte sizes the CLI
+   reported.
 
 ## Republication note
 

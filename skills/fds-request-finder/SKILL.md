@@ -150,8 +150,9 @@ Success rate ≈ (`successful` + `partially_successful`) / resolved total. For a
 public body's track record, swap `--tags` for `--public-body <id>` (resolve the id
 first). Report the counts, the rate, and note it covers only public requests.
 
-For bulk analysis (pivot in a spreadsheet or pandas), stream the flattened CSV
-instead of paging JSON:
+For bulk analysis (pivot in a spreadsheet or pandas), stream the flattened CSV.
+It is one page of at most 50 rows, like JSON, so page with `--offset` for more
+(the CLI notes a full page on stderr):
 
 ```bash
 fragdenstaat request list --tags "Videoüberwachung" --status resolved --csv -o requests.csv

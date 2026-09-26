@@ -271,6 +271,61 @@ export function renderRaw(deps: CliDeps, global: GlobalOptions, response: RawRes
   }
 }
 
+/**
+ * The server's page size: the default and the maximum `limit` (larger values are
+ * silently clamped). A CSV export is one page, like the JSON output.
+ */
+export const SERVER_PAGE_SIZE = 50;
+
+/**
+ * Count the data rows of a CSV body: records outside quoted fields (a quoted cell
+ * may hold line breaks), minus the header line. A trailing record separator does
+ * not start a new record.
+ */
+export function countCsvRows(text: string): number {
+  let records = 0;
+  let inQuotes = false;
+  let pending = false; // characters seen since the last record separator
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"') {
+      inQuotes = !inQuotes; // an escaped "" toggles twice
+      pending = true;
+    } else if (c === "\n" && !inQuotes) {
+      records += 1;
+      pending = false;
+    } else if (c !== "\r") {
+      pending = true;
+    }
+  }
+  if (pending) records += 1;
+  return Math.max(0, records - 1);
+}
+
+/**
+ * Render a CSV page (`--csv`) like renderRaw, then — because a CSV body carries no
+ * `meta.total_count` or `next` link — tell the user on stderr when the page came
+ * back full, so a one-page file is never mistaken for the whole dataset.
+ */
+export function renderCsvPage(
+  deps: CliDeps,
+  global: GlobalOptions,
+  response: RawResponse,
+  params: QueryParams,
+): void {
+  renderRaw(deps, global, response);
+  const limit = typeof params["limit"] === "number" ? params["limit"] : SERVER_PAGE_SIZE;
+  const offset = typeof params["offset"] === "number" ? params["offset"] : 0;
+  const rows = countCsvRows(response.data.toString("utf8"));
+  if (rows > 0 && rows >= limit) {
+    deps.io.err(
+      `Note: the CSV holds one page, rows ${offset + 1}-${offset + rows}; there may be more. ` +
+        `The API sends at most ${SERVER_PAGE_SIZE} rows per request: fetch the next page with ` +
+        `--offset ${offset + rows}, or read meta.total_count from the JSON output (--limit 1).`,
+    );
+  }
+}
+
 export interface ActionContext {
   client: ReturnType<CliDeps["createClient"]>;
   global: GlobalOptions;

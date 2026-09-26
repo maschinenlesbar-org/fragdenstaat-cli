@@ -6,10 +6,10 @@ import {
   paginationParams,
   parseNonEmpty,
   pruneUndefined,
+  renderCsvPage,
   renderJson,
-  renderRaw,
 } from "../shared.js";
-import { addList, addGet, addAutocomplete } from "./common.js";
+import { CSV_HELP, addList, addGet, addAutocomplete } from "./common.js";
 import type { QueryParams } from "../../client/query.js";
 
 function addPublicBodyFilters(cmd: Command): Command {
@@ -64,12 +64,12 @@ export function registerPublicBodyCommands(program: Command, deps: CliDeps): voi
       .option("--jurisdiction <id>", "restrict to a jurisdiction id", parseNonEmpty)
       .option("--classification <id>", "restrict to a classification id", parseNonEmpty)
       .option("--category <id>", "restrict to a category id", parseNonEmpty),
-  ).option("--csv", "output the server-rendered CSV export instead of JSON");
+  ).option("--csv", CSV_HELP);
   search.action(
     action(deps, async ({ client, global, opts }) => {
       const params: QueryParams = { ...buildPublicBodyParams(opts), ...paginationParams(opts) };
       if (opts["csv"]) {
-        renderRaw(deps, global, await client.publicBodies.searchCsv(params));
+        renderCsvPage(deps, global, await client.publicBodies.searchCsv(params), params);
       } else {
         renderJson(deps, global, await client.publicBodies.search(params));
       }

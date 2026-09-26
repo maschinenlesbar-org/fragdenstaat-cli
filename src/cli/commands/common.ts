@@ -12,12 +12,16 @@ import {
   addPagination,
   paginationParams,
   parseNonEmpty,
+  renderCsvPage,
   renderJson,
-  renderRaw,
 } from "../shared.js";
 import { FdsError } from "../../client/errors.js";
 
 type Client = FragDenStaatClient;
+
+/** Help text of every `--csv` flag: the CSV is one page, like the JSON output. */
+export const CSV_HELP =
+  "output this page as the server-rendered CSV instead of JSON (one page of up to 50 rows; page with --offset)";
 
 /**
  * Coerce a commander boolean option to a boolean. The options are declared with an
@@ -52,7 +56,7 @@ export function addList(parent: Command, deps: CliDeps, spec: ListSpec): Command
   if (spec.addFilters) cmd = spec.addFilters(cmd);
   cmd = addPagination(cmd);
   if (spec.doListCsv) {
-    cmd = cmd.option("--csv", "output the server-rendered CSV export instead of JSON");
+    cmd = cmd.option("--csv", CSV_HELP);
   }
   cmd.action(
     action(deps, async ({ client, global, opts }) => {
@@ -61,7 +65,7 @@ export function addList(parent: Command, deps: CliDeps, spec: ListSpec): Command
         ...paginationParams(opts),
       };
       if (opts["csv"] && spec.doListCsv) {
-        renderRaw(deps, global, await spec.doListCsv(client, params));
+        renderCsvPage(deps, global, await spec.doListCsv(client, params), params);
       } else {
         renderJson(deps, global, await spec.doList(client, params));
       }

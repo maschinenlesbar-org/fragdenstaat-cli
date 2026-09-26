@@ -18,7 +18,9 @@ account, no config: the data is public and read-only.
 - **Zero runtime HTTP deps.** Built on `node:http`/`https`; the only runtime
   dependency is `commander`.
 - **JSON or CSV.** Pretty/compact JSON by default; `--csv` streams the server's
-  flattened CSV export for spreadsheets/pandas.
+  flattened CSV export for spreadsheets/pandas. A CSV export is one page (at most 50
+  rows) like the JSON output; the CSV has no `total_count`, so a full page gets a
+  stderr note, and you page with `--offset`.
 - **Library + CLI.** Import the typed `FragDenStaatClient`, or run `fragdenstaat`.
 
 > **This is a client, not the data.** It only accesses data served live by
@@ -55,7 +57,7 @@ fragdenstaat publicbody get 1
 fragdenstaat jurisdiction list
 fragdenstaat law list --jurisdiction 1 --q umwelt
 
-# Export a dataset to CSV
+# Export one page (up to 50 rows) to CSV; page with --offset for more
 fragdenstaat request list --status resolved --jurisdiction 1 --csv -o requests.csv
 ```
 
