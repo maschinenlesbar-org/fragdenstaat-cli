@@ -198,19 +198,46 @@ export class RequestEngine {
 }
 
 /**
- * Strip control/escape characters from server-supplied text that flows into an
- * error message printed to the terminal (stderr). Removes the C0 range, DEL, and
- * the C1 range; error messages are single-line, so CR/LF are dropped too. This is
- * a char-code filter (no control-char literals in source).
+ * True for the Unicode bidirectional formatting characters: ALM (U+061C), LRM/RLM
+ * (U+200E/U+200F), the embeddings and overrides U+202A–U+202E and the isolates
+ * U+2066–U+2069. A terminal applies them to the text that follows, so an override
+ * in server text can reorder what the user sees ("Trojan Source" spoofing).
  */
-function sanitizeServerText(text: string): string {
+export function isBidiControl(code: number): boolean {
+  return (
+    code === 0x061c ||
+    code === 0x200e ||
+    code === 0x200f ||
+    (code >= 0x202a && code <= 0x202e) ||
+    (code >= 0x2066 && code <= 0x2069)
+  );
+}
+
+/**
+ * Make a string that originates in an attacker-controlled response — the error
+ * `detail`, a redirect `Location`, the echoed Content-Type — safe to print into an
+ * error message on stderr:
+ *
+ * - C0 and C1 controls and DEL are dropped. A JSON error body can encode an escape
+ *   (U+001B) that JSON.parse turns into a real control byte; printed raw, a hostile
+ *   or MITM'd endpoint could drive ANSI/OSC sequences into the terminal.
+ * - Bidi formatting characters (isBidiControl) are dropped, so server text cannot
+ *   reorder the visible message.
+ * - Every run of whitespace — newlines, tabs, U+2028/U+2029 included — becomes one
+ *   space and the ends are trimmed, so the text stays on one line and a server
+ *   cannot forge an `Error:` line of its own.
+ *
+ * Written as a char-code filter so no raw control byte appears in this source.
+ */
+export function sanitizeServerText(text: string): string {
   let out = "";
   for (const ch of text) {
     const n = ch.codePointAt(0) ?? 0;
-    if (n <= 8 || (n >= 0x0b && n <= 0x1f) || (n >= 0x7f && n <= 0x9f)) continue;
+    const whitespaceControl = n >= 0x09 && n <= 0x0d;
+    if (!whitespaceControl && (n <= 0x1f || (n >= 0x7f && n <= 0x9f) || isBidiControl(n))) continue;
     out += ch;
   }
-  return out;
+  return out.replace(/\s+/g, " ").trim();
 }
 
 function firstString(value: unknown): string | undefined {

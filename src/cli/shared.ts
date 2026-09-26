@@ -4,7 +4,7 @@
 import { Command, InvalidArgumentError, Option } from "commander";
 import type { CliDeps } from "./io.js";
 import { FdsError } from "../client/errors.js";
-import type { EngineOptions, RawResponse } from "../client/engine.js";
+import { isBidiControl, sanitizeServerText, type EngineOptions, type RawResponse } from "../client/engine.js";
 import type { QueryParams } from "../client/query.js";
 
 /**
@@ -225,7 +225,8 @@ export function pruneUndefined<T extends Record<string, unknown>>(obj: T): Parti
 /**
  * Escape the control characters JSON.stringify leaves raw. It escapes C0 (including
  * ESC) but not DEL or the C1 range U+0080–U+009F, and terminals may act on those —
- * U+009B is the 8-bit form of CSI. The output is server data, so escape them; the
+ * U+009B is the 8-bit form of CSI. Bidi formatting characters (isBidiControl) are
+ * escaped too, so server text cannot reorder what the terminal shows. The output is server data, so escape them; the
  * result is equivalent, valid JSON (these characters only occur inside strings).
  * Checked by char code so the source stays free of control bytes.
  */
@@ -234,7 +235,7 @@ export function escapeControlChars(json: string): string {
   let from = 0;
   for (let i = 0; i < json.length; i++) {
     const c = json.charCodeAt(i);
-    if (c >= 0x7f && c <= 0x9f) {
+    if ((c >= 0x7f && c <= 0x9f) || isBidiControl(c)) {
       result += json.slice(from, i) + "\\u" + c.toString(16).padStart(4, "0");
       from = i + 1;
     }
@@ -300,7 +301,8 @@ function sanitizeTerminalText(text: string): string {
 }
 
 export function renderRaw(deps: CliDeps, global: GlobalOptions, response: RawResponse): void {
-  const typeNote = response.contentType ? ` (Content-Type: ${response.contentType})` : "";
+  const contentType = sanitizeServerText(response.contentType);
+  const typeNote = contentType ? ` (Content-Type: ${contentType})` : "";
   if (global.output) {
     // File path: write the server's bytes verbatim (only the terminal is at risk).
     writeOutput(deps, global, global.output, response.data);

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { RequestEngine } from "../src/client/engine.js";
+import { RequestEngine, isBidiControl, sanitizeServerText } from "../src/client/engine.js";
 import { FdsApiError, FdsNetworkError, FdsParseError } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
 import * as fx from "./fixtures.js";
@@ -140,4 +140,25 @@ test("throws FdsParseError on a non-JSON 2xx body", async () => {
     () => engine(mt.transport).getJson("/api/v1/request/"),
     (err) => err instanceof FdsParseError,
   );
+});
+
+// Exploratory test 2026-09-26, finding 7: LF/TAB and bidi in server text.
+test("error detail is one line without bidi controls", async () => {
+  const detail = "Not found\nFAKE: line\t x ‮evil⁦";
+  const mt = makeMockTransport(() => jsonResponse({ detail }, 404));
+  await assert.rejects(
+    () => engine(mt.transport).getJson("/api/v1/request/9/"),
+    (err) => {
+      assert.ok(err instanceof FdsApiError);
+      assert.equal(err.detail, "Not found FAKE: line x evil");
+      assert.equal(err.message.split("\n").length, 1);
+      return true;
+    },
+  );
+});
+
+test("sanitizeServerText keeps printable text and folds whitespace", () => {
+  assert.equal(sanitizeServerText("  a\r\n\tb\u0085c‏d  "), "a bcd");
+  assert.equal(isBidiControl(0x202e), true);
+  assert.equal(isBidiControl(0x0041), false);
 });

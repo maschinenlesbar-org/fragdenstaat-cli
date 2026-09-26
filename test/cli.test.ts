@@ -520,3 +520,11 @@ test("well-formed --latlng / --lnglat points are sent unchanged", async () => {
   assert.equal(await run(["publicbody", "list", "--lnglat", "-3,-45.5"], pb.deps), 0);
   assert.equal(new URL(pb.mt.last().url).searchParams.get("lnglat"), "-3,-45.5");
 });
+
+test("bidi controls in server data are escaped in the JSON output", async () => {
+  const served = { ...fx.requestDetail, title: "a‮b⁦c" };
+  const cli = makeCli(() => jsonResponse(served));
+  assert.equal(await run(["--compact", "request", "get", "1"], cli.deps), 0);
+  assert.match(cli.out.join(""), /a\\u202eb\\u2066c/);
+  assert.deepEqual(JSON.parse(cli.out.join("")).title, served.title);
+});

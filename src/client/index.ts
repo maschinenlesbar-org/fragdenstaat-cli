@@ -3,6 +3,8 @@ export { FragDenStaatClient, type AutocompleteItem } from "./client.js";
 export {
   RequestEngine,
   DEFAULT_BASE_URL,
+  isBidiControl,
+  sanitizeServerText,
   type EngineOptions,
   type RawResponse,
 } from "./engine.js";
