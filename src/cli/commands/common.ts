@@ -11,6 +11,7 @@ import {
   action,
   addPagination,
   paginationParams,
+  parseId,
   parseNonEmpty,
   renderCsvPage,
   renderJson,
@@ -83,7 +84,7 @@ export function addGet(
 ): Command {
   return parent
     .command("get")
-    .argument("<id>", "resource id (must be non-empty)", parseNonEmpty)
+    .argument("<id>", "numeric resource id", parseId)
     .description(description)
     .action(
       action(deps, async ({ client, global }, [id]) => {

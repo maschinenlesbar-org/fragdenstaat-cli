@@ -107,7 +107,8 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
   `--offset`. `meta.total_count` is the real total (search endpoints cap it at 10000).
 - **IDs are numeric.** Resolve a name to its id first via `autocomplete` or
   `list --q`, then filter by id. `category autocomplete` returns names, not ids; use
-  `category list --q` for categories.
+  `category list --q` for categories. `get <id>` accepts digits only; anything else is
+  a usage error before any request.
 - **Anonymous = public only.** `resolution` is empty until a request is `resolved`.
 - **Exit codes:** `0` success; `4` for a 404 (not found); `1` for any other API or
   runtime error. Errors print to stderr; stdout stays clean for piping.

@@ -56,6 +56,20 @@ export function parseNonEmpty(value: string): string {
 }
 
 /**
+ * commander value-parser for a resource id in a path (`get <id>`): every wrapped
+ * detail endpoint takes an integer id, so anything but digits is a usage error.
+ * Without this, `get .` / `get ..` were resolved as dot segments by URL parsing and
+ * printed the list endpoint or the API root with exit 0.
+ */
+export function parseId(value: string): string {
+  parseNonEmpty(value);
+  if (!/^\d+$/.test(value)) {
+    throw new InvalidArgumentError("Expected a numeric id (digits only).");
+  }
+  return value;
+}
+
+/**
  * commander value-parser for `--base-url`: a syntactically valid absolute URL
  * whose scheme is `http:` or `https:`. The transport already rejects other
  * schemes at request time, but doing it here — at parse time — matches the

@@ -114,3 +114,17 @@ test("the client rejects a non-http(s) base URL before any request", () => {
     assert.equal(mt.calls.length, 0);
   }
 });
+
+// Exploratory test 2026-09-26, finding 3: "." / ".." ids are dot segments.
+test("get('.') and get('..') are rejected before any request", async () => {
+  const { client: c, mt } = client(() => jsonResponse(fx.requestList));
+  await assert.rejects(c.requests.get("."), {
+    name: "FdsError",
+    message: 'Invalid path segment "." in /api/v1/request/./: "." and ".." cannot be used as an id.',
+  });
+  await assert.rejects(c.publicBodies.get(".."), /Invalid path segment "\.\."/);
+  assert.equal(mt.calls.length, 0);
+  // Other dotted ids are plain segments.
+  await c.laws.get("1.0");
+  assert.equal(new URL(mt.last().url).pathname, "/api/v1/law/1.0/");
+});

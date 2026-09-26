@@ -475,3 +475,20 @@ test("publicbody search --category is sent as categories; list keeps category", 
   assert.equal(lq.get("category"), "1");
   assert.equal(lq.has("categories"), false);
 });
+
+// Exploratory test 2026-09-26, finding 3: get ids are numeric.
+for (const id of [".", "..", "1.5", "0x10", "abc", " 1", "1e3"]) {
+  test(`get ${JSON.stringify(id)} is a usage error before any request`, async () => {
+    const cli = makeCli(() => jsonResponse(fx.requestList));
+    const code = await run(["request", "get", id], cli.deps);
+    assert.equal(code, 1);
+    assert.equal(cli.mt.calls.length, 0);
+    assert.match(cli.err.join("\n"), /Expected a numeric id \(digits only\)\./);
+  });
+}
+
+test("get with a numeric id requests the detail path", async () => {
+  const cli = makeCli(() => jsonResponse({ id: 34126 }));
+  assert.equal(await run(["publicbody", "get", "34126"], cli.deps), 0);
+  assert.equal(new URL(cli.mt.last().url).pathname, "/api/v1/publicbody/34126/");
+});

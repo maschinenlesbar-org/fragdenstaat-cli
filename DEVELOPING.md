@@ -88,6 +88,10 @@ When in doubt, trust the live API, not the schema.
   `engine.ts`, an `FdsNetworkError`), so a custom transport never receives a `file:`
   or `ftp:` URL; the default transport (`http.ts`) still re-checks the fully-built
   request URL as a backstop.
+- **`get <id>` takes digits only** (`parseId` in `shared.ts`; every wrapped detail
+  endpoint has an integer id in the OpenAPI description). For library callers the
+  engine's `buildUrl` rejects a `.`/`..` path segment, which `encodeURIComponent`
+  leaves alone and URL parsing would otherwise resolve to the list or the API root.
 - **`-o/--output` never silently overwrites.** The write opens exclusively (`wx`), so
   an existing file is refused with a clear "refusing to overwrite … (use --force)"
   error; pass `--force` to overwrite deliberately. This holds for both the JSON and
