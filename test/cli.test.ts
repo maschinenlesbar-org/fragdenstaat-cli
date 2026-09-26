@@ -571,3 +571,15 @@ test("--base-url with a path prefix still works", async () => {
   assert.equal(await run(["--base-url", "https://mirror.example/fds/", "request", "list"], cli.deps), 0);
   assert.equal(new URL(cli.mt.last().url).pathname, "/fds/api/v1/request/");
 });
+
+// Exploratory test 2026-09-26, finding 11: userinfo must not reach stderr.
+test("a --base-url password is redacted in API error messages", async () => {
+  const cli = makeCli(() => jsonResponse(fx.notFound, 404));
+  const code = await run(["--base-url", "http://u:s3cret@127.0.0.1:18115", "request", "get", "9"], cli.deps);
+  assert.equal(code, 4);
+  const err = cli.err.join("\n");
+  assert.doesNotMatch(err, /s3cret/);
+  assert.match(err, /HTTP 404 for GET http:\/\/\*\*\*@127\.0\.0\.1:18115\/api\/v1\/request\/9\//);
+  // The request itself still carries the userinfo (Basic auth for a protected mirror).
+  assert.match(cli.mt.last().url, /u:s3cret@/);
+});

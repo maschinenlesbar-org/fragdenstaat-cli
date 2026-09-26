@@ -15,7 +15,7 @@ export { MAX_TIMEOUT_MS, nodeHttpTransport } from "./http.js";
 export type { Transport, HttpRequest, HttpResponse } from "./http.js";
 export { buildQueryString } from "./query.js";
 export type { QueryParams, QueryValue, QueryPrimitive } from "./query.js";
-export { FdsError, FdsApiError, FdsNetworkError, FdsParseError } from "./errors.js";
+export { FdsError, FdsApiError, FdsNetworkError, FdsParseError, redactUrl } from "./errors.js";
 export * from "./types.js";
 export * from "./params.js";
 export * from "./enums.js";

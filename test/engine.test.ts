@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { RequestEngine, isBidiControl, parseRetryAfter, sanitizeServerText } from "../src/client/engine.js";
-import { FdsApiError, FdsNetworkError, FdsParseError } from "../src/client/errors.js";
+import { FdsApiError, FdsNetworkError, FdsParseError, redactUrl } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
 import * as fx from "./fixtures.js";
 
@@ -222,4 +222,14 @@ test("a base URL with a query or fragment is rejected at construction", () => {
       message: `Base URL must not contain a query or fragment: ${baseUrl}`,
     });
   }
+});
+
+test("redactUrl hides userinfo and leaves other URLs alone", () => {
+  assert.equal(redactUrl("https://u:p@h.example/x?q=1"), "https://***@h.example/x?q=1");
+  assert.equal(redactUrl("https://h.example/x"), "https://h.example/x");
+  assert.equal(redactUrl("not a url"), "not a url");
+  assert.throws(() => new RequestEngine({ baseUrl: "https://u:pw@h.example/?x=1" }), (err: Error) => {
+    assert.doesNotMatch(err.message, /pw/);
+    return true;
+  });
 });

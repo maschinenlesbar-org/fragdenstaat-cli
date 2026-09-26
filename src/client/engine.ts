@@ -4,7 +4,7 @@
 
 import { nodeHttpTransport, type Transport } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
-import { FdsApiError, FdsError, FdsNetworkError, FdsParseError } from "./errors.js";
+import { FdsApiError, FdsError, FdsNetworkError, FdsParseError, redactUrl } from "./errors.js";
 
 export const DEFAULT_BASE_URL = "https://fragdenstaat.de";
 const DEFAULT_USER_AGENT = "fragdenstaat-cli";
@@ -98,11 +98,11 @@ function assertHttpScheme(baseUrl: string): void {
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new FdsNetworkError(
-      `Unsupported protocol "${url.protocol}" in base URL: ${baseUrl}`,
+      `Unsupported protocol "${url.protocol}" in base URL: ${redactUrl(baseUrl)}`,
     );
   }
   if (/[?#]/.test(baseUrl)) {
-    throw new FdsNetworkError(`Base URL must not contain a query or fragment: ${baseUrl}`);
+    throw new FdsNetworkError(`Base URL must not contain a query or fragment: ${redactUrl(baseUrl)}`);
   }
 }
 
