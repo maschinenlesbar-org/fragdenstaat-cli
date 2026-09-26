@@ -79,8 +79,9 @@ When in doubt, trust the live API, not the schema.
   10000.
 - **Trailing slashes are mandatory** — a slashless path 301-redirects (Django
   `APPEND_SLASH`). Every client path ends in `/`, and the engine does **not** follow
-  redirects (a 3xx surfaces as an `FdsApiError`), so this matters. `http://`
-  likewise 301s to `https://`.
+  redirects (a 3xx surfaces as an `FdsApiError` whose message names the target:
+  `redirect to <Location> not followed`, the Location resolved, redacted and
+  sanitised), so this matters. `http://` likewise 301s to `https://`.
 - **`--base-url` scheme is validated at parse time** (`parseBaseUrl` in `shared.ts`):
   only `http:`/`https:` are accepted, with a commander usage error for anything else,
   matching the sibling repos' blueprint. For library callers who bypass the CLI, the

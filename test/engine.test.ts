@@ -255,3 +255,28 @@ test("invalid numeric engine options throw instead of disabling limits", () => {
   // Boundaries and 0 are fine.
   new RequestEngine({ timeoutMs: 0, maxResponseBytes: 0, maxRetries: 10, retryDelayMs: 30_000 });
 });
+
+// Exploratory test 2026-09-26, finding 19: a 3xx names its Location.
+test("a 3xx error names the redirect target it did not follow", async () => {
+  const redirect = (location?: string) =>
+    makeMockTransport(() => ({
+      status: 301,
+      headers: location === undefined ? {} : { location },
+      body: Buffer.from(""),
+    }));
+  const http = new RequestEngine({ baseUrl: "http://fragdenstaat.de", transport: redirect("https://fragdenstaat.de/api/v1/law/?limit=1").transport });
+  await assert.rejects(http.getJson("/api/v1/law/", { limit: 1 }), {
+    message:
+      "HTTP 301 for GET http://fragdenstaat.de/api/v1/law/?limit=1: redirect to https://fragdenstaat.de/api/v1/law/?limit=1 not followed",
+  });
+  const rel = engine(redirect("/x\n\u001b[2Jy").transport);
+  await assert.rejects(rel.getJson("/api/v1/law"), (err) => {
+    assert.ok(err instanceof FdsApiError);
+    assert.equal(err.location, "https://fragdenstaat.de/x%1B[2Jy");
+    return true;
+  });
+  const cred = engine(redirect("http://u:pw@evil.example/x").transport);
+  await assert.rejects(cred.getJson("/api/v1/law/"), /redirect to http:\/\/\*\*\*@evil\.example\/x not followed$/);
+  const none = engine(redirect().transport);
+  await assert.rejects(none.getJson("/api/v1/law/"), /: redirect not followed \(no Location header\)$/);
+});
