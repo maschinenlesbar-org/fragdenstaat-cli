@@ -10,6 +10,8 @@ existing file (`refusing to overwrite existing file … (use --force)`, exit 1);
 Conventions: `list`/`search` accept `--offset <n>` and `--limit <1..50>`; where the
 server supports it they also accept `--csv` (streams the flattened CSV export of
 that one page — at most 50 rows, no `total_count`; a full page prints a stderr note).
+Each filter and paging option takes one value: giving it twice is a usage error
+(only `document list --ids` accumulates repeats into one comma-separated list).
 IDs are numeric — resolve names via `autocomplete`/`list --q` first
 (`category autocomplete` returns names only; use `category list --q` for category ids).
 

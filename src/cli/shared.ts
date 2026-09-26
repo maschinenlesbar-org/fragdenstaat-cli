@@ -179,6 +179,43 @@ export function assertEnum<T extends string>(
   return value as T;
 }
 
+/**
+ * Wrap a commander value-parser for a single-valued option so that a second
+ * occurrence is a usage error. commander otherwise keeps only the last value, so
+ * `--status resolved --status asleep` silently dropped the first. (The option must
+ * have no default: commander passes the default as `previous` on the first
+ * occurrence.)
+ */
+export function once<T>(parse: (value: string) => T): (value: string, previous: T | undefined) => T {
+  return (value, previous) => {
+    if (previous !== undefined) {
+      throw new InvalidArgumentError("Given more than once; this option takes a single value.");
+    }
+    return parse(value);
+  };
+}
+
+/**
+ * `once` for the optional-value boolean filters (`--is-foi [bool]`): a repeated
+ * value is a usage error; the value itself is checked later by `asBool`.
+ */
+export const onceValue = once((value: string) => value);
+
+/**
+ * Wrap a commander value-parser for an option whose API parameter takes a
+ * comma-separated list (`--ids`): repeats accumulate, joined with ",", so
+ * `--ids 1 --ids 2` sends `ids=1,2` like `--ids 1,2` instead of keeping only the
+ * last value.
+ */
+export function commaList(
+  parse: (value: string) => string,
+): (value: string, previous: string | undefined) => string {
+  return (value, previous) => {
+    const parsed = parse(value);
+    return previous === undefined ? parsed : `${previous},${parsed}`;
+  };
+}
+
 /** commander value-parser/accumulator for repeatable string options. */
 export function collect(value: string, previous: string[] = []): string[] {
   return previous.concat([value]);
@@ -440,8 +477,8 @@ export function action(
 /** Add the shared offset/limit pagination options to a command. */
 export function addPagination(cmd: Command): Command {
   return cmd
-    .option("--offset <n>", "offset within the total dataset (>= 0)", parseIntArg)
-    .option("--limit <n>", "max number of results (1..50)", parseBoundedInt(1, 50));
+    .option("--offset <n>", "offset within the total dataset (>= 0)", once(parseIntArg))
+    .option("--limit <n>", "max number of results (1..50)", once(parseBoundedInt(1, 50)));
 }
 
 /** Add an Option constrained to a fixed set of choices. */
@@ -450,7 +487,10 @@ export function choiceOption(
   description: string,
   choices: readonly string[],
 ): Option {
-  return new Option(flags, description).choices([...choices]);
+  const option = new Option(flags, description).choices([...choices]);
+  // Keep commander's choice check (and the choices in --help), and reject a repeat.
+  const check = option.parseArg as (value: string, previous: unknown) => string;
+  return option.argParser(once((value: string) => check(value, undefined)));
 }
 
 /** Common list/pagination options resolved into Tastypie query params. */

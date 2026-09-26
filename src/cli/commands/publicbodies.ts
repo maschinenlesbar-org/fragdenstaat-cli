@@ -3,6 +3,7 @@ import type { CliDeps } from "../io.js";
 import {
   action,
   addPagination,
+  once,
   paginationParams,
   parseNonEmpty,
   parsePoint,
@@ -15,17 +16,17 @@ import type { QueryParams } from "../../client/query.js";
 
 function addPublicBodyFilters(cmd: Command): Command {
   return cmd
-    .option("--q <text>", "full-text query over name/description", parseNonEmpty)
-    .option("--jurisdiction <id>", "filter by jurisdiction id", parseNonEmpty)
-    .option("--classification <id>", "filter by classification id (subtree match)", parseNonEmpty)
-    .option("--classification-id <id>", "filter by exact classification id", parseNonEmpty)
-    .option("--category <id>", "filter by category id", parseNonEmpty)
-    .option("--regions <id>", "filter by geo-region id", parseNonEmpty)
-    .option("--slug <slug>", "filter by exact slug", parseNonEmpty)
+    .option("--q <text>", "full-text query over name/description", once(parseNonEmpty))
+    .option("--jurisdiction <id>", "filter by jurisdiction id", once(parseNonEmpty))
+    .option("--classification <id>", "filter by classification id (subtree match)", once(parseNonEmpty))
+    .option("--classification-id <id>", "filter by exact classification id", once(parseNonEmpty))
+    .option("--category <id>", "filter by category id", once(parseNonEmpty))
+    .option("--regions <id>", "filter by geo-region id", once(parseNonEmpty))
+    .option("--slug <slug>", "filter by exact slug", once(parseNonEmpty))
     .option(
       "--lnglat <lng,lat>",
       "filter to bodies whose regions contain a lng,lat point (not sorted by distance)",
-      parsePoint("lng,lat"),
+      once(parsePoint("lng,lat")),
     );
 }
 
@@ -75,10 +76,10 @@ export function registerPublicBodyCommands(program: Command, deps: CliDeps): voi
     pb
       .command("search")
       .description("Full-text search over public bodies")
-      .option("--q <text>", "full-text query", parseNonEmpty)
-      .option("--jurisdiction <id>", "restrict to a jurisdiction id", parseNonEmpty)
-      .option("--classification <id>", "restrict to a classification id", parseNonEmpty)
-      .option("--category <id>", "restrict to a category id", parseNonEmpty),
+      .option("--q <text>", "full-text query", once(parseNonEmpty))
+      .option("--jurisdiction <id>", "restrict to a jurisdiction id", once(parseNonEmpty))
+      .option("--classification <id>", "restrict to a classification id", once(parseNonEmpty))
+      .option("--category <id>", "restrict to a category id", once(parseNonEmpty)),
   ).option("--csv", CSV_HELP);
   search.action(
     action(deps, async ({ client, global, opts }) => {

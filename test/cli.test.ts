@@ -606,3 +606,46 @@ test("a directory error from writeFile is printed as is, without the --force hin
   assert.equal(await run(["-o", "/tmp", "request", "list"], cli.deps), 1);
   assert.equal(cli.err.join("\n"), 'Error: "/tmp" is a directory; give a file path to --output.');
 });
+
+// Exploratory test 2026-09-26, finding 17: a repeated filter kept only its last value.
+const repeated: string[][] = [
+  ["request", "list", "--status", "resolved", "--status", "asleep"],
+  ["request", "list", "--is-foi", "true", "--is-foi", "false"],
+  ["request", "list", "--checked", "--checked", "false"],
+  ["request", "list", "--jurisdiction", "1", "--jurisdiction", "2"],
+  ["request", "list", "--costs-min", "1", "--costs-min", "2"],
+  ["request", "list", "--limit", "5", "--limit", "6"],
+  ["request", "search", "--q", "a", "--q", "b"],
+  ["publicbody", "search", "--category", "1", "--category", "2"],
+  ["law", "list", "--jurisdiction", "1", "--jurisdiction", "2"],
+  ["message", "list", "--kind", "email", "--kind", "post"],
+  ["georegion", "list", "--latlng", "51,12", "--latlng", "52,13"],
+  ["document", "list", "--offset", "0", "--offset", "50"],
+];
+for (const argv of repeated) {
+  test(`repeating a single-valued option is a usage error: ${argv.slice(2).join(" ")}`, async () => {
+    const cli = makeCli(() => jsonResponse(fx.requestList));
+    assert.equal(await run(argv, cli.deps), 1);
+    assert.equal(cli.mt.calls.length, 0);
+    assert.match(cli.err.join("\n"), /Given more than once; this option takes a single value\./);
+  });
+}
+
+test("repeated --ids accumulate into one comma-separated value", async () => {
+  const cli = makeCli(() => jsonResponse(fx.requestList));
+  assert.equal(await run(["document", "list", "--ids", "1,2", "--ids", "3"], cli.deps), 0);
+  assert.equal(new URL(cli.mt.last().url).searchParams.get("ids"), "1,2,3");
+});
+
+test("choice options still reject an invalid value and list the choices in help", async () => {
+  const cli = makeCli(() => jsonResponse(fx.requestList));
+  assert.equal(await run(["message", "list", "--kind", "pigeon"], cli.deps), 1);
+  assert.match(cli.err.join("\n"), /Allowed choices are email/);
+  const help = makeCli(() => jsonResponse(fx.requestList));
+  assert.equal(await run(["message", "list", "--help"], help.deps), 0);
+  assert.match(help.out.join("\n"), /choices:\s+"email"/);
+  const ok = makeCli(() => jsonResponse(fx.requestList));
+  assert.equal(await run(["message", "list", "--kind", "email", "--is-response"], ok.deps), 0);
+  assert.equal(new URL(ok.mt.last().url).searchParams.get("kind"), "email");
+  assert.equal(new URL(ok.mt.last().url).searchParams.get("is_response"), "true");
+});
