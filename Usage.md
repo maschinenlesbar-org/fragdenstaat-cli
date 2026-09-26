@@ -3,7 +3,9 @@
 Full command reference for `fragdenstaat`. Run `fragdenstaat <group> <sub> --help`
 for the authoritative, always-current flag list. Global options
 (`--base-url`, `--timeout`, `--user-agent`, `--max-retries`, `--max-response-bytes`,
-`--compact`, `-o/--output`) work on every command.
+`--compact`, `-o/--output`, `--force`) work on every command. `-o` never overwrites an
+existing file (`refusing to overwrite existing file … (use --force)`, exit 1); add
+`--force` to overwrite it.
 
 Conventions: `list`/`search` accept `--offset <n>` and `--limit <1..50>`; where the
 server supports it they also accept `--csv` (streams the flattened CSV export of

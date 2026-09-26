@@ -159,7 +159,8 @@ It is one page of at most 50 rows, like JSON, so page with `--offset` for more
 fragdenstaat request list --tags "Videoüberwachung" --status resolved --csv -o requests.csv
 ```
 
-Confirm the output path before writing, and report the row count after.
+Confirm the output path before writing, and report the row count after. The CLI
+refuses to overwrite an existing `-o` file; add `--force` only once the user agrees.
 
 ## Republication note
 

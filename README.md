@@ -99,7 +99,8 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
 | `--max-retries <n>` | retries for transient 429/503 (0..10; each waits the server's `Retry-After`, up to 30 s) |
 | `--max-response-bytes <n>` | cap the response body size (0 = unlimited) |
 | `--compact` | single-line JSON |
-| `-o, --output <file>` | write JSON (or CSV with `--csv`) to a file instead of stdout |
+| `-o, --output <file>` | write JSON (or CSV with `--csv`) to a file instead of stdout; an existing file is refused |
+| `--force` | with `-o`, overwrite the output file if it already exists |
 
 ### Good to know
 

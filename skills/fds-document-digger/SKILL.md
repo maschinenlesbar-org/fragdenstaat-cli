@@ -134,7 +134,8 @@ per page with `--offset`.
 
 **This is a file-writing step. Before writing:** echo the resolved output path and,
 if the file already exists, confirm before overwriting rather than clobbering it
-silently. **After writing:** report what was written — the CLI prints
+silently. The CLI itself refuses an existing `-o` file (`refusing to overwrite
+existing file … (use --force)`, exit 1); add `--force` only once the user has agreed. **After writing:** report what was written — the CLI prints
 `Wrote N bytes to <path>` to stderr; surface that plus the row count.
 
 ```bash
