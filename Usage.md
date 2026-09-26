@@ -104,7 +104,10 @@ fragdenstaat georegion autocomplete <query>
 
 `--kind`: `country`, `state`, `admin_district`, `district`, `admin_cooperation`,
 `municipality`, `borough`, `zipcode`, `admin_court_jurisdiction`. `--latlng` is
-`lat,lng` (point-in-region lookup).
+`lat,lng` (point-in-region lookup), two decimal numbers with no space
+(`51.34,12.37`). The API ignores a point it cannot parse and returns every region, so
+the CLI rejects a malformed or out-of-range point (latitude beyond ±90, longitude
+beyond ±180) as a usage error; the same check applies to `publicbody --lnglat`.
 
 ## message — correspondence
 

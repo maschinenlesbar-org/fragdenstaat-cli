@@ -5,6 +5,7 @@ import {
   addPagination,
   paginationParams,
   parseNonEmpty,
+  parsePoint,
   pruneUndefined,
   renderCsvPage,
   renderJson,
@@ -24,7 +25,7 @@ function addPublicBodyFilters(cmd: Command): Command {
     .option(
       "--lnglat <lng,lat>",
       "filter to bodies whose regions contain a lng,lat point (not sorted by distance)",
-      parseNonEmpty,
+      parsePoint("lng,lat"),
     );
 }
 

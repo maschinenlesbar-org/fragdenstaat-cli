@@ -88,6 +88,10 @@ When in doubt, trust the live API, not the schema.
   `engine.ts`, an `FdsNetworkError`), so a custom transport never receives a `file:`
   or `ftp:` URL; the default transport (`http.ts`) still re-checks the fully-built
   request URL as a backstop.
+- **Points are validated** (`parsePoint` in `shared.ts`): `georegion --latlng` and
+  `publicbody --lnglat` must be two comma-separated decimals within ±90/±180 in the
+  flag's order. The API silently ignores an unparseable point (no 400) and returns
+  the whole table.
 - **`get <id>` takes digits only** (`parseId` in `shared.ts`; every wrapped detail
   endpoint has an integer id in the OpenAPI description). For library callers the
   engine's `buildUrl` rejects a `.`/`..` path segment, which `encodeURIComponent`

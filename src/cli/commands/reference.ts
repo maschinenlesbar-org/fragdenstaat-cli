@@ -4,7 +4,7 @@
 
 import { Command } from "commander";
 import type { CliDeps } from "../io.js";
-import { choiceOption, parseNonEmpty, pruneUndefined } from "../shared.js";
+import { choiceOption, parseNonEmpty, parsePoint, pruneUndefined } from "../shared.js";
 import { addList, addGet, addAutocomplete, asBool } from "./common.js";
 import type { QueryParams } from "../../client/query.js";
 import { GeoRegionKindValues } from "../../client/enums.js";
@@ -127,7 +127,7 @@ export function registerReferenceCommands(program: Command, deps: CliDeps): void
         .option("--slug <slug>", "filter by exact slug", parseNonEmpty)
         .option("--ancestor <id>", "filter to descendants of this region id", parseNonEmpty)
         .option("--id <id>", "filter by region id", parseNonEmpty)
-        .option("--latlng <lat,lng>", "point-in-region lookup for a lat,lng point", parseNonEmpty),
+        .option("--latlng <lat,lng>", "point-in-region lookup for a lat,lng point", parsePoint("lat,lng")),
     buildParams: buildGeoRegionParams,
     doList: (client, params) => client.georegions.list(params),
     doListCsv: (client, params) => client.georegions.listCsv(params),

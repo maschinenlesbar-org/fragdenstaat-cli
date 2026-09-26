@@ -492,3 +492,31 @@ test("get with a numeric id requests the detail path", async () => {
   assert.equal(await run(["publicbody", "get", "34126"], cli.deps), 0);
   assert.equal(new URL(cli.mt.last().url).pathname, "/api/v1/publicbody/34126/");
 });
+
+// Exploratory test 2026-09-26, finding 4: the API ignores an unparseable point.
+const badPoints: Array<[string[], string, RegExp]> = [
+  [["georegion", "list", "--latlng"], "abc", /Expected "lat,lng" as two decimal numbers/],
+  [["georegion", "list", "--latlng"], "51.34;12.37", /Expected "lat,lng"/],
+  [["georegion", "list", "--latlng"], "51.34, 12.37", /Expected "lat,lng"/],
+  [["georegion", "list", "--latlng"], "120.1,51.3", /Latitude 120\.1 is out of range/],
+  [["georegion", "list", "--latlng"], "51.3,181", /Longitude 181 is out of range/],
+  [["publicbody", "list", "--lnglat"], "abc", /Expected "lng,lat" as two decimal numbers/],
+  [["publicbody", "list", "--lnglat"], "12.37,91", /Latitude 91 is out of range .*lng,lat/],
+];
+for (const [argv, value, message] of badPoints) {
+  test(`${argv.join(" ")} ${JSON.stringify(value)} is a usage error before any request`, async () => {
+    const cli = makeCli(() => jsonResponse(fx.requestList));
+    assert.equal(await run([...argv, value], cli.deps), 1);
+    assert.equal(cli.mt.calls.length, 0);
+    assert.match(cli.err.join("\n"), message);
+  });
+}
+
+test("well-formed --latlng / --lnglat points are sent unchanged", async () => {
+  const geo = makeCli(() => jsonResponse(fx.requestList));
+  assert.equal(await run(["georegion", "list", "--latlng", "51.34,12.37"], geo.deps), 0);
+  assert.equal(new URL(geo.mt.last().url).searchParams.get("latlng"), "51.34,12.37");
+  const pb = makeCli(() => jsonResponse(fx.publicBodyList));
+  assert.equal(await run(["publicbody", "list", "--lnglat", "-3,-45.5"], pb.deps), 0);
+  assert.equal(new URL(pb.mt.last().url).searchParams.get("lnglat"), "-3,-45.5");
+});
