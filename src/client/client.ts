@@ -42,8 +42,9 @@ const enc = encodeURIComponent;
 
 /**
  * An `{ value, label }` autocomplete suggestion. `value` is an integer id for
- * public bodies / categories / laws / regions, but a tag-name string for request
- * tag autocomplete.
+ * public bodies, laws and geo-regions, but a **name string** for categories
+ * (`{"value":"Digitales","label":"Digitales"}`; use `categories.list({ q })` for a
+ * category id) and for request tags.
  */
 export interface AutocompleteItem {
   value: number | string;
