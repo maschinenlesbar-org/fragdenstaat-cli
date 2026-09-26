@@ -38,7 +38,8 @@ Start broad with `request search` to see what exists and harvest ids and tags:
 fragdenstaat --compact request search --q "Überwachungskameras" --limit 50
 ```
 
-`search` takes **slugs** for `--jurisdiction`/`--category` and a `--status`.
+`search` takes **slugs** for `--jurisdiction`/`--category` and has no `--status`
+(filter by status with `request list`, Step 2).
 Its `meta.total_count` is **capped at 10000** — treat a value of 10000 as "at least
 10000", not the exact total. For an exact count of a *filtered* set, use `request
 list` (see Step 2), whose `total_count` is the true filtered total.
