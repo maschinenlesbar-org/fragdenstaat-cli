@@ -649,3 +649,24 @@ test("choice options still reject an invalid value and list the choices in help"
   assert.equal(new URL(ok.mt.last().url).searchParams.get("kind"), "email");
   assert.equal(new URL(ok.mt.last().url).searchParams.get("is_response"), "true");
 });
+
+// Exploratory test 2026-09-26, finding 18: autocomplete pages like a list.
+for (const argv of [
+  ["publicbody", "autocomplete", "Amt"],
+  ["law", "autocomplete", "Umwelt"],
+  ["category", "autocomplete", "Digi"],
+  ["georegion", "autocomplete", "Leip"],
+  ["request", "tags", "lob"],
+]) {
+  test(`${argv.slice(0, 2).join(" ")} takes --offset/--limit`, async () => {
+    const cli = makeCli(() => jsonResponse(fx.requestList));
+    assert.equal(await run([...argv, "--offset", "50", "--limit", "5"], cli.deps), 0);
+    const q = new URL(cli.mt.last().url).searchParams;
+    assert.equal(q.get("q"), argv[2]);
+    assert.equal(q.get("offset"), "50");
+    assert.equal(q.get("limit"), "5");
+    const bad = makeCli(() => jsonResponse(fx.requestList));
+    assert.equal(await run([...argv, "--limit", "51"], bad.deps), 1);
+    assert.equal(bad.mt.calls.length, 0);
+  });
+}

@@ -118,13 +118,14 @@ export function registerRequestCommands(program: Command, deps: CliDeps): void {
     }),
   );
 
-  requests
-    .command("tags")
-    .argument("<query>", "tag name fragment to autocomplete (must be non-empty)", parseNonEmpty)
-    .description("Autocomplete request tag names")
-    .action(
-      action(deps, async ({ client, global }, [q]) => {
-        renderJson(deps, global, await client.requests.tagsAutocomplete(q!));
-      }),
-    );
+  addPagination(
+    requests
+      .command("tags")
+      .argument("<query>", "tag name fragment to autocomplete (must be non-empty)", parseNonEmpty)
+      .description("Autocomplete request tag names"),
+  ).action(
+    action(deps, async ({ client, global, opts }, [q]) => {
+      renderJson(deps, global, await client.requests.tagsAutocomplete(q!, paginationParams(opts)));
+    }),
+  );
 }

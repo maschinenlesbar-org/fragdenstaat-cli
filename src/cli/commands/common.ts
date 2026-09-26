@@ -7,6 +7,7 @@ import type { CliDeps } from "../io.js";
 import type { FragDenStaatClient } from "../../client/client.js";
 import type { RawResponse } from "../../client/engine.js";
 import type { QueryParams } from "../../client/query.js";
+import type { Pagination } from "../../client/params.js";
 import {
   action,
   addPagination,
@@ -93,20 +94,24 @@ export function addGet(
     );
 }
 
-/** Register an `autocomplete <query>` sub-command. */
+/**
+ * Register an `autocomplete <query>` sub-command. Suggestions page like any list
+ * (`meta.next`), so it takes `--offset`/`--limit` too.
+ */
 export function addAutocomplete(
   parent: Command,
   deps: CliDeps,
   description: string,
-  doAuto: (client: Client, q: string) => Promise<unknown>,
+  doAuto: (client: Client, q: string, page: Pagination) => Promise<unknown>,
 ): Command {
-  return parent
-    .command("autocomplete")
-    .argument("<query>", "text to autocomplete (must be non-empty)", parseNonEmpty)
-    .description(description)
-    .action(
-      action(deps, async ({ client, global }, [q]) => {
-        renderJson(deps, global, await doAuto(client, q!));
-      }),
-    );
+  return addPagination(
+    parent
+      .command("autocomplete")
+      .argument("<query>", "text to autocomplete (must be non-empty)", parseNonEmpty)
+      .description(description),
+  ).action(
+    action(deps, async ({ client, global, opts }, [q]) => {
+      renderJson(deps, global, await doAuto(client, q!, paginationParams(opts) as Pagination));
+    }),
+  );
 }

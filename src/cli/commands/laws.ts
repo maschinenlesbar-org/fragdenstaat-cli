@@ -38,5 +38,5 @@ export function registerLawCommands(program: Command, deps: CliDeps): void {
 
   addGet(law, deps, "Get one law by id", (client, id) => client.laws.get(id));
 
-  addAutocomplete(law, deps, "Autocomplete law names", (client, q) => client.laws.autocomplete(q));
+  addAutocomplete(law, deps, "Autocomplete law names", (client, q, page) => client.laws.autocomplete(q, page));
 }

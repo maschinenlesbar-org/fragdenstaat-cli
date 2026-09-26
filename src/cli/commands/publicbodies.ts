@@ -92,7 +92,7 @@ export function registerPublicBodyCommands(program: Command, deps: CliDeps): voi
     }),
   );
 
-  addAutocomplete(pb, deps, "Autocomplete public-body names", (client, q) =>
-    client.publicBodies.autocomplete(q),
+  addAutocomplete(pb, deps, "Autocomplete public-body names", (client, q, page) =>
+    client.publicBodies.autocomplete(q, page),
   );
 }

@@ -7,7 +7,8 @@ for the authoritative, always-current flag list. Global options
 existing file (`refusing to overwrite existing file … (use --force)`, exit 1); add
 `--force` to overwrite it.
 
-Conventions: `list`/`search` accept `--offset <n>` and `--limit <1..50>`; where the
+Conventions: `list`/`search` (and `autocomplete`/`request tags`) accept `--offset <n>`
+and `--limit <1..50>`; where the
 server supports it they also accept `--csv` (streams the flattened CSV export of
 that one page — at most 50 rows, no `total_count`; a full page prints a stderr note).
 Each filter and paging option takes one value: giving it twice is a usage error

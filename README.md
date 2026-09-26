@@ -85,7 +85,7 @@ Output is the Tastypie envelope:
 | `message` | `list` · `get <id>` | Correspondence within requests |
 | `document` | `list` · `get <id>` | Published documents from responses |
 
-`list`/`search` take `--offset`/`--limit` and (where the server supports it) `--csv`.
+`list`/`search`/`autocomplete` (and `request tags`) take `--offset`/`--limit` and (where the server supports it) `--csv`.
 Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
 [Usage.md](Usage.md).
 

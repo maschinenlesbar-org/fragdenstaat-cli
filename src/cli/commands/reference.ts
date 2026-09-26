@@ -74,8 +74,8 @@ export function registerReferenceCommands(program: Command, deps: CliDeps): void
     doListCsv: (client, params) => client.categories.listCsv(params),
   });
   addGet(cat, deps, "Get one category by id", (client, id) => client.categories.get(id));
-  addAutocomplete(cat, deps, "Autocomplete category names", (client, q) =>
-    client.categories.autocomplete(q),
+  addAutocomplete(cat, deps, "Autocomplete category names", (client, q, page) =>
+    client.categories.autocomplete(q, page),
   );
 
   // Classifications — the type/kind of public body (a tree). List (+ filters) + get.
@@ -135,7 +135,7 @@ export function registerReferenceCommands(program: Command, deps: CliDeps): void
   addGet(geo, deps, "Get one geo-region by id (includes geometry)", (client, id) =>
     client.georegions.get(id),
   );
-  addAutocomplete(geo, deps, "Autocomplete geo-region names", (client, q) =>
-    client.georegions.autocomplete(q),
+  addAutocomplete(geo, deps, "Autocomplete geo-region names", (client, q, page) =>
+    client.georegions.autocomplete(q, page),
   );
 }

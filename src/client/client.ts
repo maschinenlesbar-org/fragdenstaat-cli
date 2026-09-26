@@ -104,8 +104,8 @@ class RequestResource extends ListResource<FoiRequestListItem, RequestListParams
   }
 
   /** Autocomplete request tags. */
-  tagsAutocomplete(q: string): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/request/tags/autocomplete/", { q });
+  tagsAutocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
+    return this.e.getJson("/api/v1/request/tags/autocomplete/", { ...page, q } as QueryParams);
   }
 }
 
@@ -129,8 +129,8 @@ class PublicBodyResource extends ListResource<PublicBodyListItem, PublicBodyList
   }
 
   /** Autocomplete public-body names. */
-  autocomplete(q: string): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/publicbody/autocomplete/", { q });
+  autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
+    return this.e.getJson("/api/v1/publicbody/autocomplete/", { ...page, q } as QueryParams);
   }
 }
 
@@ -140,8 +140,8 @@ class LawResource extends ListResource<FoiLawListItem, LawListParams> {
     super(e, "/api/v1/law/");
   }
 
-  autocomplete(q: string): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/law/autocomplete/", { q });
+  autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
+    return this.e.getJson("/api/v1/law/autocomplete/", { ...page, q } as QueryParams);
   }
 }
 
@@ -151,8 +151,8 @@ class CategoryResource extends ListResource<CategoryListItem, TreeListParams> {
     super(e, "/api/v1/category/");
   }
 
-  autocomplete(q: string): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/category/autocomplete/", { q });
+  autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
+    return this.e.getJson("/api/v1/category/autocomplete/", { ...page, q } as QueryParams);
   }
 }
 
@@ -162,8 +162,8 @@ class GeoRegionResource extends ListResource<GeoRegionListItem, GeoRegionListPar
     super(e, "/api/v1/georegion/");
   }
 
-  autocomplete(q: string): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/georegion/autocomplete/", { q });
+  autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
+    return this.e.getJson("/api/v1/georegion/autocomplete/", { ...page, q } as QueryParams);
   }
 }
 
