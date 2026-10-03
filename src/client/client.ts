@@ -11,7 +11,19 @@
 
 import { RequestEngine, type EngineOptions, type RawResponse } from "./engine.js";
 import type { QueryParams } from "./query.js";
-import { normalizeResourceId } from "./validate.js";
+import {
+  booleanProblem,
+  normalizeResourceId,
+  oneOfProblem,
+  validateParams,
+  type ParamRules,
+} from "./validate.js";
+import {
+  GeoRegionKindValues,
+  MessageKindValues,
+  RequestResolutionValues,
+  RequestStatusValues,
+} from "./enums.js";
 import type {
   TastypieList,
   JsonObject,
@@ -53,6 +65,27 @@ export interface AutocompleteItem {
 const CSV_ACCEPT = "text/csv";
 
 /**
+ * Per-resource rules for the list filters the TypeScript types restrict but
+ * plain-JS callers (or JSON input) can still get wrong: enumerated values must be
+ * one of the `enums.ts` arrays, boolean filters real booleans.
+ */
+const REQUEST_LIST_RULES: ParamRules = {
+  status: oneOfProblem(RequestStatusValues),
+  resolution: oneOfProblem(RequestResolutionValues),
+  is_foi: booleanProblem,
+  checked: booleanProblem,
+  has_same: booleanProblem,
+};
+const LAW_LIST_RULES: ParamRules = { meta: booleanProblem };
+const TREE_LIST_RULES: ParamRules = { is_topic: booleanProblem };
+const MESSAGE_LIST_RULES: ParamRules = {
+  kind: oneOfProblem(MessageKindValues),
+  is_response: booleanProblem,
+  is_draft: booleanProblem,
+};
+const GEOREGION_LIST_RULES: ParamRules = { kind: oneOfProblem(GeoRegionKindValues) };
+
+/**
  * Generic Tastypie list/detail resource exposing `.list(params)` (the
  * `{ meta, objects }` envelope) and `.get(id)` (the bare detail object, returned
  * untyped as a faithful `JsonObject`).
@@ -61,21 +94,28 @@ class ListResource<T, P extends Pagination = Pagination> {
   constructor(
     protected readonly e: RequestEngine,
     protected readonly path: string,
+    private readonly rules: ParamRules = {},
   ) {}
 
-  list(params: P = {} as P): Promise<TastypieList<T>> {
-    return this.e.getJson(this.path, params as unknown as QueryParams);
+  /**
+   * Check the list params against this resource's rules (FdsValidationError on a
+   * bad value) and return them as the query to send.
+   */
+  protected listQuery(params: P): QueryParams {
+    validateParams(params, this.rules);
+    return params as unknown as QueryParams;
+  }
+
+  async list(params: P = {} as P): Promise<TastypieList<T>> {
+    return this.e.getJson(this.path, this.listQuery(params));
   }
 
   /**
    * The list endpoint as server-rendered CSV (nested objects flattened into
    * dotted columns). Returns the raw response for streaming to a file/stdout.
    */
-  listCsv(params: P = {} as P): Promise<RawResponse> {
-    return this.e.getRaw(this.path, CSV_ACCEPT, {
-      ...(params as unknown as QueryParams),
-      format: "csv",
-    });
+  async listCsv(params: P = {} as P): Promise<RawResponse> {
+    return this.e.getRaw(this.path, CSV_ACCEPT, { ...this.listQuery(params), format: "csv" });
   }
 
   /**
@@ -90,7 +130,7 @@ class ListResource<T, P extends Pagination = Pagination> {
 /** FOI requests, plus full-text search and tag autocomplete. */
 class RequestResource extends ListResource<FoiRequestListItem, RequestListParams> {
   constructor(e: RequestEngine) {
-    super(e, "/api/v1/request/");
+    super(e, "/api/v1/request/", REQUEST_LIST_RULES);
   }
 
   /** Full-text / faceted search over public requests. */
@@ -140,7 +180,7 @@ class PublicBodyResource extends ListResource<PublicBodyListItem, PublicBodyList
 /** FOI laws, plus name autocomplete. */
 class LawResource extends ListResource<FoiLawListItem, LawListParams> {
   constructor(e: RequestEngine) {
-    super(e, "/api/v1/law/");
+    super(e, "/api/v1/law/", LAW_LIST_RULES);
   }
 
   autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
@@ -151,7 +191,7 @@ class LawResource extends ListResource<FoiLawListItem, LawListParams> {
 /** Topical categories (a tree), plus name autocomplete. */
 class CategoryResource extends ListResource<CategoryListItem, TreeListParams> {
   constructor(e: RequestEngine) {
-    super(e, "/api/v1/category/");
+    super(e, "/api/v1/category/", TREE_LIST_RULES);
   }
 
   autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
@@ -162,7 +202,7 @@ class CategoryResource extends ListResource<CategoryListItem, TreeListParams> {
 /** Geographic regions, plus name autocomplete. */
 class GeoRegionResource extends ListResource<GeoRegionListItem, GeoRegionListParams> {
   constructor(e: RequestEngine) {
-    super(e, "/api/v1/georegion/");
+    super(e, "/api/v1/georegion/", GEOREGION_LIST_RULES);
   }
 
   autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
@@ -192,9 +232,9 @@ export class FragDenStaatClient {
     this.laws = new LawResource(this.engine);
     this.jurisdictions = new ListResource(this.engine, "/api/v1/jurisdiction/");
     this.categories = new CategoryResource(this.engine);
-    this.classifications = new ListResource(this.engine, "/api/v1/classification/");
+    this.classifications = new ListResource(this.engine, "/api/v1/classification/", TREE_LIST_RULES);
     this.campaigns = new ListResource(this.engine, "/api/v1/campaign/");
-    this.messages = new ListResource(this.engine, "/api/v1/message/");
+    this.messages = new ListResource(this.engine, "/api/v1/message/", MESSAGE_LIST_RULES);
     this.documents = new ListResource(this.engine, "/api/v1/document/");
     this.georegions = new GeoRegionResource(this.engine);
   }

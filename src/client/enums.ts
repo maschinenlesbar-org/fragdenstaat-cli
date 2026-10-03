@@ -1,5 +1,6 @@
-// Domain enum value sets for the FragDenStaat.de API. Each const array doubles as
-// a runtime CLI choice validator and as a TS union type. Values are taken from the
+// Domain enum value sets for the FragDenStaat.de API. Each const array is the
+// runtime choice list (the client's list-filter rules check values against it, and
+// the CLI offers it as the option's choices) and the source of a TS union type. Values are taken from the
 // upstream OpenAPI schema (drf-spectacular) and confirmed against the live API.
 
 /**

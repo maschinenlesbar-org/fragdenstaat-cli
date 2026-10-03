@@ -26,10 +26,14 @@ export {
 export {
   assertValid,
   assertNonBlankParams,
+  booleanProblem,
   isBlank,
   nonBlankProblem,
   normalizeResourceId,
+  oneOfProblem,
   resourceIdProblem,
+  validateParams,
+  type ParamRules,
   type Problem,
 } from "./validate.js";
 export * from "./types.js";

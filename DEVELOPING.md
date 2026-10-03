@@ -85,6 +85,13 @@ What the library rejects with `FdsValidationError`, before any request:
   (`resourceIdProblem`, `normalizeResourceId`); `"search"` or `"autocomplete"` would
   otherwise reach a list sub-endpoint and return its list envelope as a detail object,
   and `""`, `" 10 "`, `1.5`, `-1` or `NaN` would fail late on the server.
+- **Enum and boolean filters outside their set.** `list`/`listCsv` check request
+  `status`/`resolution`, message `kind` and geo-region `kind` against the `enums.ts`
+  arrays (`oneOfProblem`), and the boolean filters (`is_foi`, `checked`, `has_same`,
+  `meta`, `is_topic`, `is_response`, `is_draft`) for a real boolean (`booleanProblem`).
+  The per-resource tables live in `client.ts`; `validateParams` applies them. The CLI's
+  `choiceOption` offers the same arrays as choices, and `asBool` turns `"true"`/`"false"`
+  into the boolean.
 
 ## API-specific details (read this before "aligning" with the blueprint)
 

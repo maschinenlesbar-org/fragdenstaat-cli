@@ -114,3 +114,71 @@ test("parity: a numeric id fetches the same detail path", async () => {
   assertSameRequest(await parity(["request", "get", "42"], (t) => lib(t).requests.get("42")));
   assertSameRequest(await parity(["law", "get", "42"], (t) => lib(t).laws.get(42)));
 });
+
+// --- Finding 8 (PAT-12): enum and boolean list filters --------------------------
+
+/** An untyped params object, as plain-JS callers or JSON input would pass it. */
+const untyped = (params: Record<string, unknown>): any => params;
+
+test("parity: a value outside an enum filter's choices is rejected by CLI and library", async () => {
+  const r = await parity(["request", "list", "--status=Resolved"], (t) =>
+    lib(t).requests.list(untyped({ status: "Resolved" })),
+  );
+  assertBothReject(r);
+  assert.match(String((r.lib as { error: Error }).error.message), /^Invalid status: Allowed choices are awaiting_user_confirmation, /);
+  assertBothReject(
+    await parity(["request", "list", "--csv", "--status=Resolved"], (t) =>
+      lib(t).requests.listCsv(untyped({ status: "Resolved" })),
+    ),
+  );
+  assertBothReject(
+    await parity(["request", "list", "--resolution", "won"], (t) =>
+      lib(t).requests.list(untyped({ resolution: "won" })),
+    ),
+  );
+  assertBothReject(
+    await parity(["message", "list", "--kind", "Email"], (t) => lib(t).messages.list(untyped({ kind: "Email" }))),
+  );
+  assertBothReject(
+    await parity(["georegion", "list", "--kind", "State"], (t) =>
+      lib(t).georegions.list(untyped({ kind: "State" })),
+    ),
+  );
+  assertBothReject(
+    await parity(["request", "list", "--status", ""], (t) => lib(t).requests.list(untyped({ status: "" }))),
+  );
+});
+
+test("parity: a non-boolean value for a boolean filter is rejected by CLI and library", async () => {
+  assertBothReject(
+    await parity(["request", "list", "--is-foi=yes"], (t) => lib(t).requests.list(untyped({ is_foi: "yes" }))),
+    "Invalid is_foi: Expected a boolean (true or false).",
+  );
+  assertBothReject(
+    await parity(["request", "list", "--checked", ""], (t) => lib(t).requests.list(untyped({ checked: "" }))),
+  );
+  assertBothReject(
+    await parity(["law", "list", "--meta", "yes"], (t) => lib(t).laws.list(untyped({ meta: "yes" }))),
+  );
+  assertBothReject(
+    await parity(["category", "list", "--is-topic", "1"], (t) => lib(t).categories.list(untyped({ is_topic: "1" }))),
+  );
+  assertBothReject(
+    await parity(["message", "list", "--is-response", "no"], (t) =>
+      lib(t).messages.list(untyped({ is_response: "no" })),
+    ),
+  );
+});
+
+test("parity: valid enum and boolean filters are sent the same way", async () => {
+  assertSameRequest(
+    await parity(["request", "list", "--status=resolved", "--is-foi"], (t) =>
+      lib(t).requests.list({ status: "resolved", is_foi: true }),
+    ),
+  );
+  assertSameRequest(
+    await parity(["message", "list", "--kind", "email", "--is-response", "false"], (t) =>
+      lib(t).messages.list({ kind: "email", is_response: false }),
+    ),
+  );
+});

@@ -75,3 +75,34 @@ export const resourceIdProblem: Problem<unknown> = (id) => {
 export function normalizeResourceId(id: number | string): string {
   return String(assertValid("id", id, resourceIdProblem));
 }
+
+/**
+ * Rule for an enumerated filter: one of `allowed` (exact match). The message
+ * matches the CLI's choice check: `Allowed choices are a, b, c.`
+ */
+export function oneOfProblem(allowed: readonly string[]): Problem<unknown> {
+  return (value) =>
+    (allowed as readonly unknown[]).includes(value)
+      ? undefined
+      : `Allowed choices are ${allowed.join(", ")}.`;
+}
+
+/** Rule for a boolean filter: `true` or `false` (sent as the strings "true"/"false"). */
+export const booleanProblem: Problem<unknown> = (value) =>
+  typeof value === "boolean" ? undefined : "Expected a boolean (true or false).";
+
+/** The rules for a params object, by parameter name. */
+export type ParamRules = Readonly<Record<string, Problem<unknown>>>;
+
+/**
+ * Check every parameter that has a rule and a value (`undefined` and `null` mean
+ * "omitted"); throws FdsValidationError (`Invalid <param>: <reason>`) at the first
+ * problem. Parameters without a rule pass unchecked here.
+ */
+export function validateParams(params: object, rules: ParamRules): void {
+  const values = params as Record<string, unknown>;
+  for (const [name, problem] of Object.entries(rules)) {
+    const value = Object.prototype.hasOwnProperty.call(values, name) ? values[name] : undefined;
+    if (value !== undefined && value !== null) assertValid(name, value, problem);
+  }
+}

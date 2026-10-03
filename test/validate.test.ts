@@ -2,6 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   assertNonBlankParams,
+  booleanProblem,
+  oneOfProblem,
+  validateParams,
   assertValid,
   isBlank,
   nonBlankProblem,
@@ -106,5 +109,35 @@ test("normalizeResourceId returns the path segment or throws FdsValidationError"
   assert.throws(() => normalizeResourceId("search"), {
     name: "FdsValidationError",
     message: "Invalid id: Expected a numeric id (digits only).",
+  });
+});
+
+// --- enum and boolean filters (PAT-12) --------------------------------------------
+
+test("oneOfProblem accepts only the listed values, case-sensitively", () => {
+  const problem = oneOfProblem(["email", "post"]);
+  assert.equal(problem("email"), undefined);
+  for (const v of ["Email", "", "fax", 1, undefined]) {
+    assert.equal(problem(v), "Allowed choices are email, post.", String(v));
+  }
+  // An inherited Object.prototype name is not a choice.
+  assert.equal(problem("toString"), "Allowed choices are email, post.");
+});
+
+test("booleanProblem accepts only a boolean", () => {
+  assert.equal(booleanProblem(true), undefined);
+  assert.equal(booleanProblem(false), undefined);
+  for (const v of ["true", "yes", 1, 0, ""]) {
+    assert.equal(booleanProblem(v), "Expected a boolean (true or false).", String(v));
+  }
+});
+
+test("validateParams checks only the ruled fields that are present", () => {
+  const rules = { kind: oneOfProblem(["email"]), is_draft: booleanProblem };
+  assert.doesNotThrow(() => validateParams({ kind: "email", other: "x" }, rules));
+  assert.doesNotThrow(() => validateParams({ kind: undefined, is_draft: null }, rules));
+  assert.throws(() => validateParams({ is_draft: "no" }, rules), {
+    name: "FdsValidationError",
+    message: "Invalid is_draft: Expected a boolean (true or false).",
   });
 });
