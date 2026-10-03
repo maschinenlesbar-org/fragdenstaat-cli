@@ -100,6 +100,13 @@ What the library rejects with `FdsValidationError`, before any request:
 - **Malformed points.** Georegion `latlng` and publicbody `lnglat` (on `list`, `listCsv`,
   `search` and `searchCsv`) must be two comma-separated decimals, latitude within ±90
   and longitude within ±180 in the parameter's order (`pointProblem`).
+- **A bad `userAgent`.** The `RequestEngine` constructor (so `new FragDenStaatClient()`)
+  throws for a blank value, a control character other than tab (CR/LF would inject a
+  header into a custom transport), DEL or a code point above U+00FF
+  (`headerValueProblem`); only an omitted `userAgent` selects the default. The CLI's
+  `--user-agent` (`parseHeaderValue`) uses the same rule. As a backstop the default
+  transport turns Node's synchronous header-validation `TypeError` into an
+  `FdsNetworkError` (`Invalid request: ...`).
 
 ## API-specific details (read this before "aligning" with the blueprint)
 

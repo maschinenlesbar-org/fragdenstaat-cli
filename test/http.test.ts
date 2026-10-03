@@ -166,3 +166,16 @@ test("a slow-drip response is bounded by the wall-clock deadline", async () => {
   );
   for (const t of timers) clearInterval(t);
 });
+
+// Parity report finding 6: Node rejects a bad header value synchronously inside
+// driver.request(); that must surface as an FdsNetworkError, not a raw TypeError.
+test("a header value Node rejects becomes an FdsNetworkError", async () => {
+  await assert.rejects(
+    nodeHttpTransport({
+      method: "GET",
+      url: "http://127.0.0.1:9/",
+      headers: { "User-Agent": "a\r\nX-Evil: 1" },
+    }),
+    (err: unknown) => err instanceof FdsNetworkError && /Invalid request/.test(err.message),
+  );
+});

@@ -27,6 +27,7 @@ export {
   assertValid,
   assertNonBlankParams,
   booleanProblem,
+  headerValueProblem,
   isBlank,
   nonBlankProblem,
   normalizeResourceId,

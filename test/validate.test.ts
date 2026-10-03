@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   assertNonBlankParams,
+  headerValueProblem,
   pointProblem,
   limitProblem,
   offsetProblem,
@@ -196,4 +197,24 @@ test("pointProblem checks shape and range in the given axis order", () => {
   assert.equal(latlng("120,50"), "Latitude 120 is out of range (-90..90); the order is lat,lng.");
   assert.equal(latlng("50,181"), "Longitude 181 is out of range (-180..180); the order is lat,lng.");
   assert.equal(lnglat("51.34,120"), "Latitude 120 is out of range (-90..90); the order is lng,lat.");
+});
+
+// --- header values (PAT-5) -----------------------------------------------------------
+
+test("headerValueProblem accepts Latin-1 text with tabs", () => {
+  for (const v of ["fragdenstaat-cli", "a\tb", "caf\u00e9", "\u00ff"]) {
+    assert.equal(headerValueProblem(v), undefined, JSON.stringify(v));
+  }
+});
+
+test("headerValueProblem rejects blank, control characters and code points above U+00FF", () => {
+  assert.equal(headerValueProblem(""), "Expected a non-empty value.");
+  assert.equal(headerValueProblem(" \t"), "Expected a non-empty value.");
+  assert.equal(headerValueProblem(42), "Expected a non-empty value.");
+  for (const v of ["a\r\nb", "a\nb", "a\u0000b", "a\u007fb"]) {
+    assert.equal(headerValueProblem(v), "Value contains control characters.", JSON.stringify(v));
+  }
+  for (const v of ["agent\u2192", "\u20ac", "\u{1f600}"]) {
+    assert.equal(headerValueProblem(v), "Value contains characters outside Latin-1 (above U+00FF).", v);
+  }
 });

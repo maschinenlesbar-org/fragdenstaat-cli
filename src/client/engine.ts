@@ -5,7 +5,7 @@
 import { MAX_TIMEOUT_MS, nodeHttpTransport, type Transport } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
 import { FdsApiError, FdsError, FdsNetworkError, FdsParseError, redactUrl } from "./errors.js";
-import { assertNonBlankParams } from "./validate.js";
+import { assertNonBlankParams, assertValid, headerValueProblem } from "./validate.js";
 
 export const DEFAULT_BASE_URL = "https://fragdenstaat.de";
 const DEFAULT_USER_AGENT = "fragdenstaat-cli";
@@ -21,7 +21,10 @@ export interface EngineOptions {
   baseUrl?: string;
   /** Swappable transport. Defaults to the built-in node http/https transport. */
   transport?: Transport;
-  /** Value of the User-Agent header. */
+  /**
+   * Value of the User-Agent header (default `fragdenstaat-cli`): non-blank, Latin-1,
+   * no control characters but tab, or the constructor throws an FdsValidationError.
+   */
   userAgent?: string;
   /** Per-request timeout in milliseconds, 0..`MAX_TIMEOUT_MS` (2^31 - 1 ms); 0 disables. */
   timeoutMs?: number;
@@ -145,7 +148,12 @@ export class RequestEngine {
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
     assertHttpScheme(this.baseUrl);
     this.transport = options.transport ?? nodeHttpTransport;
-    this.userAgent = options.userAgent ?? DEFAULT_USER_AGENT;
+    // A blank, control-character or non-Latin-1 value is an FdsValidationError here,
+    // not a raw TypeError from Node at send time (or CR/LF handed to a custom transport).
+    this.userAgent =
+      options.userAgent === undefined
+        ? DEFAULT_USER_AGENT
+        : assertValid("userAgent", options.userAgent, headerValueProblem);
     this.timeoutMs = intOption("timeoutMs", options.timeoutMs, 30_000, MAX_TIMEOUT_MS);
     this.maxRetries = intOption("maxRetries", options.maxRetries, 2, MAX_RETRIES);
     this.retryDelayMs = intOption("retryDelayMs", options.retryDelayMs, 200, MAX_RETRY_AFTER_MS);

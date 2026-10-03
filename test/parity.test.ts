@@ -299,3 +299,34 @@ test("parity: a valid point is sent the same way", async () => {
     ),
   );
 });
+
+// --- Finding 6 (PAT-5): the User-Agent value -------------------------------------
+
+test("parity: a blank, control-character or non-Latin-1 User-Agent is rejected by CLI and library", async () => {
+  const withUa = (userAgent: string) => (t: Transport) =>
+    new FragDenStaatClient({ transport: t, userAgent }).laws.list({ limit: 1 });
+  assertBothReject(
+    await parity(["--user-agent", "", "law", "list", "--limit", "1"], withUa("")),
+    "Invalid userAgent: Expected a non-empty value.",
+  );
+  assertBothReject(await parity(["--user-agent", "  ", "law", "list"], withUa("  ")));
+  assertBothReject(
+    await parity(["--user-agent", "a\r\nX-Evil: 1", "law", "list"], withUa("a\r\nX-Evil: 1")),
+    "Invalid userAgent: Value contains control characters.",
+  );
+  assertBothReject(await parity(["--user-agent", "a\u007fb", "law", "list"], withUa("a\u007fb")));
+  assertBothReject(
+    await parity(["--user-agent", "agent→", "law", "list"], withUa("agent→")),
+    "Invalid userAgent: Value contains characters outside Latin-1 (above U+00FF).",
+  );
+});
+
+test("parity: a valid User-Agent is sent the same way", async () => {
+  const ua = "my-agent é\tx";
+  const r = await parity(["--user-agent", ua, "law", "list"], (t) =>
+    new FragDenStaatClient({ transport: t, userAgent: ua }).laws.list(),
+  );
+  assertSameRequest(r);
+  assert.equal(r.cli.requests[0]?.headers?.["User-Agent"], ua);
+  assert.equal(r.lib.requests[0]?.headers?.["User-Agent"], ua);
+});

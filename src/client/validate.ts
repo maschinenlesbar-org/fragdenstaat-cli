@@ -156,3 +156,20 @@ export function pointProblem(order: "lat,lng" | "lng,lat"): Problem<unknown> {
     return undefined;
   };
 }
+
+/**
+ * Rule for an HTTP header value (the User-Agent): a non-blank string with no C0
+ * control character other than tab (so no CR/LF header injection), no DEL and
+ * nothing above U+00FF. That is what Node's HTTP layer accepts; it throws an opaque
+ * "Invalid character in header content" for the rest. Checked by char code so the
+ * source stays free of control bytes.
+ */
+export const headerValueProblem: Problem<unknown> = (value) => {
+  if (typeof value !== "string" || isBlank(value)) return "Expected a non-empty value.";
+  for (let i = 0; i < value.length; i++) {
+    const c = value.charCodeAt(i);
+    if ((c < 0x20 && c !== 0x09) || c === 0x7f) return "Value contains control characters.";
+    if (c > 0xff) return "Value contains characters outside Latin-1 (above U+00FF).";
+  }
+  return undefined;
+};

@@ -7,6 +7,7 @@ import { FdsError } from "../client/errors.js";
 import { isBidiControl, sanitizeServerText, type EngineOptions, type RawResponse } from "../client/engine.js";
 import type { QueryParams } from "../client/query.js";
 import {
+  headerValueProblem,
   limitProblem,
   nonBlankProblem,
   offsetProblem,
@@ -133,25 +134,12 @@ export function parseNonNegativeNumber(value: string): number {
 }
 
 /**
- * commander value-parser for a value sent verbatim as an HTTP header (e.g.
- * User-Agent): non-empty, no control characters (CR/LF, NUL, DEL; tab is fine) and
- * nothing above U+00FF. That is exactly what Node's http layer accepts; anything
- * else it rejects at send time with an opaque "Invalid character in header
- * content" that would surface as "Unexpected error:". Checked by char code so the
- * source stays free of control bytes.
+ * commander value-parser for a value sent verbatim as an HTTP header (the
+ * User-Agent): the library's `headerValueProblem` rule (non-empty, no control
+ * characters but tab, nothing above U+00FF).
  */
 export function parseHeaderValue(value: string): string {
-  parseNonEmpty(value);
-  for (let i = 0; i < value.length; i++) {
-    const c = value.charCodeAt(i);
-    if ((c < 0x20 && c !== 0x09) || c === 0x7f) {
-      throw new InvalidArgumentError("Value contains control characters.");
-    }
-    if (c > 0xff) {
-      throw new InvalidArgumentError("Value contains characters outside Latin-1 (above U+00FF).");
-    }
-  }
-  return value;
+  return usageCheck(value, headerValueProblem);
 }
 
 /**

@@ -80,45 +80,54 @@ export const nodeHttpTransport: Transport = (request) =>
       }
     };
 
-    const req = driver.request(
-      url,
-      {
-        method: request.method,
-        headers: request.headers,
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        let received = 0;
-        let aborted = false;
+    // Node validates header names and values synchronously and throws a plain
+    // TypeError (ERR_INVALID_CHAR, ...); keep that inside the FdsError hierarchy.
+    let req: http.ClientRequest;
+    try {
+      req = driver.request(
+        url,
+        {
+          method: request.method,
+          headers: request.headers,
+        },
+        (res) => {
+          const chunks: Buffer[] = [];
+          let received = 0;
+          let aborted = false;
 
-        res.on("data", (chunk: Buffer) => {
-          if (aborted) return;
-          received += chunk.length;
-          if (maxBytes !== undefined && received > maxBytes) {
-            aborted = true;
-            clearDeadline();
-            res.destroy();
-            reject(new FdsNetworkError(`Response exceeded maxResponseBytes (${maxBytes})`));
-            return;
-          }
-          chunks.push(chunk);
-        });
-        res.on("end", () => {
-          if (aborted) return;
-          clearDeadline();
-          resolve({
-            status: res.statusCode ?? 0,
-            headers: res.headers,
-            body: Buffer.concat(chunks),
+          res.on("data", (chunk: Buffer) => {
+            if (aborted) return;
+            received += chunk.length;
+            if (maxBytes !== undefined && received > maxBytes) {
+              aborted = true;
+              clearDeadline();
+              res.destroy();
+              reject(new FdsNetworkError(`Response exceeded maxResponseBytes (${maxBytes})`));
+              return;
+            }
+            chunks.push(chunk);
           });
-        });
-        res.on("error", (err) => {
-          if (aborted) return; // we already rejected with the size-cap error
-          clearDeadline();
-          reject(new FdsNetworkError(`Response stream error: ${err.message}`, { cause: err }));
-        });
-      },
-    );
+          res.on("end", () => {
+            if (aborted) return;
+            clearDeadline();
+            resolve({
+              status: res.statusCode ?? 0,
+              headers: res.headers,
+              body: Buffer.concat(chunks),
+            });
+          });
+          res.on("error", (err) => {
+            if (aborted) return; // we already rejected with the size-cap error
+            clearDeadline();
+            reject(new FdsNetworkError(`Response stream error: ${err.message}`, { cause: err }));
+          });
+        },
+      );
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      reject(new FdsNetworkError(`Invalid request: ${reason}`, { cause: err }));
+      return;
+    }
 
     if (timeoutMs && timeoutMs > 0) {
       const timerMs = Math.min(timeoutMs, MAX_TIMEOUT_MS);
