@@ -6,7 +6,14 @@ import type { CliDeps } from "./io.js";
 import { FdsError } from "../client/errors.js";
 import { isBidiControl, sanitizeServerText, type EngineOptions, type RawResponse } from "../client/engine.js";
 import type { QueryParams } from "../client/query.js";
-import { nonBlankProblem, resourceIdProblem, type Problem } from "../client/validate.js";
+import {
+  limitProblem,
+  nonBlankProblem,
+  offsetProblem,
+  resourceIdProblem,
+  type Problem,
+} from "../client/validate.js";
+import { MAX_PAGE_SIZE } from "../client/params.js";
 
 /**
  * Parse a plain decimal integer literal exactly.
@@ -394,11 +401,6 @@ export function renderRaw(deps: CliDeps, global: GlobalOptions, response: RawRes
   }
 }
 
-/**
- * The server's page size: the default and the maximum `limit` (larger values are
- * silently clamped). A CSV export is one page, like the JSON output.
- */
-export const SERVER_PAGE_SIZE = 50;
 
 /**
  * Count the data rows of a CSV body: records outside quoted fields (a quoted cell
@@ -437,13 +439,13 @@ export function renderCsvPage(
   params: QueryParams,
 ): void {
   renderRaw(deps, global, response);
-  const limit = typeof params["limit"] === "number" ? params["limit"] : SERVER_PAGE_SIZE;
+  const limit = typeof params["limit"] === "number" ? params["limit"] : MAX_PAGE_SIZE;
   const offset = typeof params["offset"] === "number" ? params["offset"] : 0;
   const rows = countCsvRows(response.data.toString("utf8"));
   if (rows > 0 && rows >= limit) {
     deps.io.err(
       `Note: the CSV holds one page, rows ${offset + 1}-${offset + rows}; there may be more. ` +
-        `The API sends at most ${SERVER_PAGE_SIZE} rows per request: fetch the next page with ` +
+        `The API sends at most ${MAX_PAGE_SIZE} rows per request: fetch the next page with ` +
         `--offset ${offset + rows}, or read meta.total_count from the JSON output (--limit 1).`,
     );
   }
@@ -477,11 +479,21 @@ export function action(
   };
 }
 
+/** commander value-parser for `--offset`: the library's `offsetProblem` rule. */
+export function parseOffset(value: string): number {
+  return usageCheck(parseDecimalInt(value) ?? NaN, offsetProblem);
+}
+
+/** commander value-parser for `--limit`: the library's `limitProblem` rule (1..MAX_PAGE_SIZE). */
+export function parseLimit(value: string): number {
+  return usageCheck(parseDecimalInt(value) ?? NaN, limitProblem);
+}
+
 /** Add the shared offset/limit pagination options to a command. */
 export function addPagination(cmd: Command): Command {
   return cmd
-    .option("--offset <n>", "offset within the total dataset (>= 0)", once(parseIntArg))
-    .option("--limit <n>", "max number of results (1..50)", once(parseBoundedInt(1, 50)));
+    .option("--offset <n>", "offset within the total dataset (>= 0)", once(parseOffset))
+    .option("--limit <n>", `max number of results (1..${MAX_PAGE_SIZE})`, once(parseLimit));
 }
 
 /** Add an Option constrained to a fixed set of choices. */

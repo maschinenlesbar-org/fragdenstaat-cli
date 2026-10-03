@@ -92,6 +92,11 @@ What the library rejects with `FdsValidationError`, before any request:
   The per-resource tables live in `client.ts`; `validateParams` applies them. The CLI's
   `choiceOption` offers the same arrays as choices, and `asBool` turns `"true"`/`"false"`
   into the boolean.
+- **Out-of-range paging.** Every list, search and autocomplete method checks `limit`
+  (an integer in `1..MAX_PAGE_SIZE`, `limitProblem`) and `offset` (a non-negative safe
+  integer, `offsetProblem`). The server silently clamps a larger `limit` and `limit=0`
+  to 50, so a caller asking for 100 rows would get 50 without an error. `MAX_PAGE_SIZE`
+  (`params.ts`) is also the bound the CLI's `--limit` and its CSV page note use.
 
 ## API-specific details (read this before "aligning" with the blueprint)
 
@@ -109,9 +114,11 @@ When in doubt, trust the live API, not the schema.
   `law`/`public_body`/`messages`). List items are typed for the common scalar fields;
   nested/free-form sub-objects and all detail responses are `JsonValue`/`JsonObject`.
 - **`limit` is hard-capped at 50** by the server (anything larger, and `limit=0`, is
-  silently clamped). The CLI enforces `--limit 1..50` client-side (`addPagination`)
-  and users page with `--offset`. Search endpoints additionally cap `total_count` at
-  10000.
+  silently clamped). The library rejects a `limit` outside `1..MAX_PAGE_SIZE` (50) and
+  an `offset` that is not a non-negative integer (see
+  [Input validation](#input-validation)); the CLI's `--limit`/`--offset`
+  (`addPagination`) use the same rules, and users page with `--offset`. Search
+  endpoints additionally cap `total_count` at 10000.
 - **Trailing slashes are mandatory** — a slashless path 301-redirects (Django
   `APPEND_SLASH`). Every client path ends in `/`, and the engine does **not** follow
   redirects (a 3xx surfaces as an `FdsApiError` whose message names the target:

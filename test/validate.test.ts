@@ -2,6 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   assertNonBlankParams,
+  limitProblem,
+  offsetProblem,
+  validatePagination,
   booleanProblem,
   oneOfProblem,
   validateParams,
@@ -14,6 +17,7 @@ import {
 } from "../src/client/validate.js";
 import { FdsError, FdsValidationError } from "../src/client/errors.js";
 import * as library from "../src/index.js";
+import { MAX_PAGE_SIZE } from "../src/client/params.js";
 import { run } from "../src/cli/run.js";
 import type { CliDeps } from "../src/cli/io.js";
 import type { FragDenStaatClient } from "../src/client/client.js";
@@ -139,5 +143,38 @@ test("validateParams checks only the ruled fields that are present", () => {
   assert.throws(() => validateParams({ is_draft: "no" }, rules), {
     name: "FdsValidationError",
     message: "Invalid is_draft: Expected a boolean (true or false).",
+  });
+});
+
+// --- pagination (PAT-11) ----------------------------------------------------------
+
+test("MAX_PAGE_SIZE is the server's page cap and part of the public surface", () => {
+  assert.equal(MAX_PAGE_SIZE, 50);
+  assert.equal(library.MAX_PAGE_SIZE, 50);
+});
+
+test("limitProblem accepts an integer in 1..MAX_PAGE_SIZE", () => {
+  assert.equal(limitProblem(1), undefined);
+  assert.equal(limitProblem(50), undefined);
+  assert.equal(limitProblem(0), "Must be >= 1.");
+  assert.equal(limitProblem(-3), "Must be >= 1.");
+  assert.equal(limitProblem(51), "Must be <= 50.");
+  for (const v of [1.5, NaN, Infinity, 1e20, "5"]) assert.equal(limitProblem(v), "Expected an integer.", String(v));
+});
+
+test("offsetProblem accepts a non-negative safe integer", () => {
+  assert.equal(offsetProblem(0), undefined);
+  assert.equal(offsetProblem(10_000), undefined);
+  for (const v of [-1, 1.5, NaN, Infinity, 1e20, "5"]) {
+    assert.equal(offsetProblem(v), "Expected a non-negative integer.", String(v));
+  }
+});
+
+test("validatePagination checks offset and limit when present", () => {
+  assert.doesNotThrow(() => validatePagination({}));
+  assert.doesNotThrow(() => validatePagination({ offset: 0, limit: 50 }));
+  assert.throws(() => validatePagination({ limit: 100 }), {
+    name: "FdsValidationError",
+    message: "Invalid limit: Must be <= 50.",
   });
 });

@@ -7,7 +7,7 @@ import type { CliDeps } from "../io.js";
 import type { FragDenStaatClient } from "../../client/client.js";
 import type { RawResponse } from "../../client/engine.js";
 import type { QueryParams } from "../../client/query.js";
-import type { Pagination } from "../../client/params.js";
+import { MAX_PAGE_SIZE, type Pagination } from "../../client/params.js";
 import {
   action,
   addPagination,
@@ -23,7 +23,7 @@ type Client = FragDenStaatClient;
 
 /** Help text of every `--csv` flag: the CSV is one page, like the JSON output. */
 export const CSV_HELP =
-  "output this page as the server-rendered CSV instead of JSON (one page of up to 50 rows; page with --offset)";
+  `output this page as the server-rendered CSV instead of JSON (one page of up to ${MAX_PAGE_SIZE} rows; page with --offset)`;
 
 /**
  * Coerce a commander boolean option to a boolean. The options are declared with an

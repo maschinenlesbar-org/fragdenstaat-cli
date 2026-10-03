@@ -5,10 +5,18 @@
 
 import type { RequestStatus, RequestResolution, MessageKind, GeoRegionKind } from "./enums.js";
 
+/**
+ * The server's page size: the default and the largest `limit` it honours. It
+ * silently clamps a larger `limit` (and `limit=0`) to this, so the client rejects
+ * them instead.
+ */
+export const MAX_PAGE_SIZE = 50;
+
 /** Offset/limit pagination shared by every list endpoint. */
 export interface Pagination {
+  /** Position in the whole result set: a non-negative integer. */
   offset?: number;
-  /** Page size. The server caps this (see DEVELOPING.md); defaults server-side. */
+  /** Page size: an integer from 1 to `MAX_PAGE_SIZE` (50); defaults server-side to 50. */
   limit?: number;
 }
 

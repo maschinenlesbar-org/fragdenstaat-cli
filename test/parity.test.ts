@@ -182,3 +182,72 @@ test("parity: valid enum and boolean filters are sent the same way", async () =>
     ),
   );
 });
+
+// --- Finding 4 (PAT-11): offset/limit ranges -------------------------------------
+
+test("parity: a limit outside 1..50 is rejected by CLI and library", async () => {
+  assertBothReject(
+    await parity(["request", "list", "--limit", "500"], (t) => lib(t).requests.list({ limit: 500 })),
+    "Invalid limit: Must be <= 50.",
+  );
+  assertBothReject(
+    await parity(["request", "list", "--limit", "0"], (t) => lib(t).requests.list({ limit: 0 })),
+    "Invalid limit: Must be >= 1.",
+  );
+  assertBothReject(
+    await parity(["publicbody", "list", "--limit", "NaN"], (t) => lib(t).publicBodies.list({ limit: NaN })),
+    "Invalid limit: Expected an integer.",
+  );
+  assertBothReject(
+    await parity(["category", "list", "--csv", "--limit", "51"], (t) => lib(t).categories.listCsv({ limit: 51 })),
+  );
+  assertBothReject(
+    await parity(["law", "autocomplete", "x", "--limit", "51"], (t) => lib(t).laws.autocomplete("x", { limit: 51 })),
+  );
+  assertBothReject(
+    await parity(["publicbody", "search", "--q", "x", "--csv", "--limit", "1.5"], (t) =>
+      lib(t).publicBodies.searchCsv({ q: "x", limit: 1.5 }),
+    ),
+  );
+});
+
+test("parity: an offset that is not a non-negative integer is rejected by CLI and library", async () => {
+  assertBothReject(
+    await parity(["request", "list", "--offset", "-1"], (t) => lib(t).requests.list({ offset: -1 })),
+    "Invalid offset: Expected a non-negative integer.",
+  );
+  assertBothReject(
+    await parity(["request", "search", "--q", "x", "--offset", "1.5"], (t) =>
+      lib(t).requests.search({ q: "x", offset: 1.5 }),
+    ),
+  );
+  assertBothReject(
+    await parity(["campaign", "list", "--offset", "Infinity"], (t) => lib(t).campaigns.list({ offset: Infinity })),
+  );
+  assertBothReject(
+    await parity(["request", "list", "--offset", "100000000000000000000"], (t) =>
+      lib(t).requests.list({ offset: 1e20 }),
+    ),
+  );
+  assertBothReject(
+    await parity(["request", "tags", "x", "--offset", "-1"], (t) => lib(t).requests.tagsAutocomplete("x", { offset: -1 })),
+  );
+  assertBothReject(
+    await parity(["georegion", "autocomplete", "x", "--offset", "-1"], (t) =>
+      lib(t).georegions.autocomplete("x", { offset: -1 }),
+    ),
+  );
+});
+
+test("parity: an in-range page is sent the same way", async () => {
+  assertSameRequest(
+    await parity(["request", "list", "--limit", "50", "--offset", "100"], (t) =>
+      lib(t).requests.list({ offset: 100, limit: 50 }),
+    ),
+  );
+  assertSameRequest(
+    await parity(["category", "autocomplete", "x", "--limit", "1", "--offset", "0"], (t) =>
+      lib(t).categories.autocomplete("x", { offset: 0, limit: 1 }),
+    ),
+  );
+});

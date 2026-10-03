@@ -15,6 +15,7 @@ import {
   booleanProblem,
   normalizeResourceId,
   oneOfProblem,
+  validatePagination,
   validateParams,
   type ParamRules,
 } from "./validate.js";
@@ -86,6 +87,17 @@ const MESSAGE_LIST_RULES: ParamRules = {
 const GEOREGION_LIST_RULES: ParamRules = { kind: oneOfProblem(GeoRegionKindValues) };
 
 /**
+ * Check a params object — `offset`/`limit`, then the given rules — and return it as
+ * the query to send. Throws FdsValidationError; every caller runs inside an async
+ * method, so the error arrives as a rejection and no request is sent.
+ */
+function checkedQuery(params: Pagination, rules: ParamRules = {}): QueryParams {
+  validatePagination(params);
+  validateParams(params, rules);
+  return params as unknown as QueryParams;
+}
+
+/**
  * Generic Tastypie list/detail resource exposing `.list(params)` (the
  * `{ meta, objects }` envelope) and `.get(id)` (the bare detail object, returned
  * untyped as a faithful `JsonObject`).
@@ -102,8 +114,7 @@ class ListResource<T, P extends Pagination = Pagination> {
    * bad value) and return them as the query to send.
    */
   protected listQuery(params: P): QueryParams {
-    validateParams(params, this.rules);
-    return params as unknown as QueryParams;
+    return checkedQuery(params, this.rules);
   }
 
   async list(params: P = {} as P): Promise<TastypieList<T>> {
@@ -134,21 +145,18 @@ class RequestResource extends ListResource<FoiRequestListItem, RequestListParams
   }
 
   /** Full-text / faceted search over public requests. */
-  search(params: RequestSearchParams = {}): Promise<TastypieList<FoiRequestListItem>> {
-    return this.e.getJson("/api/v1/request/search/", params as QueryParams);
+  async search(params: RequestSearchParams = {}): Promise<TastypieList<FoiRequestListItem>> {
+    return this.e.getJson("/api/v1/request/search/", checkedQuery(params));
   }
 
   /** The full-text request search as server-rendered CSV. */
-  searchCsv(params: RequestSearchParams = {}): Promise<RawResponse> {
-    return this.e.getRaw("/api/v1/request/search/", CSV_ACCEPT, {
-      ...(params as QueryParams),
-      format: "csv",
-    });
+  async searchCsv(params: RequestSearchParams = {}): Promise<RawResponse> {
+    return this.e.getRaw("/api/v1/request/search/", CSV_ACCEPT, { ...checkedQuery(params), format: "csv" });
   }
 
   /** Autocomplete request tags. */
-  tagsAutocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/request/tags/autocomplete/", { ...page, q } as QueryParams);
+  async tagsAutocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
+    return this.e.getJson("/api/v1/request/tags/autocomplete/", { ...checkedQuery(page), q });
   }
 }
 
@@ -159,21 +167,18 @@ class PublicBodyResource extends ListResource<PublicBodyListItem, PublicBodyList
   }
 
   /** Full-text search over public bodies. */
-  search(params: PublicBodySearchParams = {}): Promise<TastypieList<PublicBodyListItem>> {
-    return this.e.getJson("/api/v1/publicbody/search/", params as QueryParams);
+  async search(params: PublicBodySearchParams = {}): Promise<TastypieList<PublicBodyListItem>> {
+    return this.e.getJson("/api/v1/publicbody/search/", checkedQuery(params));
   }
 
   /** The public-body search as server-rendered CSV. */
-  searchCsv(params: PublicBodySearchParams = {}): Promise<RawResponse> {
-    return this.e.getRaw("/api/v1/publicbody/search/", CSV_ACCEPT, {
-      ...(params as QueryParams),
-      format: "csv",
-    });
+  async searchCsv(params: PublicBodySearchParams = {}): Promise<RawResponse> {
+    return this.e.getRaw("/api/v1/publicbody/search/", CSV_ACCEPT, { ...checkedQuery(params), format: "csv" });
   }
 
   /** Autocomplete public-body names. */
-  autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/publicbody/autocomplete/", { ...page, q } as QueryParams);
+  async autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
+    return this.e.getJson("/api/v1/publicbody/autocomplete/", { ...checkedQuery(page), q });
   }
 }
 
@@ -183,8 +188,8 @@ class LawResource extends ListResource<FoiLawListItem, LawListParams> {
     super(e, "/api/v1/law/", LAW_LIST_RULES);
   }
 
-  autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/law/autocomplete/", { ...page, q } as QueryParams);
+  async autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
+    return this.e.getJson("/api/v1/law/autocomplete/", { ...checkedQuery(page), q });
   }
 }
 
@@ -194,8 +199,8 @@ class CategoryResource extends ListResource<CategoryListItem, TreeListParams> {
     super(e, "/api/v1/category/", TREE_LIST_RULES);
   }
 
-  autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/category/autocomplete/", { ...page, q } as QueryParams);
+  async autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
+    return this.e.getJson("/api/v1/category/autocomplete/", { ...checkedQuery(page), q });
   }
 }
 
@@ -205,8 +210,8 @@ class GeoRegionResource extends ListResource<GeoRegionListItem, GeoRegionListPar
     super(e, "/api/v1/georegion/", GEOREGION_LIST_RULES);
   }
 
-  autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/georegion/autocomplete/", { ...page, q } as QueryParams);
+  async autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
+    return this.e.getJson("/api/v1/georegion/autocomplete/", { ...checkedQuery(page), q });
   }
 }
 

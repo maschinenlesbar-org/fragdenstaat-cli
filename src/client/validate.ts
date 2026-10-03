@@ -6,6 +6,7 @@
 
 import { FdsValidationError } from "./errors.js";
 import type { QueryParams } from "./query.js";
+import { MAX_PAGE_SIZE, type Pagination } from "./params.js";
 
 /**
  * A validation rule: returns the reason `value` is invalid (one sentence, e.g.
@@ -105,4 +106,29 @@ export function validateParams(params: object, rules: ParamRules): void {
     const value = Object.prototype.hasOwnProperty.call(values, name) ? values[name] : undefined;
     if (value !== undefined && value !== null) assertValid(name, value, problem);
   }
+}
+
+/** Rule for `offset`: a non-negative safe integer. */
+export const offsetProblem: Problem<unknown> = (value) =>
+  typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+    ? undefined
+    : "Expected a non-negative integer.";
+
+/**
+ * Rule for `limit`: an integer from 1 to {@link MAX_PAGE_SIZE}. The server silently
+ * clamps anything larger, and `0`, to 50, so a caller asking for 100 rows would get
+ * 50 without an error (and a CSV page carries no `meta` to show it).
+ */
+export const limitProblem: Problem<unknown> = (value) => {
+  if (typeof value !== "number" || !Number.isSafeInteger(value)) return "Expected an integer.";
+  if (value < 1) return "Must be >= 1.";
+  if (value > MAX_PAGE_SIZE) return `Must be <= ${MAX_PAGE_SIZE}.`;
+  return undefined;
+};
+
+const PAGINATION_RULES: ParamRules = { offset: offsetProblem, limit: limitProblem };
+
+/** Check `offset` and `limit` (when present); throws FdsValidationError. */
+export function validatePagination(page: Pagination): void {
+  validateParams(page, PAGINATION_RULES);
 }

@@ -93,6 +93,7 @@ Zuständigkeit eines Landes liefert sie daher nicht.
   (Ausnahmen: das verschachtelte `public_body` einer Anfrage sowie Detail-Antworten, die
   `law`/`public_body`/`messages` direkt enthalten).
 - Die Seitengröße (`limit`) ist serverseitig **fest auf 50 begrenzt**; blättern Sie mit `offset`.
+  Der Client weist ein `limit` außerhalb von 1–50 zurück, statt es vom Server kappen zu lassen.
 - `redacted_description` und die `redacted_*`-Felder enthalten die geschwärzten Fassungen –
   verwenden Sie bevorzugt diese, wenn Sie Inhalte weiterveröffentlichen (der Datenbestand
   enthält personenbezogene Daten).

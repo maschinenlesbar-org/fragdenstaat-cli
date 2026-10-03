@@ -92,6 +92,7 @@ by a Land's jurisdiction does not return them.
 - Related resources are **hyperlinked** as absolute `resource_uri` URLs, not embedded
   (except a request's `public_body`, which is nested; and detail responses that inline
   `law`/`public_body`/`messages`).
-- Page size (`limit`) is **hard-capped at 50** by the server; page with `offset`.
+- Page size (`limit`) is **hard-capped at 50** by the server; page with `offset`. The
+  client rejects a `limit` outside 1–50 instead of letting the server clamp it.
 - `redacted_description` and `redacted_*` fields carry the redaction-safe variants —
   prefer them for republication (the corpus contains personal data).
