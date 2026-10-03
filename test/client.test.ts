@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { FragDenStaatClient } from "../src/client/client.js";
-import { FdsNetworkError } from "../src/client/errors.js";
+import { FdsValidationError } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
 import * as fx from "./fixtures.js";
 
@@ -109,7 +109,7 @@ test("the client rejects a non-http(s) base URL before any request", () => {
     const mt = makeMockTransport(() => jsonResponse(fx.lawList));
     assert.throws(
       () => new FragDenStaatClient({ baseUrl, transport: mt.transport }),
-      FdsNetworkError,
+      FdsValidationError,
     );
     assert.equal(mt.calls.length, 0);
   }

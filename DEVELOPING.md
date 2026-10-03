@@ -107,11 +107,17 @@ What the library rejects with `FdsValidationError`, before any request:
   `--user-agent` (`parseHeaderValue`) uses the same rule. As a backstop the default
   transport turns Node's synchronous header-validation `TypeError` into an
   `FdsNetworkError` (`Invalid request: ...`).
-- **Whitespace in `baseUrl`.** The constructor rejects a base URL with surrounding
-  whitespace, or whitespace or a control character inside it (`baseUrlSpaceProblem`),
-  checked on the raw value. `new URL()` trims and drops such characters, so the URL
-  check passed, but request paths are appended to the raw string: `"https://h/ "`
-  requested `/%20/api/v1/...`. The CLI's `parseBaseUrl` uses the same rule.
+- **A malformed `baseUrl`.** The constructor checks the raw value, before stripping
+  trailing slashes (`validateBaseUrl`, rule `baseUrlProblem`): no surrounding
+  whitespace and no whitespace or control character inside it (`baseUrlSpaceProblem`;
+  `new URL()` trims and drops such characters, so the URL check passed while request
+  paths were appended to the raw string and `"https://h/ "` requested
+  `/%20/api/v1/...`), parseable, an `http:`/`https:` scheme, and no query or fragment
+  (paths are appended as a string, so `?`/`#` would swallow every path). Userinfo is
+  allowed (Basic auth for a protected mirror) and redacted in every message. This is a
+  configuration error, so it is an `FdsValidationError`, not the transport's
+  `FdsNetworkError`. The CLI's `parseBaseUrl` calls the same `baseUrlProblem`, with the
+  same reasons.
 - **Non-numeric law id filters and bad cost amounts.** `laws.list`/`listCsv` take
   `jurisdiction`, `mediator` and `id` only as a non-negative integer or a digit string
   (`idFilterProblem`) and send them as numbers (`normalizeIdFilter`, `"007"` becomes
@@ -146,16 +152,15 @@ When in doubt, trust the live API, not the schema.
   redirects (a 3xx surfaces as an `FdsApiError` whose message names the target:
   `redirect to <Location> not followed`, the Location resolved, redacted and
   sanitised), so this matters. `http://` likewise 301s to `https://`.
-- **`--base-url` scheme is validated at parse time** (`parseBaseUrl` in `shared.ts`):
-  only `http:`/`https:` are accepted, with a commander usage error for anything else,
-  matching the sibling repos' blueprint. For library callers who bypass the CLI, the
-  engine rejects a non-http(s) base URL at construction (`assertHttpScheme` in
-  `engine.ts`, an `FdsNetworkError`), so a custom transport never receives a `file:`
-  or `ftp:` URL; the default transport (`http.ts`) still re-checks the fully-built
-  request URL as a backstop. Both also reject whitespace or control characters around
-  or inside the base URL (`baseUrlSpaceProblem`, an `FdsValidationError` in the
-  library), which `new URL()` would ignore while the engine appends paths to the raw
-  string.
+- **`--base-url` is validated at parse time** (`parseBaseUrl` in `shared.ts`) with
+  the library's `baseUrlProblem`, so a commander usage error names the value the user
+  passed: only `http:`/`https:`, no query or fragment, no whitespace or control
+  characters, matching the sibling repos' blueprint. Library callers who bypass the CLI
+  get the same rules from the `RequestEngine` constructor (`validateBaseUrl`, an
+  `FdsValidationError`; see [Input validation](#input-validation)), so a custom
+  transport never receives a `file:` or `ftp:` URL. The default transport (`http.ts`)
+  still re-checks the scheme of every fully-built request URL as a backstop, and that
+  per-hop check is an `FdsNetworkError`.
 - **Points are validated** by the library (`pointProblem`, see
   [Input validation](#input-validation)): georegion `latlng` and publicbody `lnglat`
   (`--latlng`/`--lnglat`, whose `parsePoint` uses the same rule) must be two

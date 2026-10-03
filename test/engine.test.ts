@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { RequestEngine, isBidiControl, parseRetryAfter, sanitizeServerText } from "../src/client/engine.js";
-import { FdsApiError, FdsNetworkError, FdsParseError, redactUrl } from "../src/client/errors.js";
+import { FdsApiError, FdsNetworkError, FdsParseError, FdsValidationError, redactUrl } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
 import * as fx from "./fixtures.js";
 
@@ -39,7 +39,10 @@ test("a non-http(s) base URL is rejected at construction, before any request", (
     const mt = makeMockTransport(() => jsonResponse(fx.lawList));
     assert.throws(
       () => new RequestEngine({ baseUrl, transport: mt.transport }),
-      (err: unknown) => err instanceof FdsNetworkError && /Unsupported protocol/.test(err.message),
+      (err: unknown) =>
+        err instanceof FdsValidationError &&
+        !(err instanceof FdsNetworkError) &&
+        /Unsupported protocol/.test(err.message),
     );
     assert.equal(mt.calls.length, 0);
   }
@@ -48,8 +51,8 @@ test("a non-http(s) base URL is rejected at construction, before any request", (
 test("an unparseable base URL is rejected at construction", () => {
   const mt = makeMockTransport(() => jsonResponse(fx.lawList));
   assert.throws(
-    () => new RequestEngine({ baseUrl: "not a url", transport: mt.transport }),
-    (err: unknown) => err instanceof FdsNetworkError && /Invalid base URL/.test(err.message),
+    () => new RequestEngine({ baseUrl: "not-a-url", transport: mt.transport }),
+    (err: unknown) => err instanceof FdsValidationError && err.message === 'Invalid baseUrl: Invalid URL "not-a-url".',
   );
 });
 
@@ -227,8 +230,8 @@ test("parseRetryAfter reads seconds and IMF-fixdates only", () => {
 test("a base URL with a query or fragment is rejected at construction", () => {
   for (const baseUrl of ["https://h.example/?x=1", "https://h.example/#f"]) {
     assert.throws(() => new RequestEngine({ baseUrl }), {
-      name: "FdsNetworkError",
-      message: `Base URL must not contain a query or fragment: ${baseUrl}`,
+      name: "FdsValidationError",
+      message: "Invalid baseUrl: A base URL cannot have a query (?) or fragment (#).",
     });
   }
 });

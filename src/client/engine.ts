@@ -4,8 +4,8 @@
 
 import { MAX_TIMEOUT_MS, nodeHttpTransport, type Transport } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
-import { FdsApiError, FdsError, FdsNetworkError, FdsParseError, redactUrl } from "./errors.js";
-import { assertNonBlankParams, assertValid, baseUrlSpaceProblem, headerValueProblem } from "./validate.js";
+import { FdsApiError, FdsError, FdsParseError, redactUrl } from "./errors.js";
+import { assertNonBlankParams, assertValid, headerValueProblem, validateBaseUrl } from "./validate.js";
 
 export const DEFAULT_BASE_URL = "https://fragdenstaat.de";
 const DEFAULT_USER_AGENT = "fragdenstaat-cli";
@@ -93,32 +93,6 @@ export function parseRetryAfter(
 }
 
 /**
- * Reject a base URL whose scheme is not http(s), or that has a query or fragment.
- * The default transport already gates the scheme per hop, but the engine is
- * exported as a library and may be handed a custom transport that does no such
- * check, so gate the configured base URL here too (a `file:`/`ftp:` base URL fails
- * fast with a typed error). Request paths are appended to the base URL as a string,
- * so a `?` or `#` in it would swallow every path: `http://h/?x=1` requests
- * `/?x=1/api/...` and `http://h/#f` requests `/`.
- */
-function assertHttpScheme(baseUrl: string): void {
-  let url: URL;
-  try {
-    url = new URL(baseUrl);
-  } catch {
-    throw new FdsNetworkError(`Invalid base URL: ${baseUrl}`);
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new FdsNetworkError(
-      `Unsupported protocol "${url.protocol}" in base URL: ${redactUrl(baseUrl)}`,
-    );
-  }
-  if (/[?#]/.test(baseUrl)) {
-    throw new FdsNetworkError(`Base URL must not contain a query or fragment: ${redactUrl(baseUrl)}`);
-  }
-}
-
-/**
  * Validate a numeric engine option: absent means the default; anything but a safe
  * integer in 0..max is a FdsError. Without this, a negative or NaN `timeoutMs`
  * silently disabled the timeout, a negative `maxResponseBytes` the size cap, and a
@@ -148,12 +122,11 @@ export class RequestEngine {
   private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(options: EngineOptions = {}) {
-    const baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
-    this.baseUrl = baseUrl.replace(/\/+$/, "");
-    assertHttpScheme(this.baseUrl);
-    // Whitespace is checked on the raw value: new URL() ignores it, and a trailing
-    // space would also defeat the trailing-slash strip above.
-    assertValid("baseUrl", baseUrl, baseUrlSpaceProblem);
+    // Checked on the raw value, before the trailing-slash strip: new URL() ignores
+    // whitespace, and a trailing space would defeat the strip. A malformed value is an
+    // FdsValidationError (a configuration error, not a transport failure); the default
+    // transport still re-checks each request URL's scheme as an FdsNetworkError.
+    this.baseUrl = validateBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL);
     this.transport = options.transport ?? nodeHttpTransport;
     // A blank, control-character or non-Latin-1 value is an FdsValidationError here,
     // not a raw TypeError from Node at send time (or CR/LF handed to a custom transport).

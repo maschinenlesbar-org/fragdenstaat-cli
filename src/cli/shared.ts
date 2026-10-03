@@ -8,7 +8,7 @@ import { isBidiControl, sanitizeServerText, type EngineOptions, type RawResponse
 import type { QueryParams } from "../client/query.js";
 import {
   amountProblem,
-  baseUrlSpaceProblem,
+  baseUrlProblem,
   headerValueProblem,
   idFilterProblem,
   limitProblem,
@@ -95,31 +95,14 @@ export function parsePoint(order: "lat,lng" | "lng,lat"): (value: string) => str
 }
 
 /**
- * commander value-parser for `--base-url`: a syntactically valid absolute URL
- * whose scheme is `http:` or `https:`. The transport already rejects other
- * schemes at request time, but doing it here — at parse time — matches the
- * sibling repos' blueprint: the error is about the value the user passed
- * (`ftp://x`), not the fully-built request URL, and it exits with commander's
- * usage exit code rather than surfacing later as a network error.
+ * commander value-parser for `--base-url`: the library's `baseUrlProblem` rule (an
+ * http(s) URL with no query, fragment, whitespace or control characters), the same
+ * check the `RequestEngine` constructor runs. Checking it here makes the error name
+ * the value the user passed and exit with commander's usage exit code. The raw value
+ * is returned; the engine strips trailing slashes.
  */
 export function parseBaseUrl(value: string): string {
-  let parsed: URL;
-  try {
-    parsed = new URL(value);
-  } catch {
-    throw new InvalidArgumentError(`Invalid URL "${value}".`);
-  }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new InvalidArgumentError(`Unsupported protocol "${parsed.protocol}" (use http or https).`);
-  }
-  // Paths are appended to the base URL as a string, so a query or fragment would
-  // swallow every request path ("http://h/#f" requests "/" for every command).
-  if (/[?#]/.test(value)) {
-    throw new InvalidArgumentError("A base URL cannot have a query (?) or fragment (#).");
-  }
-  // new URL() trims surrounding whitespace and drops tabs/newlines silently; the raw
-  // value is what the engine uses, so the library's rule rejects them.
-  return usageCheck(value, baseUrlSpaceProblem);
+  return usageCheck(value, baseUrlProblem);
 }
 
 /**

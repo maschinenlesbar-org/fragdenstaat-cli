@@ -4,7 +4,7 @@
 // a request; the CLI's commander parsers call the same Problem functions, so a
 // rule is written once and both layers reject exactly the same inputs.
 
-import { FdsValidationError } from "./errors.js";
+import { FdsValidationError, redactUrl } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import { MAX_PAGE_SIZE, type Pagination } from "./params.js";
 
@@ -189,6 +189,49 @@ export const baseUrlSpaceProblem: Problem<string> = (value) => {
   }
   return undefined;
 };
+
+/**
+ * Hide the userinfo of a URL that may not parse: {@link redactUrl} for a parseable
+ * one, else a textual `scheme://user:pw@` -> `scheme://***@` replacement.
+ */
+function redactAnyUrl(value: string): string {
+  const redacted = redactUrl(value);
+  return redacted !== value ? redacted : value.replace(/^([^:/?#\s]+:\/\/)[^/?#]*@/, "$1***@");
+}
+
+/**
+ * Rule for the base URL, in this order: a string; no whitespace or control
+ * characters ({@link baseUrlSpaceProblem}); parseable by `new URL()`; an `http:` or
+ * `https:` scheme; no query or fragment. Request paths are appended to the base URL
+ * as a string, so a `?` or `#` would swallow every path (`http://h/?x=1` requested
+ * `/?x=1/api/...`, `http://h/#f` requested `/`). Userinfo is allowed (Basic auth for
+ * a protected mirror) and never appears in a message.
+ */
+export const baseUrlProblem: Problem<unknown> = (value) => {
+  if (typeof value !== "string") return "Expected a URL string.";
+  const space = baseUrlSpaceProblem(value);
+  if (space !== undefined) return space;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return `Invalid URL "${redactAnyUrl(value)}".`;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return `Unsupported protocol "${url.protocol}" (use http or https).`;
+  }
+  if (/[?#]/.test(value)) return "A base URL cannot have a query (?) or fragment (#).";
+  return undefined;
+};
+
+/**
+ * Check a base URL with {@link baseUrlProblem} (throws FdsValidationError
+ * `Invalid baseUrl: ...`) and return it with trailing slashes stripped. The
+ * `RequestEngine` constructor runs it on the raw `baseUrl` option. Idempotent.
+ */
+export function validateBaseUrl(value: string): string {
+  return assertValid("baseUrl", value, baseUrlProblem).replace(/\/+$/, "");
+}
 
 /**
  * Rule for an id-valued filter that must be a number (the law filters

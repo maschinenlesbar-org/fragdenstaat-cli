@@ -409,3 +409,24 @@ test("parity: a valid cost filter is sent the same way", async () => {
     await parity(["request", "list", "--costs-max", "12.50"], (t) => lib(t).requests.list({ costs_max: 12.5 })),
   );
 });
+
+// --- Finding 9 (PAT-2): one base-URL rule set, a validation error --------------
+
+test("parity: a malformed base URL is rejected by CLI and library with the same reason", async () => {
+  const withBase = (baseUrl: string) => (t: Transport) =>
+    new FragDenStaatClient({ transport: t, baseUrl }).jurisdictions.list();
+  const cases: Array<[string, string]> = [
+    ["ftp://x.example", 'Unsupported protocol "ftp:" (use http or https).'],
+    ["file:///etc/passwd", 'Unsupported protocol "file:" (use http or https).'],
+    ["https://h.example/?q=1", "A base URL cannot have a query (?) or fragment (#)."],
+    ["https://h.example/#f", "A base URL cannot have a query (?) or fragment (#)."],
+    ["", 'Invalid URL "".'],
+    ["not-a-url", 'Invalid URL "not-a-url".'],
+    ["https://u:secret@h.example/?q", "A base URL cannot have a query (?) or fragment (#)."],
+  ];
+  for (const [baseUrl, reason] of cases) {
+    const r = await parity(["--base-url", baseUrl, "jurisdiction", "list"], withBase(baseUrl));
+    assertBothReject(r, `Invalid baseUrl: ${reason}`);
+    assert.ok(r.cli.err.includes(reason), `CLI reason for ${JSON.stringify(baseUrl)}: ${r.cli.err}`);
+  }
+});

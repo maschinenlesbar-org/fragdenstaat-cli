@@ -6,6 +6,8 @@ import {
   idFilterProblem,
   normalizeIdFilter,
   baseUrlSpaceProblem,
+  baseUrlProblem,
+  validateBaseUrl,
   headerValueProblem,
   pointProblem,
   limitProblem,
@@ -238,6 +240,35 @@ test("baseUrlSpaceProblem rejects surrounding and inner whitespace or control ch
       JSON.stringify(v),
     );
   }
+});
+
+// --- base URL rules (PAT-1, PAT-2) --------------------------------------------------
+
+test("baseUrlProblem accepts an http(s) URL and reports each malformed shape", () => {
+  for (const v of ["https://fragdenstaat.de", "http://127.0.0.1:8080/base/", "https://u:p@h.example/fds"]) {
+    assert.equal(baseUrlProblem(v), undefined, v);
+  }
+  assert.equal(baseUrlProblem(""), 'Invalid URL "".');
+  assert.equal(baseUrlProblem("not a url"), "A base URL cannot contain whitespace or control characters.");
+  assert.equal(baseUrlProblem("not-a-url"), 'Invalid URL "not-a-url".');
+  assert.equal(baseUrlProblem(" https://h"), "A base URL cannot have surrounding whitespace.");
+  assert.equal(baseUrlProblem("ftp://h"), 'Unsupported protocol "ftp:" (use http or https).');
+  assert.equal(baseUrlProblem("https://h/?x=1"), "A base URL cannot have a query (?) or fragment (#).");
+  assert.equal(baseUrlProblem("https://h/#f"), "A base URL cannot have a query (?) or fragment (#).");
+  assert.equal(baseUrlProblem(42), "Expected a URL string.");
+  // userinfo never reaches the message, even when the value does not parse.
+  assert.equal(baseUrlProblem("https://u:s3cret@[bad"), 'Invalid URL "https://***@[bad".');
+});
+
+test("validateBaseUrl strips trailing slashes and throws FdsValidationError", () => {
+  assert.equal(validateBaseUrl("https://h.example///"), "https://h.example");
+  assert.equal(validateBaseUrl("https://h.example/fds/"), "https://h.example/fds");
+  assert.equal(validateBaseUrl(validateBaseUrl("https://h.example/")), "https://h.example");
+  assert.throws(() => validateBaseUrl("ftp://h"), {
+    name: "FdsValidationError",
+    message: 'Invalid baseUrl: Unsupported protocol "ftp:" (use http or https).',
+  });
+  assert.throws(() => validateBaseUrl("https://h/ "), FdsValidationError);
 });
 
 // --- id and amount filters (PAT-16) -------------------------------------------------
