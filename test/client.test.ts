@@ -139,3 +139,13 @@ test("get() rejects a non-numeric id before any request", async () => {
   assert.equal(new URL(mt.last().url).pathname, "/api/v1/law/0/");
 });
 
+
+// Parity report finding 2: publicBodies.search inherits lnglat (no CLI flag).
+test("publicBodies.search/searchCsv check lnglat before any request", async () => {
+  const { client: c, mt } = client(() => jsonResponse(fx.requestList));
+  await assert.rejects(c.publicBodies.search({ lnglat: "Berlin" }), { name: "FdsValidationError" });
+  await assert.rejects(c.publicBodies.searchCsv({ lnglat: "51.34,120" }), { name: "FdsValidationError" });
+  assert.equal(mt.calls.length, 0);
+  await c.publicBodies.search({ lnglat: "12.37,51.34" });
+  assert.equal(new URL(mt.last().url).searchParams.get("lnglat"), "12.37,51.34");
+});

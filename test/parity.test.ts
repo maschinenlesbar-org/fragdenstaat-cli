@@ -251,3 +251,51 @@ test("parity: an in-range page is sent the same way", async () => {
     ),
   );
 });
+
+// --- Finding 2 (PAT-17): point filters --------------------------------------------
+
+test("parity: a malformed or out-of-range point is rejected by CLI and library", async () => {
+  assertBothReject(
+    await parity(["publicbody", "list", "--lnglat", "Berlin"], (t) => lib(t).publicBodies.list({ lnglat: "Berlin" })),
+    'Invalid lnglat: Expected "lng,lat" as two decimal numbers, e.g. 12.37,51.34.',
+  );
+  assertBothReject(
+    await parity(["publicbody", "list", "--lnglat", "51.34,120"], (t) =>
+      lib(t).publicBodies.list({ lnglat: "51.34,120" }),
+    ),
+    "Invalid lnglat: Latitude 120 is out of range (-90..90); the order is lng,lat.",
+  );
+  assertBothReject(
+    await parity(["publicbody", "list", "--csv", "--lnglat", " 12.37,51.34"], (t) =>
+      lib(t).publicBodies.listCsv({ lnglat: " 12.37,51.34" }),
+    ),
+  );
+  assertBothReject(
+    await parity(["georegion", "list", "--latlng", "120,50"], (t) => lib(t).georegions.list({ latlng: "120,50" })),
+    "Invalid latlng: Latitude 120 is out of range (-90..90); the order is lat,lng.",
+  );
+  assertBothReject(
+    await parity(["georegion", "list", "--latlng", "50,200"], (t) => lib(t).georegions.list({ latlng: "50,200" })),
+    "Invalid latlng: Longitude 200 is out of range (-180..180); the order is lat,lng.",
+  );
+  assertBothReject(
+    await parity(["georegion", "list", "--latlng", "abc", "--csv"], (t) => lib(t).georegions.listCsv({ latlng: "abc" })),
+  );
+  assertBothReject(
+    await parity(["georegion", "list", "--latlng", "  "], (t) => lib(t).georegions.list({ latlng: "  " })),
+    "Invalid latlng: Expected a non-empty value.",
+  );
+});
+
+test("parity: a valid point is sent the same way", async () => {
+  assertSameRequest(
+    await parity(["georegion", "list", "--latlng", "51.34,12.37"], (t) =>
+      lib(t).georegions.list({ latlng: "51.34,12.37" }),
+    ),
+  );
+  assertSameRequest(
+    await parity(["publicbody", "list", "--lnglat", "12.37,51.34"], (t) =>
+      lib(t).publicBodies.list({ lnglat: "12.37,51.34" }),
+    ),
+  );
+});

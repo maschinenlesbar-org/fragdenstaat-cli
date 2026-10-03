@@ -31,6 +31,7 @@ export {
   nonBlankProblem,
   normalizeResourceId,
   oneOfProblem,
+  pointProblem,
   resourceIdProblem,
   validateParams,
   type ParamRules,

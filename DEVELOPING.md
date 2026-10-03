@@ -97,6 +97,9 @@ What the library rejects with `FdsValidationError`, before any request:
   integer, `offsetProblem`). The server silently clamps a larger `limit` and `limit=0`
   to 50, so a caller asking for 100 rows would get 50 without an error. `MAX_PAGE_SIZE`
   (`params.ts`) is also the bound the CLI's `--limit` and its CSV page note use.
+- **Malformed points.** Georegion `latlng` and publicbody `lnglat` (on `list`, `listCsv`,
+  `search` and `searchCsv`) must be two comma-separated decimals, latitude within ±90
+  and longitude within ±180 in the parameter's order (`pointProblem`).
 
 ## API-specific details (read this before "aligning" with the blueprint)
 
@@ -131,10 +134,11 @@ When in doubt, trust the live API, not the schema.
   `engine.ts`, an `FdsNetworkError`), so a custom transport never receives a `file:`
   or `ftp:` URL; the default transport (`http.ts`) still re-checks the fully-built
   request URL as a backstop.
-- **Points are validated** (`parsePoint` in `shared.ts`): `georegion --latlng` and
-  `publicbody --lnglat` must be two comma-separated decimals within ±90/±180 in the
-  flag's order. The API silently ignores an unparseable point (no 400) and returns
-  the whole table.
+- **Points are validated** by the library (`pointProblem`, see
+  [Input validation](#input-validation)): georegion `latlng` and publicbody `lnglat`
+  (`--latlng`/`--lnglat`, whose `parsePoint` uses the same rule) must be two
+  comma-separated decimals within ±90/±180 in the parameter's order. The API silently
+  ignores an unparseable point (no 400) and returns the whole table.
 - **`get <id>` takes digits only** (every wrapped detail endpoint has an integer id in
   the OpenAPI description). The library's `get()` enforces it (`resourceIdProblem`, see
   [Input validation](#input-validation)) and the CLI's `parseId` uses the same rule. As

@@ -10,6 +10,7 @@ import {
   limitProblem,
   nonBlankProblem,
   offsetProblem,
+  pointProblem,
   resourceIdProblem,
   type Problem,
 } from "../client/validate.js";
@@ -80,32 +81,12 @@ export function parseId(value: string): string {
 }
 
 /**
- * Build a commander value-parser for a point given as two comma-separated decimal
- * numbers, in the order the API parameter uses (`latlng` on georegion, `lnglat` on
- * publicbody). The API silently ignores a value it cannot parse and returns the
- * whole unfiltered table, so the shape and the ranges (latitude within ±90,
- * longitude within ±180) are checked here; the range check also catches a swapped
- * pair such as a longitude of 120 given as latitude.
+ * Build a commander value-parser for a point (`georegion --latlng`, `publicbody
+ * --lnglat`): the library's `pointProblem` rule in the parameter's axis order.
  */
 export function parsePoint(order: "lat,lng" | "lng,lat"): (value: string) => string {
-  return (value: string) => {
-    parseNonEmpty(value);
-    const match = /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(value);
-    if (!match) {
-      throw new InvalidArgumentError(
-        `Expected "${order}" as two decimal numbers, e.g. ${order === "lat,lng" ? "51.34,12.37" : "12.37,51.34"}.`,
-      );
-    }
-    const [a, b] = [Number(match[1]), Number(match[2])];
-    const [lat, lng] = order === "lat,lng" ? [a, b] : [b, a];
-    if (Math.abs(lat) > 90) {
-      throw new InvalidArgumentError(`Latitude ${lat} is out of range (-90..90); the order is ${order}.`);
-    }
-    if (Math.abs(lng) > 180) {
-      throw new InvalidArgumentError(`Longitude ${lng} is out of range (-180..180); the order is ${order}.`);
-    }
-    return value;
-  };
+  const problem = pointProblem(order);
+  return (value: string) => usageCheck(value, problem);
 }
 
 /**

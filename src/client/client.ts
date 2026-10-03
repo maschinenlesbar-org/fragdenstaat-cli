@@ -15,6 +15,7 @@ import {
   booleanProblem,
   normalizeResourceId,
   oneOfProblem,
+  pointProblem,
   validatePagination,
   validateParams,
   type ParamRules,
@@ -68,7 +69,8 @@ const CSV_ACCEPT = "text/csv";
 /**
  * Per-resource rules for the list filters the TypeScript types restrict but
  * plain-JS callers (or JSON input) can still get wrong: enumerated values must be
- * one of the `enums.ts` arrays, boolean filters real booleans.
+ * one of the `enums.ts` arrays, boolean filters real booleans, points two decimals
+ * in range.
  */
 const REQUEST_LIST_RULES: ParamRules = {
   status: oneOfProblem(RequestStatusValues),
@@ -84,7 +86,12 @@ const MESSAGE_LIST_RULES: ParamRules = {
   is_response: booleanProblem,
   is_draft: booleanProblem,
 };
-const GEOREGION_LIST_RULES: ParamRules = { kind: oneOfProblem(GeoRegionKindValues) };
+const GEOREGION_LIST_RULES: ParamRules = {
+  kind: oneOfProblem(GeoRegionKindValues),
+  latlng: pointProblem("lat,lng"),
+};
+/** Public-body list and search: the `lnglat` point (the search inherits it). */
+const PUBLICBODY_RULES: ParamRules = { lnglat: pointProblem("lng,lat") };
 
 /**
  * Check a params object — `offset`/`limit`, then the given rules — and return it as
@@ -163,17 +170,20 @@ class RequestResource extends ListResource<FoiRequestListItem, RequestListParams
 /** Public bodies, plus full-text search and name autocomplete. */
 class PublicBodyResource extends ListResource<PublicBodyListItem, PublicBodyListParams> {
   constructor(e: RequestEngine) {
-    super(e, "/api/v1/publicbody/");
+    super(e, "/api/v1/publicbody/", PUBLICBODY_RULES);
   }
 
   /** Full-text search over public bodies. */
   async search(params: PublicBodySearchParams = {}): Promise<TastypieList<PublicBodyListItem>> {
-    return this.e.getJson("/api/v1/publicbody/search/", checkedQuery(params));
+    return this.e.getJson("/api/v1/publicbody/search/", checkedQuery(params, PUBLICBODY_RULES));
   }
 
   /** The public-body search as server-rendered CSV. */
   async searchCsv(params: PublicBodySearchParams = {}): Promise<RawResponse> {
-    return this.e.getRaw("/api/v1/publicbody/search/", CSV_ACCEPT, { ...checkedQuery(params), format: "csv" });
+    return this.e.getRaw("/api/v1/publicbody/search/", CSV_ACCEPT, {
+      ...checkedQuery(params, PUBLICBODY_RULES),
+      format: "csv",
+    });
   }
 
   /** Autocomplete public-body names. */

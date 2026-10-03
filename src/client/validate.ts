@@ -132,3 +132,27 @@ const PAGINATION_RULES: ParamRules = { offset: offsetProblem, limit: limitProble
 export function validatePagination(page: Pagination): void {
   validateParams(page, PAGINATION_RULES);
 }
+
+/**
+ * Rule for a point filter given as two comma-separated decimal numbers, in the
+ * order the API parameter uses (`latlng` on georegion, `lnglat` on publicbody), with
+ * the latitude within ±90 and the longitude within ±180. The API silently ignores a
+ * point it cannot parse and returns the whole unfiltered table; the range check
+ * also catches a swapped pair such as a longitude of 120 given as latitude.
+ */
+export function pointProblem(order: "lat,lng" | "lng,lat"): Problem<unknown> {
+  return (value) => {
+    if (isBlank(value)) return "Expected a non-empty value.";
+    const match =
+      typeof value === "string" ? /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(value) : null;
+    if (!match) {
+      const example = order === "lat,lng" ? "51.34,12.37" : "12.37,51.34";
+      return `Expected "${order}" as two decimal numbers, e.g. ${example}.`;
+    }
+    const [a, b] = [Number(match[1]), Number(match[2])];
+    const [lat, lng] = order === "lat,lng" ? [a, b] : [b, a];
+    if (Math.abs(lat) > 90) return `Latitude ${lat} is out of range (-90..90); the order is ${order}.`;
+    if (Math.abs(lng) > 180) return `Longitude ${lng} is out of range (-180..180); the order is ${order}.`;
+    return undefined;
+  };
+}

@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   assertNonBlankParams,
+  pointProblem,
   limitProblem,
   offsetProblem,
   validatePagination,
@@ -177,4 +178,22 @@ test("validatePagination checks offset and limit when present", () => {
     name: "FdsValidationError",
     message: "Invalid limit: Must be <= 50.",
   });
+});
+
+// --- points (PAT-17) ----------------------------------------------------------------
+
+test("pointProblem checks shape and range in the given axis order", () => {
+  const latlng = pointProblem("lat,lng");
+  const lnglat = pointProblem("lng,lat");
+  assert.equal(latlng("51.34,12.37"), undefined);
+  assert.equal(latlng("-90,180"), undefined);
+  assert.equal(lnglat("12.37,51.34"), undefined);
+  assert.equal(latlng(""), "Expected a non-empty value.");
+  for (const v of ["abc", " 51.34,12.37", "51.34, 12.37", "51.34", "1e2,3", "51,", 51.34]) {
+    assert.equal(latlng(v), 'Expected "lat,lng" as two decimal numbers, e.g. 51.34,12.37.', String(v));
+  }
+  assert.equal(lnglat("x"), 'Expected "lng,lat" as two decimal numbers, e.g. 12.37,51.34.');
+  assert.equal(latlng("120,50"), "Latitude 120 is out of range (-90..90); the order is lat,lng.");
+  assert.equal(latlng("50,181"), "Longitude 181 is out of range (-180..180); the order is lat,lng.");
+  assert.equal(lnglat("51.34,120"), "Latitude 120 is out of range (-90..90); the order is lng,lat.");
 });
