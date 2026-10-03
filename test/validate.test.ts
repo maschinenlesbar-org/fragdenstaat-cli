@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  amountProblem,
   assertNonBlankParams,
+  idFilterProblem,
+  normalizeIdFilter,
   baseUrlSpaceProblem,
   headerValueProblem,
   pointProblem,
@@ -234,5 +237,32 @@ test("baseUrlSpaceProblem rejects surrounding and inner whitespace or control ch
       "A base URL cannot contain whitespace or control characters.",
       JSON.stringify(v),
     );
+  }
+});
+
+// --- id and amount filters (PAT-16) -------------------------------------------------
+
+test("idFilterProblem accepts a non-negative safe integer or a digit string", () => {
+  for (const v of [0, 5, "0", "5", "007", String(Number.MAX_SAFE_INTEGER)]) {
+    assert.equal(idFilterProblem(v), undefined, String(v));
+  }
+  for (const v of ["", " 5", "5 ", "-1", "+1", "1.5", "0x10", "abc", "99999999999999999999", -1, 1.5, NaN, Infinity, true]) {
+    assert.equal(idFilterProblem(v), "Expected a non-negative integer.", String(v));
+  }
+});
+
+test("normalizeIdFilter returns the number, idempotently, or throws FdsValidationError", () => {
+  assert.equal(normalizeIdFilter("jurisdiction", "007"), 7);
+  assert.equal(normalizeIdFilter("jurisdiction", 7), 7);
+  assert.throws(() => normalizeIdFilter("mediator", "x1"), {
+    name: "FdsValidationError",
+    message: "Invalid mediator: Expected a non-negative integer.",
+  });
+});
+
+test("amountProblem accepts a finite non-negative number", () => {
+  for (const v of [0, 12.5, 1e6]) assert.equal(amountProblem(v), undefined, String(v));
+  for (const v of [-5, -0.01, NaN, Infinity, "12", ""]) {
+    assert.equal(amountProblem(v), "Expected a non-negative number.", String(v));
   }
 });

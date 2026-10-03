@@ -38,7 +38,9 @@ export interface RequestListParams extends Pagination {
   is_foi?: boolean;
   checked?: boolean;
   has_same?: boolean;
+  /** Minimum charged costs in EUR: a finite non-negative number. */
   costs_min?: number;
+  /** Maximum charged costs in EUR: a finite non-negative number. */
   costs_max?: number;
   created_at_after?: string;
   created_at_before?: string;
@@ -86,7 +88,11 @@ export interface PublicBodySearchParams extends Omit<PublicBodyListParams, "cate
   categories?: Id;
 }
 
-/** Filters for `GET /api/v1/law/` (FOI laws). */
+/**
+ * Filters for `GET /api/v1/law/` (FOI laws). `jurisdiction`, `mediator` and `id` must
+ * be a non-negative integer or a digit string, and are sent as numbers (`"007"` as
+ * `7`); the API ignores a non-numeric value there and returns every law.
+ */
 export interface LawListParams extends Pagination {
   q?: string;
   jurisdiction?: Id;

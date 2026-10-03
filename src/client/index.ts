@@ -24,13 +24,16 @@ export {
   redactUrl,
 } from "./errors.js";
 export {
+  amountProblem,
   assertValid,
   assertNonBlankParams,
   baseUrlSpaceProblem,
   booleanProblem,
   headerValueProblem,
+  idFilterProblem,
   isBlank,
   nonBlankProblem,
+  normalizeIdFilter,
   normalizeResourceId,
   oneOfProblem,
   pointProblem,

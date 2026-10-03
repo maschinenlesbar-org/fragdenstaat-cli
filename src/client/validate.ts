@@ -189,3 +189,32 @@ export const baseUrlSpaceProblem: Problem<string> = (value) => {
   }
   return undefined;
 };
+
+/**
+ * Rule for an id-valued filter that must be a number (the law filters
+ * `jurisdiction`, `mediator`, `id`): a non-negative safe integer, or a string of
+ * ASCII digits for one. The API ignores a non-numeric value there and returns the
+ * whole unfiltered list.
+ */
+export const idFilterProblem: Problem<unknown> = (value) => {
+  const ok =
+    typeof value === "number"
+      ? Number.isSafeInteger(value) && value >= 0
+      : typeof value === "string" && /^[0-9]+$/.test(value) && Number.isSafeInteger(Number(value));
+  return ok ? undefined : "Expected a non-negative integer.";
+};
+
+/**
+ * The canonical form of an id filter: checked with {@link idFilterProblem} (throws
+ * FdsValidationError `Invalid <name>: ...`) and returned as a number, so `"007"` is
+ * sent as `7`. Idempotent.
+ */
+export function normalizeIdFilter(name: string, value: number | string): number {
+  return Number(assertValid(name, value, idFilterProblem));
+}
+
+/** Rule for an amount in EUR (`costs_min`, `costs_max`): a finite non-negative number. */
+export const amountProblem: Problem<unknown> = (value) =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? undefined
+    : "Expected a non-negative number.";

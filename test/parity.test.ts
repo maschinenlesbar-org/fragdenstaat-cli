@@ -357,3 +357,55 @@ test("parity: a clean base URL is used the same way", async () => {
     ),
   );
 });
+
+// --- Finding 5 (PAT-16): law id filters and request cost filters ------------------
+
+test("parity: a law id filter that is not a non-negative integer is rejected by CLI and library", async () => {
+  assertBothReject(
+    await parity(["law", "list", "--jurisdiction", "abc"], (t) => lib(t).laws.list({ jurisdiction: "abc" })),
+    "Invalid jurisdiction: Expected a non-negative integer.",
+  );
+  assertBothReject(
+    await parity(["law", "list", "--jurisdiction", ""], (t) => lib(t).laws.list({ jurisdiction: "" })),
+    "Invalid jurisdiction: Expected a non-negative integer.",
+  );
+  assertBothReject(await parity(["law", "list", "--id", "abc"], (t) => lib(t).laws.list({ id: "abc" })));
+  assertBothReject(await parity(["law", "list", "--mediator", "x1"], (t) => lib(t).laws.list({ mediator: "x1" })));
+  for (const v of [" 5", "1.5", "-1", "0x10", "99999999999999999999"]) {
+    assertBothReject(await parity(["law", "list", "--jurisdiction", v], (t) => lib(t).laws.list({ jurisdiction: v })));
+  }
+  assertBothReject(await parity(["law", "list", "--jurisdiction", "1.5"], (t) => lib(t).laws.list({ jurisdiction: 1.5 })));
+  assertBothReject(
+    await parity(["law", "list", "--csv", "--jurisdiction", "abc"], (t) => lib(t).laws.listCsv({ jurisdiction: "abc" })),
+  );
+});
+
+test("parity: law id filters are sent in canonical form by CLI and library", async () => {
+  const r = await parity(["law", "list", "--jurisdiction", "007", "--id", "12"], (t) =>
+    lib(t).laws.list({ jurisdiction: "007", id: "12" }),
+  );
+  assertSameRequest(r);
+  assert.equal(new URL(r.lib.requests[0]!.url).search, "?jurisdiction=7&id=12");
+  assertSameRequest(await parity(["law", "list", "--jurisdiction", "5"], (t) => lib(t).laws.list({ jurisdiction: 5 })));
+});
+
+test("parity: a cost filter that is not a finite non-negative number is rejected by CLI and library", async () => {
+  assertBothReject(
+    await parity(["request", "list", "--costs-min", "-5"], (t) => lib(t).requests.list({ costs_min: -5 })),
+    "Invalid costs_min: Expected a non-negative number.",
+  );
+  assertBothReject(
+    await parity(["request", "list", "--costs-max", "NaN"], (t) => lib(t).requests.list({ costs_max: NaN })),
+  );
+  assertBothReject(
+    await parity(["request", "list", "--costs-min", "9".repeat(400)], (t) =>
+      lib(t).requests.list({ costs_min: Infinity }),
+    ),
+  );
+});
+
+test("parity: a valid cost filter is sent the same way", async () => {
+  assertSameRequest(
+    await parity(["request", "list", "--costs-max", "12.50"], (t) => lib(t).requests.list({ costs_max: 12.5 })),
+  );
+});

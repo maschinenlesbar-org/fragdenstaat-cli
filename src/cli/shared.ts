@@ -7,10 +7,13 @@ import { FdsError } from "../client/errors.js";
 import { isBidiControl, sanitizeServerText, type EngineOptions, type RawResponse } from "../client/engine.js";
 import type { QueryParams } from "../client/query.js";
 import {
+  amountProblem,
   baseUrlSpaceProblem,
   headerValueProblem,
+  idFilterProblem,
   limitProblem,
   nonBlankProblem,
+  normalizeIdFilter,
   offsetProblem,
   pointProblem,
   resourceIdProblem,
@@ -120,15 +123,22 @@ export function parseBaseUrl(value: string): string {
 }
 
 /**
- * commander value-parser: a non-negative number, integer or decimal (e.g. a EUR
- * amount like `12.50`). Rejects non-numeric input, negatives, and the alternative
- * forms `Number()` would silently accept (hex, scientific, whitespace-padded).
+ * commander value-parser for an amount (`--costs-min/--costs-max`, e.g. `12.50`):
+ * plain decimal text only — no hex, scientific or whitespace-padded forms `Number()`
+ * would accept — then the library's `amountProblem` rule (finite, non-negative).
  */
 export function parseNonNegativeNumber(value: string): number {
-  if (!/^\d+(\.\d+)?$/.test(value)) {
-    throw new InvalidArgumentError("Expected a non-negative number.");
-  }
-  return Number(value);
+  const n = /^\d+(\.\d+)?$/.test(value) ? Number(value) : NaN;
+  return usageCheck(n, amountProblem);
+}
+
+/**
+ * commander value-parser for a numeric id filter (`law list --jurisdiction`, ...):
+ * the library's `idFilterProblem` rule, returned in its canonical number form
+ * (`normalizeIdFilter`, so `007` is sent as `7`).
+ */
+export function parseIdFilter(value: string): number {
+  return normalizeIdFilter("id", usageCheck(value, idFilterProblem));
 }
 
 /**

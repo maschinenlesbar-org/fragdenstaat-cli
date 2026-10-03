@@ -12,7 +12,10 @@
 import { RequestEngine, type EngineOptions, type RawResponse } from "./engine.js";
 import type { QueryParams } from "./query.js";
 import {
+  amountProblem,
   booleanProblem,
+  idFilterProblem,
+  normalizeIdFilter,
   normalizeResourceId,
   oneOfProblem,
   pointProblem,
@@ -78,8 +81,17 @@ const REQUEST_LIST_RULES: ParamRules = {
   is_foi: booleanProblem,
   checked: booleanProblem,
   has_same: booleanProblem,
+  costs_min: amountProblem,
+  costs_max: amountProblem,
 };
-const LAW_LIST_RULES: ParamRules = { meta: booleanProblem };
+/** The law filters that take a numeric id; sent as numbers (`"007"` becomes `7`). */
+const LAW_ID_FILTERS = ["jurisdiction", "mediator", "id"] as const;
+const LAW_LIST_RULES: ParamRules = {
+  meta: booleanProblem,
+  jurisdiction: idFilterProblem,
+  mediator: idFilterProblem,
+  id: idFilterProblem,
+};
 const TREE_LIST_RULES: ParamRules = { is_topic: booleanProblem };
 const MESSAGE_LIST_RULES: ParamRules = {
   kind: oneOfProblem(MessageKindValues),
@@ -196,6 +208,16 @@ class PublicBodyResource extends ListResource<PublicBodyListItem, PublicBodyList
 class LawResource extends ListResource<FoiLawListItem, LawListParams> {
   constructor(e: RequestEngine) {
     super(e, "/api/v1/law/", LAW_LIST_RULES);
+  }
+
+  /** The checked list query, with the id filters in canonical (number) form. */
+  protected override listQuery(params: LawListParams): QueryParams {
+    const query = { ...super.listQuery(params) };
+    for (const name of LAW_ID_FILTERS) {
+      const value = params[name];
+      if (value !== undefined && value !== null) query[name] = normalizeIdFilter(name, value);
+    }
+    return query;
   }
 
   async autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {

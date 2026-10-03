@@ -112,6 +112,13 @@ What the library rejects with `FdsValidationError`, before any request:
   checked on the raw value. `new URL()` trims and drops such characters, so the URL
   check passed, but request paths are appended to the raw string: `"https://h/ "`
   requested `/%20/api/v1/...`. The CLI's `parseBaseUrl` uses the same rule.
+- **Non-numeric law id filters and bad cost amounts.** `laws.list`/`listCsv` take
+  `jurisdiction`, `mediator` and `id` only as a non-negative integer or a digit string
+  (`idFilterProblem`) and send them as numbers (`normalizeIdFilter`, `"007"` becomes
+  `7`); the API ignores a non-numeric value there and returns every law. Request
+  `costs_min`/`costs_max` must be finite non-negative numbers (`amountProblem`), which
+  the server would otherwise answer with HTTP 400. The CLI's `parseIdFilter` and
+  `parseNonNegativeNumber` use the same rules.
 
 ## API-specific details (read this before "aligning" with the blueprint)
 
