@@ -11,6 +11,7 @@
 
 import { RequestEngine, type EngineOptions, type RawResponse } from "./engine.js";
 import type { QueryParams } from "./query.js";
+import { normalizeResourceId } from "./validate.js";
 import type {
   TastypieList,
   JsonObject,
@@ -37,8 +38,6 @@ import type {
   DocumentListParams,
   GeoRegionListParams,
 } from "./params.js";
-
-const enc = encodeURIComponent;
 
 /**
  * An `{ value, label }` autocomplete suggestion. `value` is an integer id for
@@ -79,8 +78,12 @@ class ListResource<T, P extends Pagination = Pagination> {
     });
   }
 
-  get(id: number | string): Promise<JsonObject> {
-    return this.e.getJson(`${this.path}${enc(String(id))}/`);
+  /**
+   * One object by id. The id must be a non-negative integer or a digit string;
+   * anything else rejects with an FdsValidationError before any request.
+   */
+  async get(id: number | string): Promise<JsonObject> {
+    return this.e.getJson(`${this.path}${normalizeResourceId(id)}/`);
   }
 }
 

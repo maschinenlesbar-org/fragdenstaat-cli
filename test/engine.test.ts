@@ -25,6 +25,15 @@ test("trailing slashes on the base URL are trimmed", () => {
   assert.equal(e.buildUrl("/api/v1/law/"), "https://fragdenstaat.de/api/v1/law/");
 });
 
+test("buildUrl rejects a dot segment as a backstop for the id check", () => {
+  const e = new RequestEngine({ baseUrl: "https://fragdenstaat.de" });
+  assert.throws(() => e.buildUrl("/api/v1/request/./"), {
+    name: "FdsError",
+    message: 'Invalid path segment "." in /api/v1/request/./: "." and ".." cannot be used as an id.',
+  });
+  assert.throws(() => e.buildUrl("/api/v1/request/../"), /Invalid path segment "\.\."/);
+});
+
 test("a non-http(s) base URL is rejected at construction, before any request", () => {
   for (const baseUrl of ["file:///etc/passwd", "ftp://example.org"]) {
     const mt = makeMockTransport(() => jsonResponse(fx.lawList));

@@ -81,6 +81,10 @@ What the library rejects with `FdsValidationError`, before any request:
   with the whole unfiltered dataset, or every autocomplete suggestion for a blank `q`.
   `undefined` and `null` still mean "omitted". The CLI's `parseNonEmpty` uses the same
   `nonBlankProblem`.
+- **Non-numeric ids.** `get(id)` takes a non-negative safe integer or a digit string
+  (`resourceIdProblem`, `normalizeResourceId`); `"search"` or `"autocomplete"` would
+  otherwise reach a list sub-endpoint and return its list envelope as a detail object,
+  and `""`, `" 10 "`, `1.5`, `-1` or `NaN` would fail late on the server.
 
 ## API-specific details (read this before "aligning" with the blueprint)
 
@@ -117,10 +121,11 @@ When in doubt, trust the live API, not the schema.
   `publicbody --lnglat` must be two comma-separated decimals within ±90/±180 in the
   flag's order. The API silently ignores an unparseable point (no 400) and returns
   the whole table.
-- **`get <id>` takes digits only** (`parseId` in `shared.ts`; every wrapped detail
-  endpoint has an integer id in the OpenAPI description). For library callers the
-  engine's `buildUrl` rejects a `.`/`..` path segment, which `encodeURIComponent`
-  leaves alone and URL parsing would otherwise resolve to the list or the API root.
+- **`get <id>` takes digits only** (every wrapped detail endpoint has an integer id in
+  the OpenAPI description). The library's `get()` enforces it (`resourceIdProblem`, see
+  [Input validation](#input-validation)) and the CLI's `parseId` uses the same rule. As
+  a backstop the engine's `buildUrl` still rejects a `.`/`..` path segment, which URL
+  parsing would otherwise resolve to the list or the API root.
 - **`-o/--output` never silently overwrites.** The write opens exclusively (`wx`), so
   an existing file is refused with a clear "refusing to overwrite … (use --force)"
   error; pass `--force` to overwrite deliberately. This holds for both the JSON and

@@ -87,3 +87,30 @@ test("parity: a non-blank filter value is sent the same way by CLI and library",
     await parity(["request", "tags", "lob"], (t) => lib(t).requests.tagsAutocomplete("lob")),
   );
 });
+
+// --- Finding 1 (PAT-10): resource ids in get <id> -------------------------------
+
+test("parity: a non-numeric id is rejected by CLI and library", async () => {
+  assertBothReject(
+    await parity(["request", "get", "search"], (t) => lib(t).requests.get("search")),
+    "Invalid id: Expected a numeric id (digits only).",
+  );
+  assertBothReject(
+    await parity(["publicbody", "get", "autocomplete"], (t) => lib(t).publicBodies.get("autocomplete")),
+  );
+  assertBothReject(
+    await parity(["jurisdiction", "get", ""], (t) => lib(t).jurisdictions.get("")),
+    "Invalid id: Expected a non-empty value.",
+  );
+  assertBothReject(await parity(["message", "get", " 10 "], (t) => lib(t).messages.get(" 10 ")));
+  assertBothReject(await parity(["request", "get", "1?x=1"], (t) => lib(t).requests.get("1?x=1")));
+  assertBothReject(await parity(["law", "get", "1.5"], (t) => lib(t).laws.get(1.5)));
+  assertBothReject(await parity(["law", "get", "-1"], (t) => lib(t).laws.get(-1)));
+  assertBothReject(await parity(["law", "get", "NaN"], (t) => lib(t).laws.get(NaN)));
+  assertBothReject(await parity(["request", "get", ".."], (t) => lib(t).requests.get("..")));
+});
+
+test("parity: a numeric id fetches the same detail path", async () => {
+  assertSameRequest(await parity(["request", "get", "42"], (t) => lib(t).requests.get("42")));
+  assertSameRequest(await parity(["law", "get", "42"], (t) => lib(t).laws.get(42)));
+});

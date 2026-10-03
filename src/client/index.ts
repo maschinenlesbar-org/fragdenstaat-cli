@@ -28,6 +28,8 @@ export {
   assertNonBlankParams,
   isBlank,
   nonBlankProblem,
+  normalizeResourceId,
+  resourceIdProblem,
   type Problem,
 } from "./validate.js";
 export * from "./types.js";

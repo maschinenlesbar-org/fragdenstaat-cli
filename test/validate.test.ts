@@ -5,6 +5,8 @@ import {
   assertValid,
   isBlank,
   nonBlankProblem,
+  normalizeResourceId,
+  resourceIdProblem,
   type Problem,
 } from "../src/client/validate.js";
 import { FdsError, FdsValidationError } from "../src/client/errors.js";
@@ -80,4 +82,29 @@ test("assertNonBlankParams rejects a blank value, array element or key", () => {
     message: "Invalid parameter name: Expected a non-empty value.",
   });
   assert.doesNotThrow(() => assertNonBlankParams({ q: "x", limit: 5, a: undefined, b: null, c: false }));
+});
+
+// --- resource ids (PAT-10) --------------------------------------------------------
+
+test("resourceIdProblem accepts a non-negative integer or a digit string", () => {
+  for (const id of [0, 42, Number.MAX_SAFE_INTEGER, "0", "42", "007"]) {
+    assert.equal(resourceIdProblem(id), undefined, String(id));
+  }
+});
+
+test("resourceIdProblem rejects everything else, with its own message for a blank id", () => {
+  assert.equal(resourceIdProblem(""), "Expected a non-empty value.");
+  assert.equal(resourceIdProblem("  "), "Expected a non-empty value.");
+  for (const id of ["search", " 1", "1.5", "-1", "+1", "1e3", "0x10", "١", 1.5, -1, NaN, Infinity, 2 ** 53, null]) {
+    assert.equal(resourceIdProblem(id), "Expected a numeric id (digits only).", String(id));
+  }
+});
+
+test("normalizeResourceId returns the path segment or throws FdsValidationError", () => {
+  assert.equal(normalizeResourceId(42), "42");
+  assert.equal(normalizeResourceId("42"), "42");
+  assert.throws(() => normalizeResourceId("search"), {
+    name: "FdsValidationError",
+    message: "Invalid id: Expected a numeric id (digits only).",
+  });
 });

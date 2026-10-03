@@ -26,10 +26,10 @@ test("requests.get hits the detail path with a trailing slash", async () => {
   assert.equal(new URL(mt.last().url).pathname, "/api/v1/request/374948/");
 });
 
-test("requests.get URL-encodes the id", async () => {
+test("requests.get takes a digit-only string id as well", async () => {
   const { client: c, mt } = client(() => jsonResponse(fx.requestDetail));
-  await c.requests.get("a b/c");
-  assert.equal(new URL(mt.last().url).pathname, "/api/v1/request/a%20b%2Fc/");
+  await c.requests.get("374948");
+  assert.equal(new URL(mt.last().url).pathname, "/api/v1/request/374948/");
 });
 
 test("requests.search hits /request/search/", async () => {
@@ -116,15 +116,26 @@ test("the client rejects a non-http(s) base URL before any request", () => {
 });
 
 // Exploratory test 2026-09-26, finding 3: "." / ".." ids are dot segments.
-test("get('.') and get('..') are rejected before any request", async () => {
+// Parity report finding 1: every wrapped detail endpoint takes an integer id.
+test("get() rejects a non-numeric id before any request", async () => {
   const { client: c, mt } = client(() => jsonResponse(fx.requestList));
   await assert.rejects(c.requests.get("."), {
-    name: "FdsError",
-    message: 'Invalid path segment "." in /api/v1/request/./: "." and ".." cannot be used as an id.',
+    name: "FdsValidationError",
+    message: "Invalid id: Expected a numeric id (digits only).",
   });
-  await assert.rejects(c.publicBodies.get(".."), /Invalid path segment "\.\."/);
+  await assert.rejects(c.publicBodies.get(".."), { name: "FdsValidationError" });
+  for (const id of ["search", "autocomplete", " 1", "1 ", "1.0", "1.5", "-1", "1?x=1", "a b/c", "0x10"]) {
+    await assert.rejects(c.laws.get(id), { name: "FdsValidationError" }, JSON.stringify(id));
+  }
+  for (const id of [1.5, -1, NaN, Infinity, 2 ** 53]) {
+    await assert.rejects(c.laws.get(id), { name: "FdsValidationError" }, String(id));
+  }
+  await assert.rejects(c.jurisdictions.get(""), {
+    name: "FdsValidationError",
+    message: "Invalid id: Expected a non-empty value.",
+  });
   assert.equal(mt.calls.length, 0);
-  // Other dotted ids are plain segments.
-  await c.laws.get("1.0");
-  assert.equal(new URL(mt.last().url).pathname, "/api/v1/law/1.0/");
+  await c.laws.get(0);
+  assert.equal(new URL(mt.last().url).pathname, "/api/v1/law/0/");
 });
+

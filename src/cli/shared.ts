@@ -6,7 +6,7 @@ import type { CliDeps } from "./io.js";
 import { FdsError } from "../client/errors.js";
 import { isBidiControl, sanitizeServerText, type EngineOptions, type RawResponse } from "../client/engine.js";
 import type { QueryParams } from "../client/query.js";
-import { nonBlankProblem, type Problem } from "../client/validate.js";
+import { nonBlankProblem, resourceIdProblem, type Problem } from "../client/validate.js";
 
 /**
  * Parse a plain decimal integer literal exactly.
@@ -65,17 +65,11 @@ export function parseNonEmpty(value: string): string {
 }
 
 /**
- * commander value-parser for a resource id in a path (`get <id>`): every wrapped
- * detail endpoint takes an integer id, so anything but digits is a usage error.
- * Without this, `get .` / `get ..` were resolved as dot segments by URL parsing and
- * printed the list endpoint or the API root with exit 0.
+ * commander value-parser for a resource id in a path (`get <id>`): digits only, the
+ * library's `resourceIdProblem` rule.
  */
 export function parseId(value: string): string {
-  parseNonEmpty(value);
-  if (!/^\d+$/.test(value)) {
-    throw new InvalidArgumentError("Expected a numeric id (digits only).");
-  }
-  return value;
+  return usageCheck(value, resourceIdProblem);
 }
 
 /**

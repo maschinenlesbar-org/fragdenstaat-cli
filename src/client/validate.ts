@@ -51,3 +51,27 @@ export function assertNonBlankParams(params: QueryParams): void {
     for (const v of Array.isArray(value) ? value : [value]) assertValid(key, v, nonBlankProblem);
   }
 }
+
+/**
+ * Rule for a resource id in a detail path (`get(id)`): every wrapped detail
+ * endpoint takes an integer id, so a number must be a non-negative safe integer and
+ * a string a run of ASCII digits. Anything else would re-target the request: `"search"`
+ * or `"autocomplete"` reach the list sub-endpoints and return a list envelope as if
+ * it were a detail object, and `"."`/`".."` resolve to the list or the API root.
+ */
+export const resourceIdProblem: Problem<unknown> = (id) => {
+  if (isBlank(id)) return "Expected a non-empty value.";
+  const ok =
+    typeof id === "number"
+      ? Number.isSafeInteger(id) && id >= 0
+      : typeof id === "string" && /^[0-9]+$/.test(id);
+  return ok ? undefined : "Expected a numeric id (digits only).";
+};
+
+/**
+ * The path segment for a resource id: checked with {@link resourceIdProblem}
+ * (throws FdsValidationError `Invalid id: ...`), returned as a string.
+ */
+export function normalizeResourceId(id: number | string): string {
+  return String(assertValid("id", id, resourceIdProblem));
+}
