@@ -6,6 +6,7 @@ import type { CliDeps } from "./io.js";
 import { FdsError } from "../client/errors.js";
 import { isBidiControl, sanitizeServerText, type EngineOptions, type RawResponse } from "../client/engine.js";
 import type { QueryParams } from "../client/query.js";
+import { nonBlankProblem, type Problem } from "../client/validate.js";
 
 /**
  * Parse a plain decimal integer literal exactly.
@@ -47,12 +48,20 @@ export function parseBoundedInt(min: number, max?: number): (value: string) => n
   };
 }
 
-/** commander value-parser: a non-empty (after trimming) string. */
-export function parseNonEmpty(value: string): string {
-  if (value.trim() === "") {
-    throw new InvalidArgumentError("Expected a non-empty value.");
-  }
+/**
+ * Apply a library rule (a `Problem` from client/validate.ts) to an argv value: the
+ * reason it reports becomes commander's usage error. The CLI keeps no rule of its
+ * own, so it rejects exactly what the library rejects.
+ */
+export function usageCheck<T>(value: T, problem: Problem<T>): T {
+  const reason = problem(value);
+  if (reason !== undefined) throw new InvalidArgumentError(reason);
   return value;
+}
+
+/** commander value-parser: a non-empty (after trimming) string (`nonBlankProblem`). */
+export function parseNonEmpty(value: string): string {
+  return usageCheck(value, nonBlankProblem);
 }
 
 /**

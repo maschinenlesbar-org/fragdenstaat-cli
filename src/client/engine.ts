@@ -5,6 +5,7 @@
 import { MAX_TIMEOUT_MS, nodeHttpTransport, type Transport } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
 import { FdsApiError, FdsError, FdsNetworkError, FdsParseError, redactUrl } from "./errors.js";
+import { assertNonBlankParams } from "./validate.js";
 
 export const DEFAULT_BASE_URL = "https://fragdenstaat.de";
 const DEFAULT_USER_AGENT = "fragdenstaat-cli";
@@ -179,12 +180,18 @@ export class RequestEngine {
     return `${this.baseUrl}${normalizedPath}${qs ? `?${qs}` : ""}`;
   }
 
-  /** Perform a request with Accept negotiation and transient-error retries. */
+  /**
+   * Perform a request with Accept negotiation and transient-error retries. A query
+   * with a blank value (or blank parameter name) is rejected with an
+   * FdsValidationError before anything is sent: the API reads an empty parameter
+   * as "no filter" and would answer with the unfiltered dataset.
+   */
   async request(
     method: string,
     path: string,
     options: { query?: QueryParams; accept: string } = { accept: "application/json" },
   ): Promise<RawResponse> {
+    if (options.query) assertNonBlankParams(options.query);
     const url = this.buildUrl(path, options.query);
     const headers: Record<string, string> = {
       Accept: options.accept,

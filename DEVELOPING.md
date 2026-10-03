@@ -73,6 +73,15 @@ printed as `Error: <message>`. So the CLI and the library reject the same inputs
 `test/helpers.ts`'s `parity()` checks that: it runs one input through `run()` and through
 the library on one recording mock transport and returns both outcomes.
 
+What the library rejects with `FdsValidationError`, before any request:
+
+- **Blank values.** A query value (or array element) that is `""` or only whitespace,
+  and a blank parameter name, on every request (`assertNonBlankParams`, run by
+  `RequestEngine.request`). The API treats an empty parameter as no filter and answers
+  with the whole unfiltered dataset, or every autocomplete suggestion for a blank `q`.
+  `undefined` and `null` still mean "omitted". The CLI's `parseNonEmpty` uses the same
+  `nonBlankProblem`.
+
 ## API-specific details (read this before "aligning" with the blueprint)
 
 FragDenStaat is **not** shaped like the other repos' APIs. The provided OpenAPI
@@ -170,6 +179,8 @@ Node's built-in test runner (`node:test`), no jest/vitest. `test/helpers.ts` bui
 canned responses and a recording mock transport; `test/fixtures.ts` holds Tastypie
 sample bodies. `http.test.ts` exercises the real transport against a local
 `http.createServer`. `cli.test.ts` drives `run()` end-to-end with a mocked client.
+`parity.test.ts` sends one input through the CLI and through the library (`parity()` in
+`helpers.ts`) and asserts the same outcome; `validate.test.ts` covers the rules.
 Tests must keep passing on Node 20/22/24.
 
 ## CI / release

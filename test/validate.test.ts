@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assertValid, type Problem } from "../src/client/validate.js";
+import {
+  assertNonBlankParams,
+  assertValid,
+  isBlank,
+  nonBlankProblem,
+  type Problem,
+} from "../src/client/validate.js";
 import { FdsError, FdsValidationError } from "../src/client/errors.js";
 import * as library from "../src/index.js";
 import { run } from "../src/cli/run.js";
@@ -47,4 +53,31 @@ test("run() maps an FdsValidationError from an action to a usage error (exit 1)"
   assert.equal(await run(["jurisdiction", "list"], deps), 1);
   assert.deepEqual(out, []);
   assert.deepEqual(err, ["Error: Invalid limit: Must be <= 50."]);
+});
+
+// --- blank values (PAT-9) ---------------------------------------------------------
+
+test("isBlank is true only for an empty or whitespace-only string", () => {
+  for (const v of ["", " ", "\t\n", " "]) assert.equal(isBlank(v), true, JSON.stringify(v));
+  for (const v of ["a", " a ", 0, false, undefined, null]) assert.equal(isBlank(v), false, String(v));
+});
+
+test("nonBlankProblem names the rule for a blank string only", () => {
+  assert.equal(nonBlankProblem(" "), "Expected a non-empty value.");
+  assert.equal(nonBlankProblem("x"), undefined);
+  assert.equal(nonBlankProblem(0), undefined);
+});
+
+test("assertNonBlankParams rejects a blank value, array element or key", () => {
+  assert.throws(() => assertNonBlankParams({ q: " " }), {
+    name: "FdsValidationError",
+    message: "Invalid q: Expected a non-empty value.",
+  });
+  assert.throws(() => assertNonBlankParams({ status: ["resolved", ""] }), {
+    message: "Invalid status: Expected a non-empty value.",
+  });
+  assert.throws(() => assertNonBlankParams({ " ": "x" }), {
+    message: "Invalid parameter name: Expected a non-empty value.",
+  });
+  assert.doesNotThrow(() => assertNonBlankParams({ q: "x", limit: 5, a: undefined, b: null, c: false }));
 });

@@ -23,7 +23,13 @@ export {
   FdsValidationError,
   redactUrl,
 } from "./errors.js";
-export { assertValid, type Problem } from "./validate.js";
+export {
+  assertValid,
+  assertNonBlankParams,
+  isBlank,
+  nonBlankProblem,
+  type Problem,
+} from "./validate.js";
 export * from "./types.js";
 export * from "./params.js";
 export * from "./enums.js";

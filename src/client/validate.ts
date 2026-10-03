@@ -5,6 +5,7 @@
 // rule is written once and both layers reject exactly the same inputs.
 
 import { FdsValidationError } from "./errors.js";
+import type { QueryParams } from "./query.js";
 
 /**
  * A validation rule: returns the reason `value` is invalid (one sentence, e.g.
@@ -23,4 +24,30 @@ export function assertValid<T>(name: string, value: T, problem: Problem<T>): T {
   const reason = problem(value);
   if (reason !== undefined) throw new FdsValidationError(`Invalid ${name}: ${reason}`);
   return value;
+}
+
+/** True for a string that is empty or only whitespace. */
+export function isBlank(value: unknown): boolean {
+  return typeof value === "string" && value.trim() === "";
+}
+
+/**
+ * Rule: not a blank string. The API treats an empty parameter as no filter at all,
+ * so a blank filter or query would silently return the whole unfiltered dataset
+ * (or every autocomplete suggestion). Values that are not strings pass.
+ */
+export const nonBlankProblem: Problem<unknown> = (value) =>
+  isBlank(value) ? "Expected a non-empty value." : undefined;
+
+/**
+ * Reject a query whose value (or array element) is a blank string, or which has a
+ * blank parameter name; throws {@link FdsValidationError} naming the parameter.
+ * `undefined` and `null` still mean "omitted". The engine runs this on every
+ * request's query before building the URL.
+ */
+export function assertNonBlankParams(params: QueryParams): void {
+  for (const [key, value] of Object.entries(params)) {
+    assertValid("parameter name", key, nonBlankProblem);
+    for (const v of Array.isArray(value) ? value : [value]) assertValid(key, v, nonBlankProblem);
+  }
 }
