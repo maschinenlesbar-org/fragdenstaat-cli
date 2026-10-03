@@ -5,7 +5,7 @@
 import { MAX_TIMEOUT_MS, nodeHttpTransport, type Transport } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
 import { FdsApiError, FdsError, FdsNetworkError, FdsParseError, redactUrl } from "./errors.js";
-import { assertNonBlankParams, assertValid, headerValueProblem } from "./validate.js";
+import { assertNonBlankParams, assertValid, baseUrlSpaceProblem, headerValueProblem } from "./validate.js";
 
 export const DEFAULT_BASE_URL = "https://fragdenstaat.de";
 const DEFAULT_USER_AGENT = "fragdenstaat-cli";
@@ -17,7 +17,10 @@ export interface RawResponse {
 }
 
 export interface EngineOptions {
-  /** Base URL of the API. Defaults to https://fragdenstaat.de */
+  /**
+   * Base URL of the API. Defaults to https://fragdenstaat.de. Whitespace or control
+   * characters in it are an FdsValidationError at construction.
+   */
   baseUrl?: string;
   /** Swappable transport. Defaults to the built-in node http/https transport. */
   transport?: Transport;
@@ -145,8 +148,12 @@ export class RequestEngine {
   private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(options: EngineOptions = {}) {
-    this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
+    const baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
+    this.baseUrl = baseUrl.replace(/\/+$/, "");
     assertHttpScheme(this.baseUrl);
+    // Whitespace is checked on the raw value: new URL() ignores it, and a trailing
+    // space would also defeat the trailing-slash strip above.
+    assertValid("baseUrl", baseUrl, baseUrlSpaceProblem);
     this.transport = options.transport ?? nodeHttpTransport;
     // A blank, control-character or non-Latin-1 value is an FdsValidationError here,
     // not a raw TypeError from Node at send time (or CR/LF handed to a custom transport).

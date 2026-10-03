@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   assertNonBlankParams,
+  baseUrlSpaceProblem,
   headerValueProblem,
   pointProblem,
   limitProblem,
@@ -216,5 +217,22 @@ test("headerValueProblem rejects blank, control characters and code points above
   }
   for (const v of ["agent\u2192", "\u20ac", "\u{1f600}"]) {
     assert.equal(headerValueProblem(v), "Value contains characters outside Latin-1 (above U+00FF).", v);
+  }
+});
+
+// --- base URL whitespace (PAT-1) ----------------------------------------------------
+
+test("baseUrlSpaceProblem rejects surrounding and inner whitespace or control characters", () => {
+  assert.equal(baseUrlSpaceProblem("https://fragdenstaat.de"), undefined);
+  assert.equal(baseUrlSpaceProblem("http://127.0.0.1:8080/base/"), undefined);
+  for (const v of [" https://h", "https://h ", "https://h\n", "\thttps://h", "\u00a0https://h"]) {
+    assert.equal(baseUrlSpaceProblem(v), "A base URL cannot have surrounding whitespace.", JSON.stringify(v));
+  }
+  for (const v of ["https://h/a b", "https://h/a\tb", "https://h/a\u0000b", "https://h/a\u007fb", "https://h/a\u2028b"]) {
+    assert.equal(
+      baseUrlSpaceProblem(v),
+      "A base URL cannot contain whitespace or control characters.",
+      JSON.stringify(v),
+    );
   }
 });

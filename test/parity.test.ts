@@ -330,3 +330,30 @@ test("parity: a valid User-Agent is sent the same way", async () => {
   assert.equal(r.cli.requests[0]?.headers?.["User-Agent"], ua);
   assert.equal(r.lib.requests[0]?.headers?.["User-Agent"], ua);
 });
+
+// --- Finding 7 (PAT-1): base URL with whitespace ----------------------------------
+
+test("parity: a base URL with whitespace or control characters is rejected by CLI and library", async () => {
+  const withBase = (baseUrl: string) => (t: Transport) =>
+    new FragDenStaatClient({ transport: t, baseUrl }).laws.list({ limit: 1 });
+  for (const baseUrl of ["https://x.test/ ", " https://x.test", "https://x.test\n", "\thttps://x.test/"]) {
+    assertBothReject(
+      await parity(["--base-url", baseUrl, "law", "list", "--limit", "1"], withBase(baseUrl)),
+      "Invalid baseUrl: A base URL cannot have surrounding whitespace.",
+    );
+  }
+  for (const baseUrl of ["https://x.test/a b", "https://x.test/p\tq", "https://x.test/p\u0000q"]) {
+    assertBothReject(
+      await parity(["--base-url", baseUrl, "law", "list", "--limit", "1"], withBase(baseUrl)),
+      "Invalid baseUrl: A base URL cannot contain whitespace or control characters.",
+    );
+  }
+});
+
+test("parity: a clean base URL is used the same way", async () => {
+  assertSameRequest(
+    await parity(["--base-url", "https://x.test/", "law", "list", "--limit", "1"], (t) =>
+      new FragDenStaatClient({ transport: t, baseUrl: "https://x.test/" }).laws.list({ limit: 1 }),
+    ),
+  );
+});

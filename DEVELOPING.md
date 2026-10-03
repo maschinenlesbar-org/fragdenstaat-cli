@@ -107,6 +107,11 @@ What the library rejects with `FdsValidationError`, before any request:
   `--user-agent` (`parseHeaderValue`) uses the same rule. As a backstop the default
   transport turns Node's synchronous header-validation `TypeError` into an
   `FdsNetworkError` (`Invalid request: ...`).
+- **Whitespace in `baseUrl`.** The constructor rejects a base URL with surrounding
+  whitespace, or whitespace or a control character inside it (`baseUrlSpaceProblem`),
+  checked on the raw value. `new URL()` trims and drops such characters, so the URL
+  check passed, but request paths are appended to the raw string: `"https://h/ "`
+  requested `/%20/api/v1/...`. The CLI's `parseBaseUrl` uses the same rule.
 
 ## API-specific details (read this before "aligning" with the blueprint)
 
@@ -140,7 +145,10 @@ When in doubt, trust the live API, not the schema.
   engine rejects a non-http(s) base URL at construction (`assertHttpScheme` in
   `engine.ts`, an `FdsNetworkError`), so a custom transport never receives a `file:`
   or `ftp:` URL; the default transport (`http.ts`) still re-checks the fully-built
-  request URL as a backstop.
+  request URL as a backstop. Both also reject whitespace or control characters around
+  or inside the base URL (`baseUrlSpaceProblem`, an `FdsValidationError` in the
+  library), which `new URL()` would ignore while the engine appends paths to the raw
+  string.
 - **Points are validated** by the library (`pointProblem`, see
   [Input validation](#input-validation)): georegion `latlng` and publicbody `lnglat`
   (`--latlng`/`--lnglat`, whose `parsePoint` uses the same rule) must be two

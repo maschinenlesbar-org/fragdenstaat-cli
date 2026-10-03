@@ -26,6 +26,7 @@ export {
 export {
   assertValid,
   assertNonBlankParams,
+  baseUrlSpaceProblem,
   booleanProblem,
   headerValueProblem,
   isBlank,

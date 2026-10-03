@@ -173,3 +173,19 @@ export const headerValueProblem: Problem<unknown> = (value) => {
   }
   return undefined;
 };
+
+/**
+ * Rule for the base URL: no whitespace or control characters, around it or inside
+ * it. `new URL()` trims surrounding whitespace and drops tabs and newlines silently,
+ * so the URL check passes, but the engine appends request paths to the raw string:
+ * `"https://h/ "` requested `/%20/api/v1/...`, and a custom transport received the
+ * padded value as is.
+ */
+export const baseUrlSpaceProblem: Problem<string> = (value) => {
+  if (value !== value.trim()) return "A base URL cannot have surrounding whitespace.";
+  // C0, DEL, C1 and any Unicode whitespace inside the value.
+  if (/[\u0000-\u001f\u007f-\u009f]|\s/u.test(value)) {
+    return "A base URL cannot contain whitespace or control characters.";
+  }
+  return undefined;
+};
