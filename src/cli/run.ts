@@ -5,7 +5,7 @@
 import { CommanderError, type Command } from "commander";
 import { buildProgram, defaultDeps } from "./program.js";
 import type { CliDeps } from "./io.js";
-import { FdsApiError, FdsError } from "../client/errors.js";
+import { FdsApiError, FdsError, FdsValidationError } from "../client/errors.js";
 
 /**
  * Apply exitOverride + output redirection to every command in the tree.
@@ -32,6 +32,13 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
     if (err instanceof CommanderError) {
       // Help/version requests exit 0; genuine parse errors carry their own code.
       return err.exitCode;
+    }
+    if (err instanceof FdsValidationError) {
+      // The library rejected an input before sending anything (a rule the
+      // commander parsers do not cover on their own): a usage error, which exits 1
+      // here like a rejected option value (commander's usage exit code).
+      deps.io.err(`Error: ${err.message}`);
+      return 1;
     }
     if (err instanceof FdsApiError) {
       deps.io.err(`Error: ${err.message}`);

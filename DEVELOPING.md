@@ -32,7 +32,8 @@ src/
     query.ts     # dependency-free query-string builder
     http.ts      # Transport interface + default node:http/https transport
     engine.ts    # URL building, retry/backoff, JSON decode, error mapping
-    errors.ts    # FdsError / FdsApiError / FdsNetworkError / FdsParseError
+    errors.ts    # FdsError / FdsApiError / FdsNetworkError / FdsParseError / FdsValidationError
+    validate.ts  # Problem rules + assertValid (input checks shared with the CLI)
     params.ts    # per-endpoint filter interfaces
     client.ts    # FragDenStaatClient — resource groups over the engine
     index.ts
@@ -57,6 +58,20 @@ src/
 
 Zero runtime HTTP dependencies (built on `node:http`/`https` — no axios/fetch).
 The CLI's only runtime dependency is `commander`. Strict TS, ESM (`NodeNext`).
+
+## Input validation
+
+The library owns every rule about what a request may contain, and checks it before
+sending anything. A rule is a pure `Problem` function in `client/validate.ts`: it
+returns the reason a value is invalid, or `undefined`. Client methods enforce it with
+`assertValid(name, value, problem)`, which throws `FdsValidationError` (a subclass of
+`FdsError`) with the message `Invalid <name>: <reason>`; methods that return a promise
+reject with it, and no request is sent. The CLI's commander parsers call the same
+functions and turn the reason into a usage error (exit 1, commander's usage exit code),
+and `run.ts` maps an `FdsValidationError` raised inside an action to exit 1 as well,
+printed as `Error: <message>`. So the CLI and the library reject the same inputs, and
+`test/helpers.ts`'s `parity()` checks that: it runs one input through `run()` and through
+the library on one recording mock transport and returns both outcomes.
 
 ## API-specific details (read this before "aligning" with the blueprint)
 

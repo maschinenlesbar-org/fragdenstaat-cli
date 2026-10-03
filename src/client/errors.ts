@@ -77,6 +77,13 @@ export class FdsApiError extends FdsError {
   }
 }
 
+/**
+ * An input the library rejects before sending any request: a bad option, id,
+ * filter or parameter value. The message reads `Invalid <name>: <reason>`. The CLI
+ * maps it to its usage-error exit code (1).
+ */
+export class FdsValidationError extends FdsError {}
+
 /** A transport-level failure (DNS, connection reset, timeout, ...). */
 export class FdsNetworkError extends FdsError {}
 
