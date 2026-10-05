@@ -542,7 +542,8 @@ test("--max-retries above 10 is a usage error", async () => {
 // Exploratory test 2026-09-26, finding 9: deep nesting overflows the pretty printer.
 test("a deeply nested response is a clean error, not 'Unexpected error'", async () => {
   const depth = 200_000;
-  const deep = "[".repeat(depth) + "]".repeat(depth);
+  // Inside a valid envelope: a bare deep array is now rejected as the wrong shape (P9).
+  const deep = `{"meta":{"total_count":1},"objects":[${"[".repeat(depth) + "]".repeat(depth)}]}`;
   const cli = makeCli(() => rawResponse(deep, "application/json"));
   assert.equal(await run(["request", "search", "--q", "deep"], cli.deps), 1);
   assert.match(cli.err.join("\n"), /^Error: The response is nested too deeply to pretty-print; try --compact\.$/);
@@ -670,3 +671,19 @@ for (const argv of [
     assert.equal(bad.mt.calls.length, 0);
   });
 }
+
+// Exploratory test 2026-10-05, result 03 bug 3: wrong-shape 200s exited 0.
+test("a 200 with the wrong shape exits 1; an HTML 'CSV' writes no -o file", async () => {
+  for (const body of [{ detail: "Wartung" }, null]) {
+    const cli = makeCli(() => jsonResponse(body));
+    assert.equal(await run(["request", "list"], cli.deps), 1, JSON.stringify(body));
+    assert.equal(cli.out.length, 0);
+    assert.match(cli.err.join("\n"), /^Error: Unexpected response from \/api\/v1\/request\/ \(HTTP 200\)/);
+  }
+  const arr = makeCli(() => jsonResponse([1, 2]));
+  assert.equal(await run(["request", "get", "5"], arr.deps), 1);
+  const html = makeCli(() => rawResponse("<html>Wartung</html>", "text/html"));
+  assert.equal(await run(["-o", "requests.csv", "request", "list", "--csv"], html.deps), 1);
+  assert.equal(html.files.size, 0);
+  assert.match(html.err.join("\n"), /expected text\/csv, got an HTML page/);
+});

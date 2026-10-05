@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { FragDenStaatClient } from "../src/client/client.js";
-import { FdsValidationError } from "../src/client/errors.js";
+import { FdsParseError, FdsValidationError } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
 import * as fx from "./fixtures.js";
 
@@ -148,4 +148,33 @@ test("publicBodies.search/searchCsv check lnglat before any request", async () =
   assert.equal(mt.calls.length, 0);
   await c.publicBodies.search({ lnglat: "12.37,51.34" });
   assert.equal(new URL(mt.last().url).searchParams.get("lnglat"), "12.37,51.34");
+});
+
+// Exploratory test 2026-10-05, result 03 bug 3: a 200 with the wrong shape exited 0.
+test("a 2xx body without the documented shape is an FdsParseError", async () => {
+  for (const body of [null, {}, [1, 2], "text", { detail: "Wartung" }, { objects: [] }, { meta: {}, objects: [] }, { meta: { total_count: 1 }, objects: null }]) {
+    const { client: c } = client(() => jsonResponse(body));
+    await assert.rejects(c.requests.list(), FdsParseError, `list ${JSON.stringify(body)}`);
+    await assert.rejects(c.requests.search({ q: "x" }), FdsParseError, `search ${JSON.stringify(body)}`);
+    await assert.rejects(c.laws.autocomplete("x"), FdsParseError, `autocomplete ${JSON.stringify(body)}`);
+  }
+  for (const body of [null, {}, [1, 2], "text", 5]) {
+    const { client: c } = client(() => jsonResponse(body));
+    await assert.rejects(c.requests.get(5), FdsParseError, `get ${JSON.stringify(body)}`);
+  }
+  const { client: ok } = client(() => jsonResponse(fx.requestList));
+  await ok.requests.list();
+});
+
+test("a CSV request answered with an HTML page or JSON is an FdsParseError", async () => {
+  for (const [body, type] of [
+    ["<html>Wartung</html>", "text/html"],
+    ["<!DOCTYPE html><p>Wartung</p>", "text/plain"],
+    ['{"meta":{"total_count":0},"objects":[]}', "application/json"],
+  ] as const) {
+    const { client: c } = client(() => rawResponse(body, type));
+    await assert.rejects(c.requests.listCsv(), (e: unknown) => e instanceof FdsParseError && /expected text\/csv/.test((e as Error).message), type);
+  }
+  const { client: ok } = client(() => rawResponse("id,title\n1,a\n", "text/csv; charset=utf-8"));
+  assert.equal((await ok.requests.listCsv()).data.toString("utf8"), "id,title\n1,a\n");
 });

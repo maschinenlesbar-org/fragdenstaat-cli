@@ -440,20 +440,49 @@ export class RequestEngine {
     });
   }
 
-  /** Perform a GET expecting JSON and parse it into `T`. */
-  async getJson<T>(path: string, query?: QueryParams): Promise<T> {
+  /**
+   * Perform a GET expecting JSON and parse it into `T`. With `shape`, the parsed value
+   * must have the documented form (responseShapeProblem), or the call throws an
+   * FdsParseError: a `null`, `{}`, `{"detail": "Wartung"}` or an array answered with a
+   * 2xx would otherwise be printed as data with exit 0, or read as "nothing found".
+   */
+  async getJson<T>(path: string, query?: QueryParams, shape?: ResponseShape): Promise<T> {
     const res = await this.request("GET", path, { query, accept: "application/json" });
     const text = decodeBody(res.data, res.contentType, path);
+    let value: unknown;
     try {
-      return JSON.parse(text) as T;
+      value = JSON.parse(text);
     } catch (cause) {
-      throw new FdsParseError(`Failed to parse JSON response from ${path}`, { cause });
+      // An HTML maintenance or proxy page is the usual non-JSON answer: name its type,
+      // so it reads as an upstream problem rather than a client bug.
+      const type = res.contentType.split(";")[0]?.trim() ?? "";
+      const hint = type !== "" && !/json/i.test(type) ? `: expected JSON, got Content-Type "${cleanDetail(type)}"` : "";
+      throw new FdsParseError(`Failed to parse JSON response from ${path}${hint}`, { cause });
     }
+    const problem = shape === undefined ? undefined : responseShapeProblem(value, shape);
+    if (problem !== undefined) {
+      throw new FdsParseError(`Unexpected response from ${path} (HTTP ${res.status}): ${problem}`);
+    }
+    return value as T;
   }
 
-  /** Perform a GET returning the raw bytes (non-JSON downloads). */
+  /**
+   * Perform a GET returning the raw bytes (the server-rendered CSV). An HTML page (a
+   * maintenance or login page, a proxy's error page) or a JSON body answered with a 2xx
+   * to a CSV request is an FdsParseError, not a download: the CLI would otherwise print
+   * it, or save it over the user's `-o` file, with exit 0.
+   */
   async getRaw(path: string, accept: string, query?: QueryParams): Promise<RawResponse> {
-    return this.request("GET", path, { query, accept });
+    const res = await this.request("GET", path, { query, accept });
+    const type = res.contentType.split(";")[0]?.trim().toLowerCase() ?? "";
+    const got = isHtml(res) ? "an HTML page" : !/json/i.test(accept) && /[/+]json$/.test(type) ? "JSON" : undefined;
+    if (got !== undefined) {
+      throw new FdsParseError(
+        `Unexpected response from ${path} (HTTP ${res.status}): expected ${accept}, got ${got}` +
+          (res.contentType === "" ? "" : ` (Content-Type "${cleanDetail(res.contentType)}")`),
+      );
+    }
+    return res;
   }
 
   private toApiError(
@@ -508,6 +537,49 @@ export class RequestEngine {
       ...(retry.retryAfterMs === undefined ? {} : { retryAfterMs: retry.retryAfterMs, maxRetryAfterMs: MAX_RETRY_AFTER_MS }),
     });
   }
+}
+
+/**
+ * The documented form of a JSON answer, checked by `getJson`:
+ * - `"list"`: the Tastypie envelope every list, search and autocomplete endpoint returns —
+ *   an object with an `objects` array and a `meta` object holding a numeric `total_count`;
+ * - `"record"`: a non-empty object, not an array (a detail endpoint's single object).
+ */
+export type ResponseShape = "list" | "record";
+
+/** Why `value` does not have the documented form `shape`, or undefined when it does. */
+export function responseShapeProblem(value: unknown, shape: ResponseShape): string | undefined {
+  const isObject = typeof value === "object" && value !== null && !Array.isArray(value);
+  const describe = (): string =>
+    value === null ? "null" : Array.isArray(value) ? "an array" : isObject ? "an object" : `a ${typeof value}`;
+  if (!isObject) return `expected ${shape === "list" ? "a { meta, objects } list" : "an object"}, got ${describe()}.`;
+  if (shape === "record") {
+    return Object.keys(value).length === 0 ? "expected a record, got an empty object." : undefined;
+  }
+  const page = value as { meta?: unknown; objects?: unknown };
+  if (!Array.isArray(page.objects)) return "expected a { meta, objects } list with an objects array.";
+  const meta = page.meta as { total_count?: unknown } | null | undefined;
+  if (typeof meta !== "object" || meta === null || typeof meta.total_count !== "number" || !Number.isFinite(meta.total_count)) {
+    return "expected a { meta, objects } list with a numeric meta.total_count.";
+  }
+  return undefined;
+}
+
+/** True for a response that is an HTML page: by its Content-Type, or by its first bytes. */
+function isHtml(res: RawResponse): boolean {
+  const type = res.contentType.split(";")[0]?.trim().toLowerCase() ?? "";
+  if (type === "text/html" || type === "application/xhtml+xml") return true;
+  const head = res.data.subarray(0, 512).toString("latin1").replace(/^\uFEFF|^\xEF\xBB\xBF/, "").trimStart().toLowerCase();
+  return head.startsWith("<!doctype html") || head.startsWith("<html");
+}
+
+/** Longest server text (in characters) an error message keeps; a longer one ends in "…". */
+export const MAX_DETAIL_LENGTH = 500;
+
+/** sanitizeServerText, then cut at MAX_DETAIL_LENGTH characters. */
+export function cleanDetail(text: string): string {
+  const clean = sanitizeServerText(text);
+  return clean.length > MAX_DETAIL_LENGTH ? `${clean.slice(0, MAX_DETAIL_LENGTH)}…` : clean;
 }
 
 /**

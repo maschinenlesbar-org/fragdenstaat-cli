@@ -172,6 +172,12 @@ When in doubt, trust the live API, not the schema.
   envelope — `meta = { limit, offset, total_count, next, previous }`, `objects` is
   the array. Detail responses are the bare object. This is typed as `TastypieList<T>`
   in `types.ts`, **not** the `{ count, next, previous, results }` the schema claims.
+  `getJson` checks that envelope on every JSON answer (`responseShapeProblem`): a
+  list, search or autocomplete call must get an object with an `objects` array and a
+  `meta` object holding a numeric `total_count`, a `get` a non-empty object. Anything
+  else — `null`, `{}`, `{"detail": "Wartung"}`, an array — is an `FdsParseError`
+  (`Unexpected response from <path> (HTTP 200): …`, exit 1), never printed as data or
+  read as "nothing found". The records themselves are not schema-validated.
 - **Related resources are hyperlinked** as absolute `resource_uri` URLs, not embedded
   (a request's `public_body` is a nested exception; detail responses inline
   `law`/`public_body`/`messages`). List items are typed for the common scalar fields;
@@ -218,7 +224,10 @@ When in doubt, trust the live API, not the schema.
   path negotiates `Accept: text/csv` explicitly. A CSV response is **one page**
   (`limit` capped at 50, like JSON) and carries no `total_count`/`next`, so
   `renderCsvPage` (`shared.ts`) counts the data rows (quote-aware) and prints a
-  stderr note when the page came back full. `format=xml` 404s everywhere;
+  stderr note when the page came back full. `getRaw` refuses a 2xx HTML page (by
+  Content-Type, or a body that starts `<!doctype html`/`<html`) or a JSON body
+  answered to a CSV request with an `FdsParseError`, so `-o` never saves a maintenance
+  page as `requests.csv`. `format=xml` 404s everywhere;
   `format=jsonp` works on some resources only — neither is wrapped.
 - **Two error-body shapes** (`engine.ts` handles both):
   `{"detail": "<message>"}` for 404/406/format errors, and

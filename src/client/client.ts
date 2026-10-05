@@ -137,7 +137,7 @@ class ListResource<T, P extends Pagination = Pagination> {
   }
 
   async list(params: P = {} as P): Promise<TastypieList<T>> {
-    return this.e.getJson(this.path, this.listQuery(params));
+    return this.e.getJson(this.path, this.listQuery(params), "list");
   }
 
   /**
@@ -153,7 +153,7 @@ class ListResource<T, P extends Pagination = Pagination> {
    * anything else rejects with an FdsValidationError before any request.
    */
   async get(id: number | string): Promise<JsonObject> {
-    return this.e.getJson(`${this.path}${normalizeResourceId(id)}/`);
+    return this.e.getJson(`${this.path}${normalizeResourceId(id)}/`, undefined, "record");
   }
 }
 
@@ -165,7 +165,7 @@ class RequestResource extends ListResource<FoiRequestListItem, RequestListParams
 
   /** Full-text / faceted search over public requests. */
   async search(params: RequestSearchParams = {}): Promise<TastypieList<FoiRequestListItem>> {
-    return this.e.getJson("/api/v1/request/search/", checkedQuery(params));
+    return this.e.getJson("/api/v1/request/search/", checkedQuery(params), "list");
   }
 
   /** The full-text request search as server-rendered CSV. */
@@ -175,7 +175,7 @@ class RequestResource extends ListResource<FoiRequestListItem, RequestListParams
 
   /** Autocomplete request tags. */
   async tagsAutocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/request/tags/autocomplete/", { ...checkedQuery(page), q });
+    return this.e.getJson("/api/v1/request/tags/autocomplete/", { ...checkedQuery(page), q }, "list");
   }
 }
 
@@ -187,7 +187,7 @@ class PublicBodyResource extends ListResource<PublicBodyListItem, PublicBodyList
 
   /** Full-text search over public bodies. */
   async search(params: PublicBodySearchParams = {}): Promise<TastypieList<PublicBodyListItem>> {
-    return this.e.getJson("/api/v1/publicbody/search/", checkedQuery(params, PUBLICBODY_RULES));
+    return this.e.getJson("/api/v1/publicbody/search/", checkedQuery(params, PUBLICBODY_RULES), "list");
   }
 
   /** The public-body search as server-rendered CSV. */
@@ -200,7 +200,7 @@ class PublicBodyResource extends ListResource<PublicBodyListItem, PublicBodyList
 
   /** Autocomplete public-body names. */
   async autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/publicbody/autocomplete/", { ...checkedQuery(page), q });
+    return this.e.getJson("/api/v1/publicbody/autocomplete/", { ...checkedQuery(page), q }, "list");
   }
 }
 
@@ -221,7 +221,7 @@ class LawResource extends ListResource<FoiLawListItem, LawListParams> {
   }
 
   async autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/law/autocomplete/", { ...checkedQuery(page), q });
+    return this.e.getJson("/api/v1/law/autocomplete/", { ...checkedQuery(page), q }, "list");
   }
 }
 
@@ -232,7 +232,7 @@ class CategoryResource extends ListResource<CategoryListItem, TreeListParams> {
   }
 
   async autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/category/autocomplete/", { ...checkedQuery(page), q });
+    return this.e.getJson("/api/v1/category/autocomplete/", { ...checkedQuery(page), q }, "list");
   }
 }
 
@@ -243,7 +243,7 @@ class GeoRegionResource extends ListResource<GeoRegionListItem, GeoRegionListPar
   }
 
   async autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/georegion/autocomplete/", { ...checkedQuery(page), q });
+    return this.e.getJson("/api/v1/georegion/autocomplete/", { ...checkedQuery(page), q }, "list");
   }
 }
 
