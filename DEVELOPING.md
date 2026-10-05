@@ -124,15 +124,8 @@ What the library rejects with `FdsValidationError`, before any request:
   paths were appended to the raw string and `"https://h/ "` requested
   `/%20/api/v1/...`), parseable, an `http:`/`https:` scheme, and no query or fragment
   (paths are appended as a string, so `?`/`#` would swallow every path). Userinfo is
-  allowed (Basic auth for a protected mirror) and redacted in every message. The CLI
-  also redacts on output: `run.ts` (`withRedactedOutput`) takes the exact userinfo of
-  every argument (`credentialsIn`, exported) and replaces it with `***` in everything it
-  prints — commander's usage errors, which echo rejected values (`argument '<url>' is
-  invalid`, `unknown command '<url>'`), and the help that follows them — so a password
-  with spaces, quotes, `#`, `?` or `/` is caught as well as an ordinary one. `redactUrl`
-  falls back to the same text-based cut (`redactCredentials`) for a value that doesn't
-  parse as a URL. This is a
-  configuration error, so it is an `FdsValidationError`, not the transport's
+  allowed (Basic auth for a protected mirror) and redacted in every message (see
+  "Credential redaction" below). This is a configuration error, so it is an `FdsValidationError`, not the transport's
   `FdsNetworkError`. The CLI's `parseBaseUrl` calls the same `baseUrlProblem`, with the
   same reasons.
 - **Non-numeric law id filters and bad cost amounts.** `laws.list`/`listCsv` take
@@ -142,6 +135,19 @@ What the library rejects with `FdsValidationError`, before any request:
   `costs_min`/`costs_max` must be finite non-negative numbers (`amountProblem`), which
   the server would otherwise answer with HTTP 400. The CLI's `parseIdFilter` and
   `parseNonNegativeNumber` use the same rules.
+
+**Credential redaction.** A credential in the base URL never reaches the output. The
+CLI redacts on output: `run.ts` (`withRedactedOutput`) takes the exact userinfo of every
+argument (`credentialsIn`, exported) and replaces it with `***` in everything it prints —
+commander's usage errors, which echo rejected values (`argument '<url>' is invalid`,
+`unknown command '<url>'`), and the help that follows them — so a password with spaces,
+quotes, `#`, `?` or `/` is caught as well as an ordinary one. `redactUrl` falls back to
+the same text-based cut (`redactCredentials`) for a value that doesn't parse as a URL.
+In the library, the engine keeps the base URL in a real `#private` field, so
+`console.log(client)`, `util.inspect` and `JSON.stringify` never show it, and it scrubs
+the base URL's userinfo (raw and percent-decoded) from error bodies and details,
+transport error text (fetch's "Request cannot be constructed from a URL that includes
+credentials: …") and the `cause` chain it attaches.
 
 ## API-specific details (read this before "aligning" with the blueprint)
 

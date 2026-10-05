@@ -11,7 +11,15 @@ import {
   type Transport,
 } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
-import { FdsApiError, FdsError, FdsNetworkError, FdsParseError, redactUrl } from "./errors.js";
+import {
+  FdsApiError,
+  FdsError,
+  FdsNetworkError,
+  FdsParseError,
+  credentialsIn,
+  redactCredentials,
+  redactUrl,
+} from "./errors.js";
 import { assertNonBlankParams, assertValid, headerValueProblem, validateBaseUrl } from "./validate.js";
 
 export const DEFAULT_BASE_URL = "https://fragdenstaat.de";
@@ -193,7 +201,12 @@ const realSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
 export class RequestEngine {
-  private readonly baseUrl: string;
+  // A real private field (not TypeScript's `private`): util.inspect, console.log and
+  // JSON.stringify of a client never show it, so a password in the base URL can't be
+  // logged by accident. Messages use redactUrl.
+  readonly #baseUrl: string;
+  /** The base URL's userinfo, raw and percent-decoded, for scrubbing server and transport text. */
+  readonly #credentials: string[];
   private readonly transport: Transport;
   private readonly userAgent: string;
   private readonly timeoutMs: number;
@@ -207,7 +220,14 @@ export class RequestEngine {
     // whitespace, and a trailing space would defeat the strip. A malformed value is an
     // FdsValidationError (a configuration error, not a transport failure); the default
     // transport still re-checks each request URL's scheme as an FdsNetworkError.
-    this.baseUrl = validateBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL);
+    this.#baseUrl = validateBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL);
+    this.#credentials = credentialsIn(this.#baseUrl).flatMap((raw) => {
+      try {
+        return [raw, decodeURIComponent(raw)];
+      } catch {
+        return [raw];
+      }
+    });
     this.transport = options.transport ?? nodeHttpTransport;
     // A blank, control-character or non-Latin-1 value is an FdsValidationError here,
     // not a raw TypeError from Node at send time (or CR/LF handed to a custom transport).
@@ -225,6 +245,35 @@ export class RequestEngine {
       Number.MAX_SAFE_INTEGER,
     );
     this.sleep = options.sleep ?? realSleep;
+  }
+
+  /**
+   * `text` without the base URL's credentials: server text (an error body that echoes the
+   * request URL) and transport text (fetch's "Request cannot be constructed from a URL that
+   * includes credentials: <url>") can carry them.
+   */
+  private scrub(text: string): string {
+    return this.#credentials.length === 0 ? text : redactCredentials(text, this.#credentials);
+  }
+
+  /**
+   * A transport failure as the `cause` of the error the engine raises: the original when its
+   * text carries no credentials, otherwise a copy with them scrubbed (message, `code` and the
+   * cause chain kept), so logging the error with its causes can't reveal the base URL's
+   * password.
+   */
+  private scrubCause(cause: unknown, depth = 0): unknown {
+    if (this.#credentials.length === 0 || depth > 5) return cause;
+    if (typeof cause === "string") return this.scrub(cause);
+    if (!(cause instanceof Error)) return cause;
+    const inner = this.scrubCause(cause.cause, depth + 1);
+    const message = this.scrub(cause.message);
+    if (message === cause.message && inner === cause.cause && !this.scrub(cause.stack ?? "").includes("***@")) return cause;
+    const copy = new Error(message, inner === undefined ? undefined : { cause: inner });
+    copy.name = cause.name;
+    const code = (cause as { code?: unknown }).code;
+    if (code !== undefined) Object.assign(copy, { code });
+    return copy;
   }
 
   /**
@@ -246,7 +295,7 @@ export class RequestEngine {
       );
     }
     const qs = query ? buildQueryString(query) : "";
-    return `${this.baseUrl}${normalizedPath}${qs ? `?${qs}` : ""}`;
+    return `${this.#baseUrl}${normalizedPath}${qs ? `?${qs}` : ""}`;
   }
 
   /**
@@ -369,9 +418,17 @@ export class RequestEngine {
    * can rely on every failure being a FdsError. Any other FdsError passes through.
    */
   private toNetworkError(method: string, url: string, cause: unknown): FdsError {
-    if (cause instanceof FdsError) return cause;
+    if (cause instanceof FdsError && !(cause instanceof FdsNetworkError)) return cause;
+    if (cause instanceof FdsNetworkError) {
+      // The default transport's own errors carry no URL; scrub one that does anyway.
+      const scrubbed = this.scrubCause(cause);
+      if (scrubbed === cause) return cause;
+      return new FdsNetworkError(this.scrub(cause.message), { cause: this.scrubCause(cause.cause) });
+    }
     const reason = cause instanceof Error ? cause.message : String(cause);
-    return new FdsNetworkError(`${method} ${redactUrl(url)} failed: ${sanitizeServerText(reason)}`, { cause });
+    return new FdsNetworkError(`${method} ${redactUrl(url)} failed: ${sanitizeServerText(this.scrub(reason))}`, {
+      cause: this.scrubCause(cause),
+    });
   }
 
   /** Perform a GET expecting JSON and parse it into `T`. */
@@ -397,7 +454,7 @@ export class RequestEngine {
     body: Buffer,
     locationHeader?: string,
   ): FdsApiError {
-    const text = body.toString("utf8");
+    const text = this.scrub(body.toString("utf8"));
     let detail: string | undefined;
     try {
       const parsed = JSON.parse(text) as {

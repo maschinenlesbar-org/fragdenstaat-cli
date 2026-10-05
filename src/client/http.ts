@@ -73,7 +73,7 @@ export const nodeHttpTransport: Transport = (request) =>
     try {
       url = new URL(request.url);
     } catch {
-      reject(new FdsNetworkError(`Invalid URL: ${request.url}`));
+      reject(new FdsNetworkError(`Invalid URL: ${redactUrl(request.url)}`));
       return;
     }
 
