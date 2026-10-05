@@ -160,8 +160,9 @@ fragdenstaat --compact request list --jurisdiction 1 --status resolved --resolut
 
 # Grundschule public bodies in a jurisdiction, to CSV (one page of up to 50 rows;
 # a full page prints a stderr note, fetch the next one with --offset 50)
-fragdenstaat classification list --q "Grundschule"
-fragdenstaat publicbody list --classification 642 --jurisdiction 14 --csv -o schools.csv
+fragdenstaat classification list --q "Grundschule"      # Grundschule = 642
+fragdenstaat jurisdiction list                          # Bayern = 92
+fragdenstaat publicbody list --classification 642 --jurisdiction 92 --csv -o schools.csv
 
 # Full message thread of a request
 fragdenstaat request get 34126 | jq '.messages[] | {kind, is_response, subject}'
