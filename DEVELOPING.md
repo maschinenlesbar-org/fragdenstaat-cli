@@ -332,7 +332,15 @@ canned responses and a recording mock transport; `test/fixtures.ts` holds Tastyp
 sample bodies. `http.test.ts` exercises the real transport against a local
 `http.createServer`. `cli.test.ts` drives `run()` end-to-end with a mocked client.
 `parity.test.ts` sends one input through the CLI and through the library (`parity()` in
-`helpers.ts`) and asserts the same outcome; `validate.test.ts` covers the rules.
+`helpers.ts`) and asserts the same outcome; `validate.test.ts` covers the rules and
+`filters.test.ts` the per-endpoint parameter tables.
+
+The `conformance-p*.test.ts` files are shared across the `*-cli` repos (fix plan
+`.reviews/2026-10-05-exploratory/`; only their adapter block at the top is
+repo-specific): P1 CLI output redaction, P2 library redaction, P4/P19 configuration
+validation (P19 skipped: this CLI reads no environment variable), P5 the transport
+contract, P6 the retry policy, P7 pipes and exit codes (runs the built bin), P8/P9/P13
+charset, 2xx body shape and error classes, P10 strict filters, P12 `-o -`.
 Tests must keep passing on Node 22/24 (`engines`: `>=22.12`, the floor of the pinned commander 15).
 
 ## CI / release
