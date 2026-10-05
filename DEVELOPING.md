@@ -296,11 +296,11 @@ sample bodies. `http.test.ts` exercises the real transport against a local
 `http.createServer`. `cli.test.ts` drives `run()` end-to-end with a mocked client.
 `parity.test.ts` sends one input through the CLI and through the library (`parity()` in
 `helpers.ts`) and asserts the same outcome; `validate.test.ts` covers the rules.
-Tests must keep passing on Node 20/22/24.
+Tests must keep passing on Node 22/24 (`engines`: `>=22.12`, the floor of the pinned commander 15).
 
 ## CI / release
 
-`.github/workflows/`: `ci.yml` (typecheck + build + test on Node 20/22/24),
+`.github/workflows/`: `ci.yml` (typecheck + build + test on Node 22/24),
 `release.yml` (on a `v*` tag: test, `npm pack`, CycloneDX SBOMs, GitHub Release),
 `publish.yml` (manual npm publish via OIDC trusted publishing), `docs.yml` (website + TypeDoc
 → GitHub Pages, via the isolated `tools/docs/` toolchain). The npm tarball ships only `dist/src` + `LICENSING.md` +

@@ -35,7 +35,7 @@ npm install -g @maschinenlesbar.org/fragdenstaat-cli
 npx @maschinenlesbar.org/fragdenstaat-cli --help
 ```
 
-Requires Node ≥ 20.
+Requires Node.js 22.12+.
 
 ## Quick start
 
