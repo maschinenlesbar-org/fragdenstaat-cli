@@ -610,14 +610,16 @@ export function decodeBody(body: Buffer, contentType: string, path: string): str
 /**
  * The absolute, printable form of a `Location` header: resolved against the request
  * URL, userinfo redacted, control/bidi characters stripped (it is server text bound
- * for stderr). An unparseable value is shown sanitised as it came.
+ * for stderr). An unparseable value is shown sanitised as it came, with any userinfo
+ * cut out by text.
  */
 function redirectTarget(requestUrl: string, location: string): string | undefined {
   let target: string;
   try {
     target = redactUrl(new URL(location, requestUrl).href);
   } catch {
-    target = location;
+    // Unparseable (`http://bob:hunter2@exa mple/`): still cut any userinfo out by text.
+    target = redactUrl(location);
   }
   const clean = cleanDetail(target);
   return clean === "" ? undefined : clean;

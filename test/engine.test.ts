@@ -336,3 +336,17 @@ test("an invalid Date in a filter is an FdsValidationError, not a raw RangeError
 test("null options are treated like no options", () => {
   new RequestEngine(null as unknown as undefined);
 });
+
+// Exploratory test 2026-10-05, result 02 question 1: an unparseable Location kept its userinfo.
+test("an unparseable Location is printed with its userinfo redacted", async () => {
+  const engine = new RequestEngine({
+    transport: async () => ({ status: 302, headers: { location: "http://bob:hunter2@exa mple/" }, body: Buffer.from("") }),
+    maxRetries: 0,
+  });
+  await assert.rejects(engine.getJson("/x"), (e: unknown) => {
+    assert.ok(e instanceof FdsApiError);
+    assert.ok(!e.message.includes("hunter2"), e.message);
+    assert.match(e.message, /redirect to http:\/\/\*\*\*@exa mple\/ not followed/);
+    return true;
+  });
+});
