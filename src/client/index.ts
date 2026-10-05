@@ -21,6 +21,8 @@ export {
   FdsNetworkError,
   FdsParseError,
   FdsValidationError,
+  credentialsIn,
+  redactCredentials,
   redactUrl,
 } from "./errors.js";
 export {
