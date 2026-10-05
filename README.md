@@ -107,7 +107,13 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
 - **Page size is capped at 50** by the server. `--limit` accepts `1..50`; page with
   `--offset`. `meta.total_count` is the real total (search endpoints cap it at 10000).
 - **IDs are numeric.** Resolve a name to its id first via `autocomplete` or
-  `list --q`, then filter by id. `category autocomplete` returns names, not ids; use
+  `list --q`, then filter by id. Id filters take integers only, and id lists
+  (`document --ids`, `georegion --id`, `publicbody --regions`) comma-separated
+  integers: anything else is a usage error before any request, because the server
+  would drop the filter and answer with the whole table. The exceptions are names:
+  `request list --categories`/`--classification` take the exact category or
+  classification name (`Umwelt`, `Ministerium`), `--tags` a tag name, and
+  `document list --tag` a tag slug. `category autocomplete` returns names, not ids; use
   `category list --q` for categories. `get <id>` accepts digits only; anything else is
   a usage error before any request.
 - **Anonymous = public only.** `resolution` is empty until a request is `resolved`.

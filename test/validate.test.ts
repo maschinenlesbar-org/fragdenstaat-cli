@@ -277,7 +277,8 @@ test("idFilterProblem accepts a non-negative safe integer or a digit string", ()
   for (const v of [0, 5, "0", "5", "007", String(Number.MAX_SAFE_INTEGER)]) {
     assert.equal(idFilterProblem(v), undefined, String(v));
   }
-  for (const v of ["", " 5", "5 ", "-1", "+1", "1.5", "0x10", "abc", "99999999999999999999", -1, 1.5, NaN, Infinity, true]) {
+  assert.equal(idFilterProblem(""), "Expected a non-empty value.");
+  for (const v of [" 5", "5 ", "-1", "+1", "1.5", "0x10", "abc", "99999999999999999999", -1, 1.5, NaN, Infinity, true]) {
     assert.equal(idFilterProblem(v), "Expected a non-negative integer.", String(v));
   }
 });

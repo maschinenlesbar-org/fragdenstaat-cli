@@ -140,14 +140,15 @@ test("get() rejects a non-numeric id before any request", async () => {
 });
 
 
-// Parity report finding 2: publicBodies.search inherits lnglat (no CLI flag).
-test("publicBodies.search/searchCsv check lnglat before any request", async () => {
+// Parity report finding 2, revised by the 2026-10-05 P10 fix: the search endpoint has no
+// lnglat (Froide's PublicBodyAPIFilterSet), so the key is refused like any unknown one.
+test("publicBodies.search/searchCsv refuse lnglat, which the search endpoint ignores", async () => {
   const { client: c, mt } = client(() => jsonResponse(fx.requestList));
-  await assert.rejects(c.publicBodies.search({ lnglat: "Berlin" }), { name: "FdsValidationError" });
-  await assert.rejects(c.publicBodies.searchCsv({ lnglat: "51.34,120" }), { name: "FdsValidationError" });
+  for (const params of [{ lnglat: "Berlin" }, { lnglat: "12.37,51.34" }, { category: 9 }, { slug: "x" }]) {
+    await assert.rejects(c.publicBodies.search(params as never), { name: "FdsValidationError" });
+    await assert.rejects(c.publicBodies.searchCsv(params as never), { name: "FdsValidationError" });
+  }
   assert.equal(mt.calls.length, 0);
-  await c.publicBodies.search({ lnglat: "12.37,51.34" });
-  assert.equal(new URL(mt.last().url).searchParams.get("lnglat"), "12.37,51.34");
 });
 
 // Exploratory test 2026-10-05, result 03 bug 3: a 200 with the wrong shape exited 0.

@@ -20,6 +20,7 @@ import {
   type Problem,
 } from "../client/validate.js";
 import { MAX_PAGE_SIZE } from "../client/params.js";
+import { idListProblem, normalizeIdList } from "../client/filters.js";
 
 /**
  * Parse a plain decimal integer literal exactly.
@@ -122,6 +123,24 @@ export function parseNonNegativeNumber(value: string): number {
  */
 export function parseIdFilter(value: string): number {
   return normalizeIdFilter("id", usageCheck(value, idFilterProblem));
+}
+
+/**
+ * commander value-parser for a comma-separated id list (`document list --ids`,
+ * `georegion list --id`, `publicbody list --regions`): the library's `idListProblem`,
+ * returned canonical (`"26, 27"` becomes `"26,27"`). Upstream, one non-numeric element
+ * (`26,abc`, `26;27`) dropped the whole filter and returned the unfiltered table.
+ */
+export function parseIdList(value: string): string {
+  return normalizeIdList(usageCheck(value, idListProblem));
+}
+
+/**
+ * commander value-parser for `request list --campaign`: a campaign id, or `-` for
+ * requests that belong to no campaign.
+ */
+export function parseCampaign(value: string): number | string {
+  return value === "-" ? value : parseIdFilter(value);
 }
 
 /**

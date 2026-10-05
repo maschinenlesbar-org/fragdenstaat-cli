@@ -367,7 +367,7 @@ test("parity: a law id filter that is not a non-negative integer is rejected by 
   );
   assertBothReject(
     await parity(["law", "list", "--jurisdiction", ""], (t) => lib(t).laws.list({ jurisdiction: "" })),
-    "Invalid jurisdiction: Expected a non-negative integer.",
+    "Invalid jurisdiction: Expected a non-empty value.",
   );
   assertBothReject(await parity(["law", "list", "--id", "abc"], (t) => lib(t).laws.list({ id: "abc" })));
   assertBothReject(await parity(["law", "list", "--mediator", "x1"], (t) => lib(t).laws.list({ mediator: "x1" })));

@@ -1,8 +1,10 @@
 // Tiny, dependency-free query-string builder tailored to how this API expects
 // parameters:
 //   - `undefined` / `null` values are omitted entirely
-//   - arrays are serialised as repeated keys (`?status=resolved&status=asleep`),
-//     which is what Django/Tastypie parses into a list
+//   - arrays are serialised as repeated keys (`?category=1&category=2`). Only
+//     Froide's multiple-choice filters read them all; for every other filter Django
+//     keeps the last one, so the client only lets arrays through where the endpoint's
+//     table in `filters.ts` says so.
 //   - booleans become the strings "true"/"false"
 //   - Date values become full ISO-8601 strings
 //   - everything else is coerced with String()

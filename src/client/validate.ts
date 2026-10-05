@@ -267,6 +267,7 @@ export function validateBaseUrl(value: string): string {
  * whole unfiltered list.
  */
 export const idFilterProblem: Problem<unknown> = (value) => {
+  if (isBlank(value)) return "Expected a non-empty value.";
   const ok =
     typeof value === "number"
       ? Number.isSafeInteger(value) && value >= 0

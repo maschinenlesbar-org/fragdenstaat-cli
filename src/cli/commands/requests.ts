@@ -7,6 +7,8 @@ import {
   once,
   onceValue,
   paginationParams,
+  parseCampaign,
+  parseIdFilter,
   parseNonEmpty,
   parseNonNegativeNumber,
   pruneUndefined,
@@ -23,13 +25,21 @@ function addRequestFilters(cmd: Command): Command {
     .addOption(
       choiceOption("--resolution <resolution>", "filter by outcome (resolved requests)", RequestResolutionValues),
     )
-    .option("--jurisdiction <id>", "filter by jurisdiction id", once(parseNonEmpty))
-    .option("--law <id>", "filter by FOI law id", once(parseNonEmpty))
-    .option("--categories <id>", "filter by category id", once(parseNonEmpty))
-    .option("--classification <id>", "filter by public-body classification id", once(parseNonEmpty))
-    .option("--campaign <id>", "filter by campaign id", once(parseNonEmpty))
-    .option("--public-body <id>", "filter by addressed public-body id", once(parseNonEmpty))
-    .option("--tags <tag>", "filter by tag name", once(parseNonEmpty))
+    .option("--jurisdiction <id>", "filter by jurisdiction id", once(parseIdFilter))
+    .option("--law <id>", "filter by FOI law id", once(parseIdFilter))
+    .option(
+      "--categories <name>",
+      'filter by the exact category name, case-sensitive (e.g. "Umwelt"; not an id or slug)',
+      once(parseNonEmpty),
+    )
+    .option(
+      "--classification <name>",
+      'filter by the exact public-body classification name, case-sensitive (e.g. "Ministerium")',
+      once(parseNonEmpty),
+    )
+    .option("--campaign <id>", 'filter by campaign id ("-" = requests in no campaign)', once(parseCampaign))
+    .option("--public-body <id>", "filter by addressed public-body id", once(parseIdFilter))
+    .option("--tags <tag>", "filter by one tag name, exact and case-sensitive", once(parseNonEmpty))
     .option("--reference <prefix>", "filter by reference (prefix match)", once(parseNonEmpty))
     .option("--slug <slug>", "filter by exact slug", once(parseNonEmpty))
     .option("--is-foi [bool]", "only genuine FOI requests (true/false)", onceValue)
@@ -39,9 +49,9 @@ function addRequestFilters(cmd: Command): Command {
     .option("--costs-max <eur>", "maximum charged costs in EUR", once(parseNonNegativeNumber))
     .option("--created-after <date>", "created on/after this date (YYYY-MM-DD)", once(parseNonEmpty))
     .option("--created-before <date>", "created on/before this date (YYYY-MM-DD)", once(parseNonEmpty))
-    .option("--project <id>", "filter by project id", once(parseNonEmpty))
-    .option("--user <id>", "filter by requesting user id", once(parseNonEmpty))
-    .option("--follower <id>", "filter by follower user id", once(parseNonEmpty));
+    .option("--project <id>", "filter by project id", once(parseIdFilter))
+    .option("--user <id>", "filter by requesting user id", once(parseIdFilter))
+    .option("--follower <id>", "filter by follower user id", once(parseIdFilter));
 }
 
 function buildRequestParams(opts: Record<string, unknown>): QueryParams {

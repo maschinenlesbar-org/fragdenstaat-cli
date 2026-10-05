@@ -11,26 +11,24 @@
 
 import { RequestEngine, type EngineOptions, type RawResponse } from "./engine.js";
 import type { QueryParams } from "./query.js";
+import { assertValid, normalizeResourceId, queryTextProblem } from "./validate.js";
 import {
-  amountProblem,
-  assertValid,
-  booleanProblem,
-  idFilterProblem,
-  normalizeIdFilter,
-  normalizeResourceId,
-  oneOfProblem,
-  pointProblem,
-  queryTextProblem,
-  validatePagination,
-  validateParams,
-  type ParamRules,
-} from "./validate.js";
-import {
-  GeoRegionKindValues,
-  MessageKindValues,
-  RequestResolutionValues,
-  RequestStatusValues,
-} from "./enums.js";
+  CATEGORY_LIST_PARAMS,
+  CLASSIFICATION_LIST_PARAMS,
+  DOCUMENT_LIST_PARAMS,
+  GEOREGION_LIST_PARAMS,
+  LAW_LIST_PARAMS,
+  MESSAGE_LIST_PARAMS,
+  PAGE_ONLY_PARAMS,
+  PAGINATION_PARAMS,
+  PUBLICBODY_LIST_PARAMS,
+  PUBLICBODY_SEARCH_PARAMS,
+  REQUEST_LIST_PARAMS,
+  REQUEST_SEARCH_PARAMS,
+  assertParams,
+  type FilterOptions,
+  type ParamSpec,
+} from "./filters.js";
 import type {
   TastypieList,
   JsonObject,
@@ -53,6 +51,7 @@ import type {
   PublicBodySearchParams,
   LawListParams,
   TreeListParams,
+  ClassificationListParams,
   MessageListParams,
   DocumentListParams,
   GeoRegionListParams,
@@ -72,52 +71,13 @@ export interface AutocompleteItem {
 const CSV_ACCEPT = "text/csv";
 
 /**
- * Per-resource rules for the list filters the TypeScript types restrict but
- * plain-JS callers (or JSON input) can still get wrong: enumerated values must be
- * one of the `enums.ts` arrays, boolean filters real booleans, points two decimals
- * in range.
+ * Check a params object against the endpoint's table (`filters.ts`: known keys, value
+ * types, single values, id lists) and return the normalised query to send. Throws
+ * FdsValidationError; every caller runs inside an async method, so the error arrives as
+ * a rejection and no request is sent. `null`/`undefined` params count as none.
  */
-const REQUEST_LIST_RULES: ParamRules = {
-  status: oneOfProblem(RequestStatusValues),
-  resolution: oneOfProblem(RequestResolutionValues),
-  is_foi: booleanProblem,
-  checked: booleanProblem,
-  has_same: booleanProblem,
-  costs_min: amountProblem,
-  costs_max: amountProblem,
-};
-/** The law filters that take a numeric id; sent as numbers (`"007"` becomes `7`). */
-const LAW_ID_FILTERS = ["jurisdiction", "mediator", "id"] as const;
-const LAW_LIST_RULES: ParamRules = {
-  meta: booleanProblem,
-  jurisdiction: idFilterProblem,
-  mediator: idFilterProblem,
-  id: idFilterProblem,
-};
-const TREE_LIST_RULES: ParamRules = { is_topic: booleanProblem };
-const MESSAGE_LIST_RULES: ParamRules = {
-  kind: oneOfProblem(MessageKindValues),
-  is_response: booleanProblem,
-  is_draft: booleanProblem,
-};
-const GEOREGION_LIST_RULES: ParamRules = {
-  kind: oneOfProblem(GeoRegionKindValues),
-  latlng: pointProblem("lat,lng"),
-};
-/** Public-body list and search: the `lnglat` point (the search inherits it). */
-const PUBLICBODY_RULES: ParamRules = { lnglat: pointProblem("lng,lat") };
-
-/**
- * Check a params object — `offset`/`limit`, then the given rules — and return it as
- * the query to send. Throws FdsValidationError; every caller runs inside an async
- * method, so the error arrives as a rejection and no request is sent.
- */
-function checkedQuery(params: Pagination | null | undefined, rules: ParamRules = {}): QueryParams {
-  // A JavaScript caller may pass null for "no params"; treat it like {}.
-  const p = params ?? {};
-  validatePagination(p);
-  validateParams(p, rules);
-  return p as unknown as QueryParams;
+function checkedQuery(params: unknown, spec: ParamSpec, options?: FilterOptions): QueryParams {
+  return assertParams(params, spec, options ?? {});
 }
 
 /**
@@ -126,7 +86,7 @@ function checkedQuery(params: Pagination | null | undefined, rules: ParamRules =
  * plus the checked pagination.
  */
 function autocompleteQuery(q: string, page: Pagination | null | undefined): QueryParams {
-  return { ...checkedQuery(page), q: assertValid("q", q, queryTextProblem) };
+  return { ...checkedQuery(page, PAGINATION_PARAMS), q: assertValid("q", q, queryTextProblem) };
 }
 
 /**
@@ -138,27 +98,24 @@ class ListResource<T, P extends Pagination = Pagination> {
   constructor(
     protected readonly e: RequestEngine,
     protected readonly path: string,
-    private readonly rules: ParamRules = {},
+    private readonly spec: ParamSpec = PAGE_ONLY_PARAMS,
   ) {}
 
   /**
-   * Check the list params against this resource's rules (FdsValidationError on a
-   * bad value) and return them as the query to send.
+   * The filtered list. Every key, value type and id list is checked against this
+   * endpoint's table first (FdsValidationError; `{ allowUnknownFilters: true }` sends a
+   * key the table doesn't know).
    */
-  protected listQuery(params: P): QueryParams {
-    return checkedQuery(params, this.rules);
-  }
-
-  async list(params: P = {} as P): Promise<TastypieList<T>> {
-    return this.e.getJson(this.path, this.listQuery(params), "list");
+  async list(params: P = {} as P, options?: FilterOptions): Promise<TastypieList<T>> {
+    return this.e.getJson(this.path, checkedQuery(params, this.spec, options), "list");
   }
 
   /**
    * The list endpoint as server-rendered CSV (nested objects flattened into
    * dotted columns). Returns the raw response for streaming to a file/stdout.
    */
-  async listCsv(params: P = {} as P): Promise<RawResponse> {
-    return this.e.getRaw(this.path, CSV_ACCEPT, { ...this.listQuery(params), format: "csv" });
+  async listCsv(params: P = {} as P, options?: FilterOptions): Promise<RawResponse> {
+    return this.e.getRaw(this.path, CSV_ACCEPT, { ...checkedQuery(params, this.spec, options), format: "csv" });
   }
 
   /**
@@ -173,17 +130,20 @@ class ListResource<T, P extends Pagination = Pagination> {
 /** FOI requests, plus full-text search and tag autocomplete. */
 class RequestResource extends ListResource<FoiRequestListItem, RequestListParams> {
   constructor(e: RequestEngine) {
-    super(e, "/api/v1/request/", REQUEST_LIST_RULES);
+    super(e, "/api/v1/request/", REQUEST_LIST_PARAMS);
   }
 
   /** Full-text / faceted search over public requests. */
-  async search(params: RequestSearchParams = {}): Promise<TastypieList<FoiRequestListItem>> {
-    return this.e.getJson("/api/v1/request/search/", checkedQuery(params), "list");
+  async search(params: RequestSearchParams = {}, options?: FilterOptions): Promise<TastypieList<FoiRequestListItem>> {
+    return this.e.getJson("/api/v1/request/search/", checkedQuery(params, REQUEST_SEARCH_PARAMS, options), "list");
   }
 
   /** The full-text request search as server-rendered CSV. */
-  async searchCsv(params: RequestSearchParams = {}): Promise<RawResponse> {
-    return this.e.getRaw("/api/v1/request/search/", CSV_ACCEPT, { ...checkedQuery(params), format: "csv" });
+  async searchCsv(params: RequestSearchParams = {}, options?: FilterOptions): Promise<RawResponse> {
+    return this.e.getRaw("/api/v1/request/search/", CSV_ACCEPT, {
+      ...checkedQuery(params, REQUEST_SEARCH_PARAMS, options),
+      format: "csv",
+    });
   }
 
   /** Autocomplete request tags. */
@@ -195,18 +155,18 @@ class RequestResource extends ListResource<FoiRequestListItem, RequestListParams
 /** Public bodies, plus full-text search and name autocomplete. */
 class PublicBodyResource extends ListResource<PublicBodyListItem, PublicBodyListParams> {
   constructor(e: RequestEngine) {
-    super(e, "/api/v1/publicbody/", PUBLICBODY_RULES);
+    super(e, "/api/v1/publicbody/", PUBLICBODY_LIST_PARAMS);
   }
 
   /** Full-text search over public bodies. */
-  async search(params: PublicBodySearchParams = {}): Promise<TastypieList<PublicBodyListItem>> {
-    return this.e.getJson("/api/v1/publicbody/search/", checkedQuery(params, PUBLICBODY_RULES), "list");
+  async search(params: PublicBodySearchParams = {}, options?: FilterOptions): Promise<TastypieList<PublicBodyListItem>> {
+    return this.e.getJson("/api/v1/publicbody/search/", checkedQuery(params, PUBLICBODY_SEARCH_PARAMS, options), "list");
   }
 
   /** The public-body search as server-rendered CSV. */
-  async searchCsv(params: PublicBodySearchParams = {}): Promise<RawResponse> {
+  async searchCsv(params: PublicBodySearchParams = {}, options?: FilterOptions): Promise<RawResponse> {
     return this.e.getRaw("/api/v1/publicbody/search/", CSV_ACCEPT, {
-      ...checkedQuery(params, PUBLICBODY_RULES),
+      ...checkedQuery(params, PUBLICBODY_SEARCH_PARAMS, options),
       format: "csv",
     });
   }
@@ -220,17 +180,7 @@ class PublicBodyResource extends ListResource<PublicBodyListItem, PublicBodyList
 /** FOI laws, plus name autocomplete. */
 class LawResource extends ListResource<FoiLawListItem, LawListParams> {
   constructor(e: RequestEngine) {
-    super(e, "/api/v1/law/", LAW_LIST_RULES);
-  }
-
-  /** The checked list query, with the id filters in canonical (number) form. */
-  protected override listQuery(params: LawListParams): QueryParams {
-    const query = { ...super.listQuery(params) };
-    for (const name of LAW_ID_FILTERS) {
-      const value = params?.[name];
-      if (value !== undefined && value !== null) query[name] = normalizeIdFilter(name, value);
-    }
-    return query;
+    super(e, "/api/v1/law/", LAW_LIST_PARAMS);
   }
 
   async autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
@@ -241,7 +191,7 @@ class LawResource extends ListResource<FoiLawListItem, LawListParams> {
 /** Topical categories (a tree), plus name autocomplete. */
 class CategoryResource extends ListResource<CategoryListItem, TreeListParams> {
   constructor(e: RequestEngine) {
-    super(e, "/api/v1/category/", TREE_LIST_RULES);
+    super(e, "/api/v1/category/", CATEGORY_LIST_PARAMS);
   }
 
   async autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
@@ -252,7 +202,7 @@ class CategoryResource extends ListResource<CategoryListItem, TreeListParams> {
 /** Geographic regions, plus name autocomplete. */
 class GeoRegionResource extends ListResource<GeoRegionListItem, GeoRegionListParams> {
   constructor(e: RequestEngine) {
-    super(e, "/api/v1/georegion/", GEOREGION_LIST_RULES);
+    super(e, "/api/v1/georegion/", GEOREGION_LIST_PARAMS);
   }
 
   async autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
@@ -268,7 +218,7 @@ export class FragDenStaatClient {
   readonly laws: LawResource;
   readonly jurisdictions: ListResource<JurisdictionListItem>;
   readonly categories: CategoryResource;
-  readonly classifications: ListResource<ClassificationListItem, TreeListParams>;
+  readonly classifications: ListResource<ClassificationListItem, ClassificationListParams>;
   readonly campaigns: ListResource<CampaignListItem>;
   readonly messages: ListResource<FoiMessageListItem, MessageListParams>;
   readonly documents: ListResource<DocumentListItem, DocumentListParams>;
@@ -282,10 +232,10 @@ export class FragDenStaatClient {
     this.laws = new LawResource(this.engine);
     this.jurisdictions = new ListResource(this.engine, "/api/v1/jurisdiction/");
     this.categories = new CategoryResource(this.engine);
-    this.classifications = new ListResource(this.engine, "/api/v1/classification/", TREE_LIST_RULES);
+    this.classifications = new ListResource(this.engine, "/api/v1/classification/", CLASSIFICATION_LIST_PARAMS);
     this.campaigns = new ListResource(this.engine, "/api/v1/campaign/");
-    this.messages = new ListResource(this.engine, "/api/v1/message/", MESSAGE_LIST_RULES);
-    this.documents = new ListResource(this.engine, "/api/v1/document/");
+    this.messages = new ListResource(this.engine, "/api/v1/message/", MESSAGE_LIST_PARAMS);
+    this.documents = new ListResource(this.engine, "/api/v1/document/", DOCUMENT_LIST_PARAMS);
     this.georegions = new GeoRegionResource(this.engine);
   }
 }

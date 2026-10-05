@@ -16,6 +16,8 @@ server supports it they also accept `--csv` (streams the flattened CSV export of
 that one page — at most 50 rows, no `total_count`; a full page prints a stderr note).
 Each filter and paging option takes one value: giving it twice is a usage error
 (only `document list --ids` accumulates repeats into one comma-separated list).
+Id filters take integers only and id lists comma-separated integers; anything else is
+a usage error before any request, since the server would ignore the filter.
 IDs are numeric — resolve names via `autocomplete`/`list --q` first
 (`category autocomplete` returns names only; use `category list --q` for category ids).
 
@@ -54,7 +56,7 @@ fragdenstaat request tags <query>        # autocomplete tag names
 
 ```bash
 fragdenstaat publicbody list [--q <text>] [--jurisdiction <id>] [--classification <id>] \
-    [--classification-id <id>] [--category <id>] [--regions <id>] [--slug <slug>] [--lnglat <lng,lat>]
+    [--classification-id <id>] [--category <id>] [--regions <id,id,…>] [--slug <slug>] [--lnglat <lng,lat>]
 fragdenstaat publicbody get <id>
 fragdenstaat publicbody search --q "<text>" [--jurisdiction <id>] [--classification <id>] [--category <id>]
 fragdenstaat publicbody autocomplete <query>
@@ -63,7 +65,9 @@ fragdenstaat publicbody autocomplete <query>
 Note: **singular** `--category` here (`--categories` is rejected as an unknown option).
 On `search` the CLI sends it as the API's `categories` parameter, the only name the
 search endpoint reads.
-`--classification` matches a subtree; `--classification-id` is exact. `--lnglat` is
+`--classification` matches a subtree; `--classification-id` is exact. `--regions` takes
+one geo-region id (that region and its sub-regions) or a comma list (exactly those
+regions); upstream, a single id that doesn't exist filters nothing. `--lnglat` is
 `lng,lat` (longitude first) and keeps only bodies whose `regions` contain that point, in
 name order rather than by distance, and a body appears once per region that contains
 the point (Stadt Leipzig twice for a Leipzig point).
@@ -105,11 +109,12 @@ fragdenstaat classification get <id>
 
 ```bash
 fragdenstaat georegion list [--q <text>] [--name <name>] [--kind <k>] [--kind-detail <text>] \
-    [--level <n>] [--region-identifier <id>] [--slug <slug>] [--ancestor <id>] [--id <id>] [--latlng <lat,lng>]
+    [--level <n>] [--region-identifier <id>] [--slug <slug>] [--ancestor <id>] [--id <id,id,…>] [--latlng <lat,lng>]
 fragdenstaat georegion get <id>       # includes geometry (can be large)
 fragdenstaat georegion autocomplete <query>
 ```
 
+`--id` takes one region id or a comma list (`5,6`); `--level` a non-negative integer.
 `--kind`: `country`, `state`, `admin_district`, `district`, `admin_cooperation`,
 `municipality`, `borough`, `zipcode`, `admin_court_jurisdiction`. `--latlng` is
 `lat,lng` (point-in-region lookup), two decimal numbers with no space
@@ -136,7 +141,9 @@ fragdenstaat document list [--publicbody <id>] [--foirequest <id>] [--collection
 fragdenstaat document get <id>        # includes pages[]
 ```
 
-`--tag` needs a **numeric** tag id. `--ids` is a comma-separated document-id list.
+`--ids` is a comma-separated list of numeric document ids (spaces after the commas are
+fine; repeats collect). One element that isn't a number (`26,abc`, `26;27`) is a usage
+error: the server would drop the whole filter and list every document.
 
 ## Examples
 

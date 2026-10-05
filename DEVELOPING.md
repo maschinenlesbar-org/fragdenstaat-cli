@@ -116,13 +116,37 @@ What the library rejects with `FdsValidationError`, before any request:
   (`resourceIdProblem`, `normalizeResourceId`); `"search"` or `"autocomplete"` would
   otherwise reach a list sub-endpoint and return its list envelope as a detail object,
   and `""`, `" 10 "`, `1.5`, `-1` or `NaN` would fail late on the server.
-- **Enum and boolean filters outside their set.** `list`/`listCsv` check request
-  `status`/`resolution`, message `kind` and geo-region `kind` against the `enums.ts`
-  arrays (`oneOfProblem`), and the boolean filters (`is_foi`, `checked`, `has_same`,
-  `meta`, `is_topic`, `is_response`, `is_draft`) for a real boolean (`booleanProblem`).
-  The per-resource tables live in `client.ts`; `validateParams` applies them. The CLI's
-  `choiceOption` offers the same arrays as choices, and `asBool` turns `"true"`/`"false"`
-  into the boolean.
+- **Filters the API would ignore or drop (strict filters).** Every `list`, `listCsv`,
+  `search` and `searchCsv` call checks its params object against its endpoint's table
+  in `filters.ts` (`assertParams`; tables such as `REQUEST_LIST_PARAMS`, from Froide's
+  FilterSets and checked live). Refused, with an `FdsValidationError`:
+  - an **unknown key** (own keys only, so a JSON `__proto__` or `constructor` too), with
+    a "did you mean" (`jurisdicton`, `Status`, `category` on `publicBodies.search`,
+    `is_topic` on `classifications.list`): the API ignores it and answers with the
+    unfiltered set. `{ allowUnknownFilters: true }` as the call's second argument sends
+    a key the table doesn't know (a scalar or a list of scalars);
+  - a **list where the API reads one value**: Django keeps only the last of repeated
+    keys, so `jurisdiction: [1, 91]` counted Baden-Württemberg alone (11 606) and
+    `[91, 1]` the Bund alone (175 330). Arrays are taken only by the multiple-choice
+    filters, sent as repeated keys (public-body `category`, public-body search
+    `regions`), and by the comma lists below;
+  - a **wrong value type or domain**: id filters (`jurisdiction`, `law`, `public_body`,
+    `publicbody`, `foirequest`, `parent`, `ancestor`, …) take a non-negative integer or
+    its digit string and are sent as numbers (`idFilterProblem`); `depth` and `level` a
+    non-negative integer; enum filters the `enums.ts` arrays (`oneOfProblem`); boolean
+    filters a real boolean (`booleanProblem`); text filters a non-blank string; dates a
+    string or a valid `Date`. Request `campaign` also takes `"-"`, Froide's "no campaign";
+  - a **malformed id list** (`document ids`, georegion `id`, public-body `regions`;
+    `idListProblem`): Froide converts each element with `int()` and drops the whole
+    filter when one fails, so `ids=26,abc` or `ids=26;27` returned all 259 575
+    documents, with document 26 first. A valid list is sent canonical
+    (`"26, 27"` → `26,27`; `[26, 27]` works too). `regions=abc` made the server answer
+    HTTP 500.
+
+  The CLI's parsers use the same rules (`parseIdFilter`, `parseIdList`, `parseIntArg`,
+  `choiceOption`, `asBool`), so a bad value is a usage error before any request, and a
+  repeated single-value option is a usage error (`once`); only `document list --ids`
+  collects repeats into one list.
 - **Out-of-range paging.** Every list, search and autocomplete method checks `limit`
   (an integer in `1..MAX_PAGE_SIZE`, `limitProblem`) and `offset` (a non-negative safe
   integer, `offsetProblem`). The server silently clamps a larger `limit` and `limit=0`
@@ -274,9 +298,18 @@ When in doubt, trust the live API, not the schema.
   round: its endpoint only reads plural `categories` and ignores `category`, so the
   CLI maps the same `--category` flag to `categories` there
   (`buildPublicBodySearchParams`; the library's `PublicBodySearchParams` has
-  `categories`). `publicbody list` distinguishes `--classification` (subtree) from
-  `--classification-id` (exact). `document --tag` needs a numeric tag id, while
-  `request --tags` takes a tag-name string.
+  `categories`). The search endpoint has no `classification_id`, `slug` or `lnglat`
+  (Froide's `PublicBodyAPIFilterSet`; `lnglat` was checked live: 1817 hits with and
+  without it), so `PublicBodySearchParams` no longer has them. `publicbody list`
+  distinguishes `--classification` (subtree) from `--classification-id` (exact).
+  `--regions` with one id matches that region and its sub-regions; a comma list matches
+  exactly those regions; a single id that doesn't exist filters nothing upstream (the
+  library can't tell without a lookup). `document --tag` takes a tag **slug**
+  (`to_field_name="slug"` in django-filingcabinet: `--tag lobbyismus` found 53
+  documents, `--tag 1` none), and `request --tags` one tag **name**, exact and
+  case-sensitive. Request `--categories` and `--classification` match the exact
+  category/classification **name** (`public_body__categories__name`; `Umwelt` found
+  4289 requests, `9`/`umwelt` none).
 
 ## Scope
 
