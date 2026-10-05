@@ -141,11 +141,12 @@ request with `--request <id>`.
 
 ```bash
 fragdenstaat document list [--publicbody <id>] [--foirequest <id>] [--collection <id>] \
-    [--portal <id>] [--directory <id>] [--tag <id>] [--ids <id,id,…>] \
+    [--portal <id>] [--directory <id>] [--tag <slug>] [--ids <id,id,…>] \
     [--created-after <YYYY-MM-DD>] [--created-before <YYYY-MM-DD>]
 fragdenstaat document get <id>        # includes pages[]
 ```
 
+`--tag` takes a tag **slug** (`lobbyismus`), not a number (which matches nothing).
 `--ids` is a comma-separated list of numeric document ids (spaces after the commas are
 fine; repeats collect). One element that isn't a number (`26,abc`, `26;27`) is a usage
 error: the server would drop the whole filter and list every document.

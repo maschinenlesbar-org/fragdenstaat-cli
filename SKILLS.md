@@ -99,14 +99,16 @@ skills encode the non-obvious parts of this API, for example:
   real total (search endpoints cap it at 10000);
 - **IDs are numeric** — a jurisdiction/law/category/classification/public-body name
   must be resolved to its id via `autocomplete` or `list --q` before filtering
-  (`category autocomplete` returns names, so use `category list --q` there);
+  (`category autocomplete` returns names, so use `category list --q` there); the
+  exceptions are `request list --categories`/`--classification`/`--tags`, which take
+  exact names (`Umwelt`, `Ministerium`), and `document --tag`, which takes a slug;
 - **`request list` uses plural `--categories` and `--public-body`**, while
   **`publicbody list` uses singular `--category`** (`--categories` is rejected) and
   distinguishes `--classification` (subtree) from `--classification-id` (exact);
 - **`resolution` is empty until `status = resolved`** — filter by `--status resolved`
   before judging an outcome; only *public* objects are visible anonymously;
-- **`document --tag` needs a numeric tag id**, whereas **`request --tags` takes a tag
-  name** — a mismatch 400s;
+- **`document --tag` takes a tag slug** (`lobbyismus`), **`request --tags` a tag
+  name** — a number matches nothing;
 - **`--csv`** streams the server's flattened export (dotted column names) — one
   page of at most 50 rows, like JSON, so a whole dataset is paged with `--offset`;
   file-writing skills confirm the `-o` path and report the row/byte count they wrote;

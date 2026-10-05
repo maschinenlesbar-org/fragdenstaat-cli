@@ -34,13 +34,13 @@ The API is read-only and needs **no key, account, or config**. Pass `--compact` 
 ## Step 1 — Resolve names to numeric ids first
 
 Every `document list` scope filter (`--publicbody`, `--collection`, `--portal`,
-`--foirequest`, `--directory`, `--tag`) is a **numeric id**, never a name. Look the
-id up before filtering:
+`--foirequest`, `--directory`) is a **numeric id**, never a name — `--tag` is the
+exception: it takes a tag **slug**. Look the id up before filtering:
 
 - **Authority** → `fragdenstaat publicbody autocomplete "Umweltbundesamt"` — each
   hit is `{"value":<id>,"label":...}`; take the `value`.
-- **Document tag** → `document list --tag` needs a **numeric tag id**; a bare tag
-  string is rejected with a 400 (see Traps).
+- **Document tag** → `document list --tag` takes the tag's **slug** (`lobbyismus`:
+  53 documents on 2026-10-06); a number matches nothing (see Traps).
 - **Campaign** (indirect) → `document list` has **no** `--campaign`. Reach a
   campaign's documents *through its requests*: `fragdenstaat campaign list --limit 50`
   (only ~18 campaigns, no `--q`/autocomplete — read the `id` off the matching name),
@@ -66,8 +66,8 @@ fragdenstaat --compact document list --publicbody 123 --limit 50
 | `--collection <id>` | a curated document collection |
 | `--portal <id>` | a document portal |
 | `--directory <id>` | a directory within a collection/portal |
-| `--tag <id>` | **numeric** tag id (not a tag string) |
-| `--ids <id,id,...>` | an explicit comma-separated document-id set |
+| `--tag <slug>` | a tag **slug** (`lobbyismus`), not a number |
+| `--ids <id,id,...>` | an explicit comma-separated set of numeric document ids |
 | `--created-after <YYYY-MM-DD>` | created on/after this date |
 | `--created-before <YYYY-MM-DD>` | created on/before this date |
 | `--limit <1..50>` / `--offset <n>` | page (max 50 per JSON page) |
@@ -101,13 +101,16 @@ Key `objects[]` fields:
 | `public` / `listed` | visibility flags |
 
 > **Traps.**
-> - **`document --tag` needs a numeric tag id.** A free-text tag string
->   (`--tag lobbyism`) is rejected with a **400**. This differs from `request --tags`,
->   which takes a tag *name* string (e.g. `request list --tags lobbyismus`);
->   `fragdenstaat request tags "lob"` autocompletes those request tag **names**
->   (`{"value":"lobbyismus",...}` — a string, not a document-tag id).
-> - **All `document list` scope ids are numeric.** Resolve authority/collection/portal
->   names to ids (Step 1) — passing a name silently matches nothing or 400s.
+> - **`document --tag` takes a tag slug, not a number.** `--tag lobbyismus` found 53
+>   documents, `--tag 1` none (2026-10-06); an unknown slug matches nothing (or gets a
+>   400). `request --tags` takes the tag *name* (`request list --tags lobbyismus`);
+>   `fragdenstaat request tags "lob"` autocompletes those names, which for simple
+>   lower-case tags are the slug too. A 0 under `--tag` means "check the slug" first.
+> - **All other `document list` scope ids are numeric.** Resolve authority/collection/
+>   portal names to ids (Step 1); the CLI rejects a non-numeric id (exit 1).
+> - **`--ids` must be numbers only.** `26,27` (or `26, 27`) works; one bad element
+>   (`26,abc`, `26;27`) is a usage error — the server would have dropped the filter and
+>   listed every document, the first one looking like a match.
 > - **No `--campaign` on `document list`.** Go via requests (Step 1, Campaign).
 > - **`--limit` maxes at 50, on the JSON *and* the CSV path.** `--csv` is one page
 >   too, not the whole dataset, and a CSV has no `total_count`. Read `meta.total_count`
