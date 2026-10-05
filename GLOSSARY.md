@@ -76,8 +76,8 @@ by a Land's jurisdiction does not return them.
 | Term | German | Endpoint | What it is |
 |---|---|---|---|
 | Public body | Behörde | `publicbody` | An authority that receives requests; has `email`, `address`, `classification`, `jurisdiction`, `number_of_requests`. |
-| Classification | Behördentyp | `classification` | Hierarchical taxonomy of the *type* of body (Ministerium, Grundschule, …). |
-| Category | Thema | `category` | Hierarchical *topic* taxonomy (`is_topic` flag) for requests/bodies. |
+| Classification | Behördentyp | `classification` | Hierarchical taxonomy of the *type* of body (Ministerium, Grundschule, …). `request list --classification` takes its exact **name**; `publicbody` filters take its id. |
+| Category | Thema | `category` | Hierarchical *topic* taxonomy (`is_topic` flag) for requests/bodies. `request list --categories` takes its exact **name** (`Umwelt`); `publicbody` filters take its id. |
 | Geo-region | Region | `georegion` | A geographic area with a `kind`: country/state/district/municipality/zipcode… (~24,000). |
 | Campaign | Kampagne | `campaign` | A coordinated mass-request project (e.g. "Frag den Bundestag"). |
 | Message | Nachricht | `message` | One piece of correspondence within a request; `kind` = email/post/fax/upload/phone/visit/import. |

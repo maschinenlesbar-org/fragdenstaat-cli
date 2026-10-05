@@ -54,6 +54,23 @@ function addRequestFilters(cmd: Command): Command {
     .option("--follower <id>", "filter by follower user id", once(parseIdFilter));
 }
 
+/**
+ * The note for an empty `request list`: `--categories`, `--classification` and `--tags`
+ * match the exact name, case-sensitive, so `umwelt`, a slug or an id matches nothing
+ * (Froide filters `public_body__categories__name`, `public_body__classification__name`,
+ * `tags__name`) and the API can't tell that apart from a real "no requests".
+ */
+export function requestEmptyNote(opts: Record<string, unknown>): string | undefined {
+  const named = [
+    ["--categories", opts["categories"], 'the exact category name, e.g. "Umwelt" (category list --q)'],
+    ["--classification", opts["classification"], 'the exact classification name, e.g. "Ministerium" (classification list --q)'],
+    ["--tags", opts["tags"], "one exact tag name (request tags <text>)"],
+  ].filter(([, value]) => typeof value === "string");
+  if (named.length === 0) return undefined;
+  const parts = named.map(([flag, value, hint]) => `${String(flag)} ${JSON.stringify(value)} takes ${String(hint)}`);
+  return `Note: no request matched. Name filters match exactly and case-sensitively: ${parts.join("; ")}.`;
+}
+
 function buildRequestParams(opts: Record<string, unknown>): QueryParams {
   return pruneUndefined({
     status: opts["status"],
@@ -99,6 +116,7 @@ export function registerRequestCommands(program: Command, deps: CliDeps): void {
     buildParams: buildRequestParams,
     doList: (client, params) => client.requests.list(params),
     doListCsv: (client, params) => client.requests.listCsv(params),
+    emptyNote: requestEmptyNote,
   });
 
   addGet(requests, deps, "Get one request by id (includes its message thread)", (client, id) =>

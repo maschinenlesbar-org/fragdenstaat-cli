@@ -52,8 +52,9 @@ fragdenstaat --compact request tags "Videoüberwachung"
 
 ## Step 2 — Filter precisely (`request list`)
 
-`request list` is faceted and exact. Filters take **numeric ids** (resolve names
-first — see Traps):
+`request list` is faceted and exact. Most filters take **numeric ids** (resolve names
+first — see Traps); `--categories`, `--classification` and `--tags` take exact
+**names**:
 
 | Flag | Filters by |
 |---|---|
@@ -61,11 +62,11 @@ first — see Traps):
 | `--resolution <r>` | outcome — only meaningful once `--status resolved` |
 | `--jurisdiction <id>` | jurisdiction (numeric id) |
 | `--law <id>` | FOI law (numeric id) |
-| `--categories <id>` | category (numeric id — note the **plural** flag) |
-| `--classification <id>` | public-body classification (numeric id) |
-| `--campaign <id>` / `--project <id>` | campaign / project |
+| `--categories <name>` | the addressed body's category, by its exact **name** (`Umwelt`) — not an id or slug, which match nothing; note the **plural** flag |
+| `--classification <name>` | the addressed body's classification, by its exact **name** (`Ministerium`) |
+| `--campaign <id>` / `--project <id>` | campaign / project (`--campaign -` = in no campaign) |
 | `--public-body <id>` | addressed public body (numeric id) |
-| `--tags <tag>` | tag name (from `request tags`) |
+| `--tags <tag>` | one tag name, exact and case-sensitive (copy it from `request tags`) |
 | `--reference <prefix>` | reference prefix |
 | `--slug <slug>` | exact request slug |
 | `--is-foi [bool]` / `--checked [bool]` / `--has-same [bool]` | genuine-FOI / moderator-checked / has identical copies |
@@ -80,8 +81,8 @@ first — see Traps):
 **resolution enum** (only once `status=resolved`, else `""`): `successful`,
 `partially_successful`, `not_held`, `refused`, `user_withdrew`, `user_withdrew_costs`.
 
-`--status`/`--resolution` are validated client-side — an invalid value errors out
-rather than silently returning nothing.
+`--status`/`--resolution` and every id filter are validated client-side — an invalid
+value errors out (exit 1) rather than silently returning everything.
 
 ## Step 3 — Read the results
 
@@ -107,11 +108,16 @@ page — page with `--offset`. Fetch one request in full, including its complete
 `messages[]` correspondence thread, with `request get <id>`.
 
 > **Traps.**
-> - Filters take **numeric ids**, not names. Resolve first: get a public-body id
->   from the authority-lookup skill / `publicbody autocomplete`, a jurisdiction/law
->   id from `jurisdiction list` / `law autocomplete`, and a category id from
->   `category list --q` (`category autocomplete` returns names, not ids). Note the
->   **plural** `--categories` and the hyphenated `--public-body`.
+> - Id filters take **numeric ids**, not names. Resolve first: get a public-body id
+>   from the authority-lookup skill / `publicbody autocomplete`, and a jurisdiction/law
+>   id from `jurisdiction list` / `law autocomplete`. Note the hyphenated
+>   `--public-body`.
+> - **`--categories`, `--classification` and `--tags` match exact names,
+>   case-sensitively.** Take the name as `category list --q`, `classification list --q`
+>   or `request tags` print it (`Umwelt`, not `umwelt`, `9` or the slug). A wrong
+>   spelling matches nothing — 0, exit 0, with a stderr `Note: no request matched…` —
+>   so treat a 0 under these filters as "check the name" before reporting "none".
+>   `--tags` takes one tag; `"A,B"` is read as one name.
 > - **Related resources are URIs in `list`.** `law` and `jurisdiction` come back as
 >   `https://fragdenstaat.de/api/v1/<resource>/<id>/`; take the number before the
 >   trailing `/` to filter or `get`.

@@ -50,6 +50,18 @@ export interface ListSpec {
   doList: (client: Client, params: QueryParams) => Promise<unknown>;
   /** Fetch the list as CSV. When provided, a `--csv` flag is added. */
   doListCsv?: (client: Client, params: QueryParams) => Promise<RawResponse>;
+  /**
+   * A stderr note for an empty JSON result (`meta.total_count` 0), when a filter the API
+   * matches literally — so a wrong spelling matches nothing rather than failing — may be
+   * the reason. Returns undefined when no such filter was given.
+   */
+  emptyNote?: (opts: Record<string, unknown>) => string | undefined;
+}
+
+/** `meta.total_count` of a list envelope, or undefined. */
+function totalCount(result: unknown): number | undefined {
+  const meta = (result as { meta?: { total_count?: unknown } } | null)?.meta;
+  return typeof meta?.total_count === "number" ? meta.total_count : undefined;
 }
 
 /** Register a `list` sub-command (pagination + optional filters + optional CSV). */
@@ -69,7 +81,10 @@ export function addList(parent: Command, deps: CliDeps, spec: ListSpec): Command
       if (opts["csv"] && spec.doListCsv) {
         renderCsvPage(deps, global, await spec.doListCsv(client, params), params);
       } else {
-        renderJson(deps, global, await spec.doList(client, params));
+        const result = await spec.doList(client, params);
+        renderJson(deps, global, result);
+        const note = totalCount(result) === 0 ? spec.emptyNote?.(opts) : undefined;
+        if (note !== undefined) deps.io.err(note);
       }
     }),
   );

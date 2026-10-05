@@ -76,8 +76,8 @@ Zuständigkeit eines Landes liefert sie daher nicht.
 | Begriff (englisch) | Deutsch | Endpoint | Was es ist |
 |---|---|---|---|
 | Public body | Behörde | `publicbody` | Eine Stelle, die Anfragen empfängt; hat `email`, `address`, `classification`, `jurisdiction`, `number_of_requests`. |
-| Classification | Behördentyp | `classification` | Hierarchische Taxonomie der *Art* von Behörde (Ministerium, Grundschule, …). |
-| Category | Thema | `category` | Hierarchische *Themen*-Taxonomie (Flag `is_topic`) für Anfragen und Behörden. |
+| Classification | Behördentyp | `classification` | Hierarchische Taxonomie der *Art* von Behörde (Ministerium, Grundschule, …). `request list --classification` erwartet den exakten **Namen**, die `publicbody`-Filter die ID. |
+| Category | Thema | `category` | Hierarchische *Themen*-Taxonomie (Flag `is_topic`) für Anfragen und Behörden. `request list --categories` erwartet den exakten **Namen** (`Umwelt`), die `publicbody`-Filter die ID. |
 | Geo-region | Region | `georegion` | Ein geografisches Gebiet mit einem `kind`: country/state/district/municipality/zipcode… (rund 24.000). |
 | Campaign | Kampagne | `campaign` | Ein koordiniertes Projekt mit vielen gleichartigen Anfragen (z. B. „Frag den Bundestag“). |
 | Message | Nachricht | `message` | Ein einzelnes Schreiben innerhalb einer Anfrage; `kind` = email/post/fax/upload/phone/visit/import. |

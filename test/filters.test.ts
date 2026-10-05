@@ -122,3 +122,23 @@ test("request categories and classification are sent as the names given", async 
   assert.equal(await run(["request", "list", "--categories", "Umwelt", "--classification", "Ministerium"], r.deps), 0);
   assert.equal(query(r.mt.last().url), "?categories=Umwelt&classification=Ministerium");
 });
+
+// Result 01 bug 2 / result 06 bug 1: --categories and --classification take names.
+test("an empty request list under a name filter prints a note naming it", async () => {
+  const empty = { meta: { limit: 50, next: null, offset: 0, previous: null, total_count: 0 }, objects: [] };
+  const out: string[] = [];
+  const err: string[] = [];
+  const mt = makeMockTransport(() => jsonResponse(empty));
+  const deps: CliDeps = {
+    io: { out: (s) => out.push(s), err: (s) => err.push(s), writeFile: () => {}, outBinary: () => {} },
+    createClient: (opts) => new FragDenStaatClient({ ...opts, transport: mt.transport }),
+  };
+  assert.equal(await run(["request", "list", "--categories", "umwelt", "--status", "resolved"], deps), 0);
+  assert.match(err.join("\n"), /--categories "umwelt" takes the exact category name, e.g\. "Umwelt"/);
+  err.length = 0;
+  assert.equal(await run(["request", "list", "--status", "resolved"], deps), 0);
+  assert.deepEqual(err, []);
+  const full = cli();
+  assert.equal(await run(["request", "list", "--classification", "Ministerium"], full.deps), 0);
+  assert.deepEqual(full.err, []);
+});

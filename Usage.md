@@ -37,10 +37,10 @@ fragdenstaat request tags <query>        # autocomplete tag names
 | `--status <s>` | lifecycle status (see GLOSSARY) |
 | `--resolution <r>` | outcome — only meaningful with `--status resolved` |
 | `--jurisdiction <id>` · `--law <id>` | by jurisdiction / FOI law id |
-| `--categories <id>` | topic category id (**plural** flag) |
-| `--classification <id>` | public-body classification id |
-| `--campaign <id>` · `--public-body <id>` | by campaign / addressed body id |
-| `--tags <tag>` | tag **name** (e.g. `lobbyismus`) |
+| `--categories <name>` | the addressed body's category, exact **name**, case-sensitive (e.g. `Umwelt`; **plural** flag) |
+| `--classification <name>` | the addressed body's classification, exact **name** (e.g. `Ministerium`) |
+| `--campaign <id>` · `--public-body <id>` | by campaign (`-` = in no campaign) / addressed body id |
+| `--tags <tag>` | one tag **name**, exact and case-sensitive (e.g. `lobbyismus`) |
 | `--reference <prefix>` · `--slug <slug>` | by reference prefix / exact slug |
 | `--is-foi [bool]` · `--checked [bool]` · `--has-same [bool]` | boolean filters |
 | `--costs-min <eur>` · `--costs-max <eur>` | charged-cost range |
@@ -51,6 +51,11 @@ fragdenstaat request tags <query>        # autocomplete tag names
 `awaiting_publicbody_confirmation`, `awaiting_response`, `awaiting_classification`,
 `asleep`, `resolved`. `--resolution`: `successful`, `partially_successful`,
 `not_held`, `refused`, `user_withdrew`, `user_withdrew_costs`.
+
+`--categories`, `--classification` and `--tags` match names, not ids or slugs: an id,
+a slug or a lower-cased name matches nothing. When such a filter leaves the result
+empty, the CLI says so on stderr (`Note: no request matched. Name filters match exactly
+and case-sensitively: …`), since the server answers an unknown name with 0, not an error.
 
 ## publicbody — authorities (Behörden)
 
