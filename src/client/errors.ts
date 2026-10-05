@@ -88,6 +88,13 @@ export class FdsApiError extends FdsError {
   readonly method: string;
   readonly body: string;
   readonly location: string | undefined;
+  /** How many times the engine retried the request before giving up (0 when it did not). */
+  readonly retries: number;
+  /**
+   * The wait the server asked for in `Retry-After` (milliseconds) when it was longer than
+   * the engine waits (`MAX_RETRY_AFTER_MS`), so the request was not retried; else undefined.
+   */
+  readonly retryAfterMs: number | undefined;
 
   constructor(args: {
     status: number;
@@ -96,6 +103,9 @@ export class FdsApiError extends FdsError {
     body: string;
     detail?: string;
     location?: string;
+    retries?: number;
+    retryAfterMs?: number;
+    maxRetryAfterMs?: number;
   }) {
     // The URL is shown without userinfo: a credential in --base-url must not leak.
     const url = redactUrl(args.url);
@@ -108,14 +118,27 @@ export class FdsApiError extends FdsError {
           : "redirect not followed (no Location header)",
       );
     }
+    if (args.retryAfterMs !== undefined) {
+      // Say why the retries the caller asked for never ran: the server asked for a wait
+      // longer than the engine sleeps, and retrying earlier would land inside that window.
+      const wait = Math.ceil(args.retryAfterMs / 1000);
+      const cap = args.maxRetryAfterMs === undefined ? "" : `, longer than the ${args.maxRetryAfterMs / 1000} s the client waits`;
+      parts.push(`the server asked to retry after ${wait} s${cap}; not retried — try again after that`);
+    }
     const detailPart = parts.length > 0 ? `: ${parts.join("; ")}` : "";
-    super(`HTTP ${args.status} for ${args.method} ${url}${detailPart}`);
+    const retries = args.retries ?? 0;
+    // Say that the status persisted through retries, so a user knows whether raising
+    // --max-retries could help.
+    const retryPart = retries > 0 ? ` (after ${retries} ${retries === 1 ? "retry" : "retries"})` : "";
+    super(`HTTP ${args.status} for ${args.method} ${url}${detailPart}${retryPart}`);
     this.status = args.status;
     this.url = url;
     this.method = args.method;
     this.body = args.body;
     this.detail = args.detail;
     this.location = args.location;
+    this.retries = retries;
+    this.retryAfterMs = args.retryAfterMs;
   }
 
   /** True for statuses the API documents as transient and retry-able. */

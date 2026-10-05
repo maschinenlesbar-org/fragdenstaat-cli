@@ -48,13 +48,15 @@ export interface EngineOptions {
   timeoutMs?: number;
   /**
    * Number of automatic retries for transient (429/503) responses and connection
-   * resets (isTransientNetworkError), 0..`MAX_RETRIES` (10). Each waits the response's `Retry-After` (up to `MAX_RETRY_AFTER_MS`; a
-   * longer one is not retried), or else `retryDelayMs * attempt`.
+   * resets (isTransientNetworkError), 0..`MAX_RETRIES` (10). Each waits
+   * `retryDelayMs * attempt`, or the response's `Retry-After` when that is longer (up to
+   * `MAX_RETRY_AFTER_MS`; a longer one is not retried, and the FdsApiError says so).
    */
   maxRetries?: number;
   /**
-   * Base backoff between retries in milliseconds (grows linearly), 0..`MAX_RETRY_AFTER_MS`;
-   * used without a Retry-After.
+   * Base backoff between retries in milliseconds (grows linearly), 0..`MAX_RETRY_AFTER_MS`
+   * (30 000). It is also the floor under a `Retry-After`: the header can lengthen a wait,
+   * never shorten it.
    */
   retryDelayMs?: number;
   /**
@@ -389,21 +391,27 @@ export class RequestEngine {
       }
 
       const retryable = status === 429 || status === 503;
-      if (idempotent && retryable && attempt < this.maxRetries) {
-        // Honour Retry-After; without a usable one, back off linearly. A Retry-After
-        // beyond MAX_RETRY_AFTER_MS is not retried: the error below surfaces at once.
-        const retryAfter = parseRetryAfter(responseHeaders["retry-after"]);
-        if (retryAfter === undefined || retryAfter <= MAX_RETRY_AFTER_MS) {
-          attempt += 1;
-          await this.sleep(retryAfter ?? this.retryDelayMs * attempt);
-          continue;
-        }
+      // A Retry-After beyond MAX_RETRY_AFTER_MS is not retried: the error below surfaces at
+      // once and names the wait the server asked for.
+      const retryAfter = retryable ? parseRetryAfter(responseHeaders["retry-after"]) : undefined;
+      const tooLong = retryAfter !== undefined && retryAfter > MAX_RETRY_AFTER_MS;
+      if (idempotent && retryable && !tooLong && attempt < this.maxRetries) {
+        attempt += 1;
+        // Back off linearly from retryDelayMs. A Retry-After can ask for longer, never for
+        // less: `Retry-After: 0` or a date in the past turned the retries into a zero-delay
+        // burst against a server that had just asked for less load.
+        const backoff = this.retryDelayMs * attempt;
+        await this.sleep(retryAfter === undefined ? backoff : Math.max(retryAfter, backoff));
+        continue;
       }
 
       const contentType = String(responseHeaders["content-type"] ?? "");
       if (status < 200 || status >= 300) {
         const location = responseHeaders["location"];
-        throw this.toApiError(method, url, status, body, typeof location === "string" ? location : undefined);
+        throw this.toApiError(method, url, status, body, typeof location === "string" ? location : undefined, {
+          retries: attempt,
+          ...(tooLong ? { retryAfterMs: retryAfter } : {}),
+        });
       }
 
       return { data: body, contentType, status };
@@ -452,7 +460,8 @@ export class RequestEngine {
     url: string,
     status: number,
     body: Buffer,
-    locationHeader?: string,
+    locationHeader: string | undefined,
+    retry: { retries: number; retryAfterMs?: number },
   ): FdsApiError {
     const text = this.scrub(body.toString("utf8"));
     let detail: string | undefined;
@@ -487,7 +496,16 @@ export class RequestEngine {
     // Redirects are not followed; name the target so the user can fix --base-url.
     const location =
       status >= 300 && status < 400 && locationHeader ? redirectTarget(url, locationHeader) : undefined;
-    return new FdsApiError({ status, url, method, body: text, detail, location });
+    return new FdsApiError({
+      status,
+      url,
+      method,
+      body: text,
+      detail,
+      location,
+      retries: retry.retries,
+      ...(retry.retryAfterMs === undefined ? {} : { retryAfterMs: retry.retryAfterMs, maxRetryAfterMs: MAX_RETRY_AFTER_MS }),
+    });
   }
 }
 

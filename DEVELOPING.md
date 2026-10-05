@@ -221,10 +221,16 @@ When in doubt, trust the live API, not the schema.
   inherently filtered to public objects; message drafts are excluded and
   `content_hidden` messages come back with blanked content.
 - **No published rate limit** and **no `Retry-After`** header seen so far. The engine
-  still retries transient `429`/`503` (defensive): it waits a `Retry-After` when one
-  comes (delay-seconds or an IMF-fixdate, `parseRetryAfter`), does not retry at all
-  when that asks for more than `MAX_RETRY_AFTER_MS` (30 s), and otherwise backs off
-  linearly (200/400 ms). A connection reset (`ECONNRESET`, `EPIPE`, `ECONNABORTED`,
+  still retries transient `429`/`503` (defensive). Each retry waits
+  `retryDelayMs * attempt` (200/400 ms by default; `retryDelayMs` 0..30 000), or the
+  response's `Retry-After` (delay-seconds or an IMF-fixdate, `parseRetryAfter`) when
+  that is longer: the header can lengthen a wait, never shorten it, so `Retry-After: 0`
+  or a past date doesn't turn the retries into a burst. A `Retry-After` above
+  `MAX_RETRY_AFTER_MS` (30 s) is not retried at all: the `FdsApiError` surfaces at once,
+  with `retryAfterMs` set and a message that names the wait (`…; the server asked to
+  retry after 3600 s, longer than the 30 s the client waits; not retried — try again
+  after that`). After spent retries the message ends `(after N retries)` and `retries`
+  holds the count. A connection reset (`ECONNRESET`, `EPIPE`, `ECONNABORTED`,
   undici's `UND_ERR_SOCKET`, anywhere in the error's `cause` chain, from any transport)
   is retried the same way, with the linear backoff; a timeout, a refused connection or
   a DNS failure is not. `maxRetries` is capped at `MAX_RETRIES` (10). It sends a

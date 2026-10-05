@@ -96,7 +96,7 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
 | `--base-url <url>` | override the API base (default `https://fragdenstaat.de`); an `http:`/`https:` URL without query, fragment or whitespace, and a `%` in a user name or password must be an escape (write a literal `%` as `%25`) — anything else is a usage error before any request |
 | `--timeout <ms>` | per-request timeout (at most `2147483647`) |
 | `--user-agent <ua>` | override the `User-Agent` |
-| `--max-retries <n>` | retries for transient 429/503 and connection resets (0..10; each waits the server's `Retry-After`, up to 30 s) |
+| `--max-retries <n>` | retries for transient 429/503 and connection resets (0..10). Each retry backs off linearly (200 ms, 400 ms, …), or waits the server's `Retry-After` when that is longer (up to 30 s; a longer one is not retried, and the error says so). Timeouts and refused connections are not retried |
 | `--max-response-bytes <n>` | cap the response body size (0 = unlimited) |
 | `--compact` | single-line JSON |
 | `-o, --output <file>` | write JSON (or CSV with `--csv`) to a file instead of stdout; an existing file is refused |
