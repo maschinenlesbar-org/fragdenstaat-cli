@@ -292,3 +292,18 @@ test("a 3xx error names the redirect target it did not follow", async () => {
   const none = engine(redirect().transport);
   await assert.rejects(none.getJson("/api/v1/law/"), /: redirect not followed \(no Location header\)$/);
 });
+
+test("a JSON body is decoded by its declared charset, BOM dropped; an unknown charset is an FdsParseError", async () => {
+  const text = "Müller Behörde";
+  for (const [charset, body] of [
+    ["iso-8859-1", Buffer.from(JSON.stringify({ name: text }), "latin1")],
+    ["utf-8", Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(JSON.stringify({ name: text }))])],
+  ] as const) {
+    const engine = new RequestEngine({
+      transport: async () => rawResponse(body, `application/json; charset=${charset}`),
+    });
+    assert.deepEqual(await engine.getJson("/x"), { name: text }, charset);
+  }
+  const engine = new RequestEngine({ transport: async () => rawResponse("{}", "application/json; charset=x-klingon") });
+  await assert.rejects(engine.getJson("/x"), (e: unknown) => e instanceof FdsParseError && /Unsupported response charset "x-klingon"/.test((e as Error).message));
+});

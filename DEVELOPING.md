@@ -62,6 +62,10 @@ src/
   an `ArrayBuffer` (from any realm). Whatever else a transport throws or returns — a
   plain `Error`, a string, `null`, a response without a valid status — becomes an
   `FdsNetworkError` (URL redacted, the original as `cause`).
+- **Decoding.** A JSON body is decoded by the charset its `Content-Type` declares
+  (UTF-8 when it names none) with `TextDecoder` (`decodeBody`), which also drops a
+  leading byte order mark; an unknown charset label is an `FdsParseError`. CSV
+  downloads stay raw bytes.
 - **`CliDeps`** (`io.ts`) — a client factory + I/O object (`out`/`err`/`writeFile`/
   `outBinary`). `run.ts` returns an exit code instead of calling `process.exit`, so
   tests drive the whole CLI with a mocked client and captured output. The bin shim
