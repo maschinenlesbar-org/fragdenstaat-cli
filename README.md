@@ -99,7 +99,7 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
 | `--max-retries <n>` | retries for transient 429/503 and connection resets (0..10). Each retry backs off linearly (200 ms, 400 ms, …), or waits the server's `Retry-After` when that is longer (up to 30 s; a longer one is not retried, and the error says so). Timeouts and refused connections are not retried |
 | `--max-response-bytes <n>` | cap the response body size (0 = unlimited) |
 | `--compact` | single-line JSON |
-| `-o, --output <file>` | write JSON (or CSV with `--csv`) to a file instead of stdout; an existing file is refused |
+| `-o, --output <file>` | write JSON (or CSV with `--csv`) to a file instead of stdout; an existing file is refused; `-o -` means stdout (as in other Unix tools) |
 | `--force` | with `-o`, overwrite the output file if it already exists |
 
 ### Good to know

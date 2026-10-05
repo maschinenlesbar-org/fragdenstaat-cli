@@ -228,7 +228,9 @@ When in doubt, trust the live API, not the schema.
   an existing file is refused with a clear "refusing to overwrite … (use --force)"
   error; pass `--force` to overwrite deliberately. This holds for both the JSON and
   `--csv` output paths. Applied via `writeOutput` in `shared.ts`; the `CliIO.writeFile`
-  seam takes an `exclusive` flag so tests can drive both branches.
+  seam takes an `exclusive` flag so tests can drive both branches. `-o -` (and
+  `--output=-`) means stdout, exactly like no `-o` (`outputFile` in `shared.ts`); it
+  used to write a file literally named `-`.
 - **CSV is a first-class server feature.** `?format=csv` (with `Accept: text/csv`)
   returns a flattened CSV (nested objects become dotted columns). Exposed as `--csv`
   on `list`/`search` commands via `client.<resource>.listCsv()` (`getRaw`). Note:

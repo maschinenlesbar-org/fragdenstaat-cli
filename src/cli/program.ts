@@ -72,7 +72,7 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     .option("--compact", "print JSON on a single line instead of pretty-printed")
     .option(
       "-o, --output <file>",
-      "write output (JSON, or CSV with --csv) to this file",
+      'write output (JSON, or CSV with --csv) to this file ("-" = stdout)',
       parseNonEmpty,
     )
     .option("--force", "with -o, overwrite the output file if it already exists")

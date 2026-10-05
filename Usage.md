@@ -3,7 +3,8 @@
 Full command reference for `fragdenstaat`. Run `fragdenstaat <group> <sub> --help`
 for the authoritative, always-current flag list. Global options
 (`--base-url`, `--timeout`, `--user-agent`, `--max-retries`, `--max-response-bytes`,
-`--compact`, `-o/--output`, `--force`) work on every command. `-o` never overwrites an
+`--compact`, `-o/--output`, `--force`) work on every command. `-o -` means stdout,
+like no `-o` at all. `-o` never overwrites an
 existing file (`refusing to overwrite existing file … (use --force)`, exit 1); add
 `--force` to overwrite it. An answer that isn't the data asked for fails with exit 1
 and writes nothing: a JSON body without the `{ meta, objects }` envelope (or, for
