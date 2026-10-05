@@ -66,6 +66,18 @@ export function redactCredentials(text: string, credentials: readonly string[]):
   return out;
 }
 
+/**
+ * Longest URL or path (in characters) an error message shows, like the 500 characters
+ * kept of a server `detail`. A 20 000-character query would otherwise put a 20 KB URL on
+ * one stderr line. The error's `url` property keeps the full value.
+ */
+export const MAX_MESSAGE_VALUE_LENGTH = 500;
+
+/** `text` cut to MAX_MESSAGE_VALUE_LENGTH characters, ending in "…" when cut. */
+export function cutForMessage(text: string): string {
+  return text.length > MAX_MESSAGE_VALUE_LENGTH ? `${text.slice(0, MAX_MESSAGE_VALUE_LENGTH)}…` : text;
+}
+
 /** Base class for every error originating from this client. */
 export class FdsError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
@@ -130,7 +142,7 @@ export class FdsApiError extends FdsError {
     // Say that the status persisted through retries, so a user knows whether raising
     // --max-retries could help.
     const retryPart = retries > 0 ? ` (after ${retries} ${retries === 1 ? "retry" : "retries"})` : "";
-    super(`HTTP ${args.status} for ${args.method} ${url}${detailPart}${retryPart}`);
+    super(`HTTP ${args.status} for ${args.method} ${cutForMessage(url)}${detailPart}${retryPart}`);
     this.status = args.status;
     this.url = url;
     this.method = args.method;

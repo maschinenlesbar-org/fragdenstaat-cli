@@ -41,17 +41,33 @@ export const nonBlankProblem: Problem<unknown> = (value) =>
   isBlank(value) ? "Expected a non-empty value." : undefined;
 
 /**
- * Reject a query whose value (or array element) is a blank string, or which has a
- * blank parameter name; throws {@link FdsValidationError} naming the parameter.
+ * Reject a query whose value (or array element) is a blank string or an invalid
+ * `Date`, or which has a blank parameter name; throws {@link FdsValidationError} naming the parameter.
  * `undefined` and `null` still mean "omitted". The engine runs this on every
  * request's query before building the URL.
  */
 export function assertNonBlankParams(params: QueryParams): void {
   for (const [key, value] of Object.entries(params)) {
     assertValid("parameter name", key, nonBlankProblem);
-    for (const v of Array.isArray(value) ? value : [value]) assertValid(key, v, nonBlankProblem);
+    for (const v of Array.isArray(value) ? value : [value]) assertValid(key, v, queryScalarProblem);
   }
 }
+
+/**
+ * A blank string is invalid (nonBlankProblem), and so is a `Date` that holds no time
+ * (`new Date("nope")`): serialising it threw a raw `RangeError: Invalid time value`.
+ */
+const queryScalarProblem: Problem<unknown> = (value) => {
+  if (value instanceof Date && Number.isNaN(value.getTime())) return "Expected a valid date.";
+  return nonBlankProblem(value);
+};
+
+/**
+ * Rule for an autocomplete query `q`: a non-blank string. `undefined` or `null` would
+ * send no `q` at all, which the API answers with every suggestion.
+ */
+export const queryTextProblem: Problem<unknown> = (value) =>
+  typeof value === "string" && !isBlank(value) ? undefined : "Expected a non-empty value.";
 
 /**
  * Rule for a resource id in a detail path (`get(id)`): every wrapped detail

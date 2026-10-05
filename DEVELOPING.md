@@ -99,7 +99,19 @@ What the library rejects with `FdsValidationError`, before any request:
   `RequestEngine.request`). The API treats an empty parameter as no filter and answers
   with the whole unfiltered dataset, or every autocomplete suggestion for a blank `q`.
   `undefined` and `null` still mean "omitted". The CLI's `parseNonEmpty` uses the same
-  `nonBlankProblem`.
+  `nonBlankProblem`. An invalid `Date` (`new Date("nope")`) is refused the same way
+  (`Expected a valid date.`) instead of throwing a raw `RangeError` from `toISOString`.
+- **An autocomplete without a query.** Every `autocomplete(q)` (and
+  `requests.tagsAutocomplete`) needs `q` as a non-blank string (`queryTextProblem`);
+  `undefined` or `null` used to send no `q` at all, which the API answers with every
+  suggestion.
+- **Bad engine options.** A numeric option outside its range (`timeoutMs`,
+  `maxRetries`, `retryDelayMs`, `maxResponseBytes`) is an `FdsValidationError`
+  (`Invalid option <name>: …`), like a bad `baseUrl` or `userAgent`; `null` options
+  count as none. Every failure the library raises is an `FdsError` subclass; server
+  text in a message (an error `detail`, a redirect target) is cut at 500 characters
+  (`MAX_DETAIL_LENGTH`), and so is a URL or path (`cutForMessage`), while
+  `FdsApiError.body` and `.url` keep the full text.
 - **Non-numeric ids.** `get(id)` takes a non-negative safe integer or a digit string
   (`resourceIdProblem`, `normalizeResourceId`); `"search"` or `"autocomplete"` would
   otherwise reach a list sub-endpoint and return its list envelope as a detail object,

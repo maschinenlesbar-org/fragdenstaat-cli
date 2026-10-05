@@ -178,3 +178,18 @@ test("a CSV request answered with an HTML page or JSON is an FdsParseError", asy
   const { client: ok } = client(() => rawResponse("id,title\n1,a\n", "text/csv; charset=utf-8"));
   assert.equal((await ok.requests.listCsv()).data.toString("utf8"), "id,title\n1,a\n");
 });
+
+// Exploratory test 2026-10-05, result 04 bug 7: autocomplete(undefined) sent no q.
+test("autocomplete without a usable q rejects before any request", async () => {
+  for (const q of [undefined, null, "", "  ", 5, ["a"]]) {
+    const { client: c, mt } = client(() => jsonResponse(fx.autocomplete));
+    for (const call of [
+      () => c.laws.autocomplete(q as unknown as string),
+      () => c.publicBodies.autocomplete(q as unknown as string),
+      () => c.requests.tagsAutocomplete(q as unknown as string),
+    ]) {
+      await assert.rejects(call(), (e: unknown) => e instanceof FdsValidationError && e.message === "Invalid q: Expected a non-empty value.", String(q));
+    }
+    assert.equal(mt.calls.length, 0);
+  }
+});

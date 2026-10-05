@@ -260,7 +260,7 @@ test("invalid numeric engine options throw instead of disabling limits", () => {
   ];
   for (const [name, value] of bad) {
     assert.throws(() => new RequestEngine({ [name]: value }), {
-      name: "FdsError",
+      name: "FdsValidationError",
       message: new RegExp(`^Invalid option ${name}: expected an integer from 0 to \\d+, got ${String(value)}\\.$`),
     });
   }
@@ -306,4 +306,33 @@ test("a JSON body is decoded by its declared charset, BOM dropped; an unknown ch
   }
   const engine = new RequestEngine({ transport: async () => rawResponse("{}", "application/json; charset=x-klingon") });
   await assert.rejects(engine.getJson("/x"), (e: unknown) => e instanceof FdsParseError && /Unsupported response charset "x-klingon"/.test((e as Error).message));
+});
+
+test("server text in an error message is cut at 500 characters; the body keeps it all", async () => {
+  const detail = "x".repeat(200_000);
+  const engine = new RequestEngine({ transport: async () => jsonResponse({ detail }, 500), maxRetries: 0 });
+  await assert.rejects(engine.getJson("/x"), (e: unknown) => {
+    assert.ok(e instanceof FdsApiError);
+    assert.equal(e.detail, `${"x".repeat(500)}…`);
+    assert.ok(e.message.length < 700, String(e.message.length));
+    assert.equal(e.body.length, JSON.stringify({ detail }).length);
+    return true;
+  });
+});
+
+// Exploratory test 2026-10-05, result 04 bug 7: an invalid Date threw a raw RangeError.
+test("an invalid Date in a filter is an FdsValidationError, not a raw RangeError", async () => {
+  const mt = makeMockTransport(() => jsonResponse(fx.requestList));
+  const engine = new RequestEngine({ transport: mt.transport });
+  for (const query of [{ created_at_after: new Date("nope") }, { created_at_after: [new Date(NaN)] }]) {
+    await assert.rejects(
+      engine.request("GET", "/x", { query, accept: "application/json" }),
+      (e: unknown) => e instanceof FdsValidationError && e.message === "Invalid created_at_after: Expected a valid date.",
+    );
+  }
+  assert.equal(mt.calls.length, 0);
+});
+
+test("null options are treated like no options", () => {
+  new RequestEngine(null as unknown as undefined);
 });

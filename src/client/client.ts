@@ -13,12 +13,14 @@ import { RequestEngine, type EngineOptions, type RawResponse } from "./engine.js
 import type { QueryParams } from "./query.js";
 import {
   amountProblem,
+  assertValid,
   booleanProblem,
   idFilterProblem,
   normalizeIdFilter,
   normalizeResourceId,
   oneOfProblem,
   pointProblem,
+  queryTextProblem,
   validatePagination,
   validateParams,
   type ParamRules,
@@ -110,10 +112,21 @@ const PUBLICBODY_RULES: ParamRules = { lnglat: pointProblem("lng,lat") };
  * the query to send. Throws FdsValidationError; every caller runs inside an async
  * method, so the error arrives as a rejection and no request is sent.
  */
-function checkedQuery(params: Pagination, rules: ParamRules = {}): QueryParams {
-  validatePagination(params);
-  validateParams(params, rules);
-  return params as unknown as QueryParams;
+function checkedQuery(params: Pagination | null | undefined, rules: ParamRules = {}): QueryParams {
+  // A JavaScript caller may pass null for "no params"; treat it like {}.
+  const p = params ?? {};
+  validatePagination(p);
+  validateParams(p, rules);
+  return p as unknown as QueryParams;
+}
+
+/**
+ * The query of an autocomplete call: `q` must be a non-blank string (`queryTextProblem`;
+ * `undefined`/`null` used to send no `q`, which the API answers with every suggestion),
+ * plus the checked pagination.
+ */
+function autocompleteQuery(q: string, page: Pagination | null | undefined): QueryParams {
+  return { ...checkedQuery(page), q: assertValid("q", q, queryTextProblem) };
 }
 
 /**
@@ -175,7 +188,7 @@ class RequestResource extends ListResource<FoiRequestListItem, RequestListParams
 
   /** Autocomplete request tags. */
   async tagsAutocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/request/tags/autocomplete/", { ...checkedQuery(page), q }, "list");
+    return this.e.getJson("/api/v1/request/tags/autocomplete/", autocompleteQuery(q, page), "list");
   }
 }
 
@@ -200,7 +213,7 @@ class PublicBodyResource extends ListResource<PublicBodyListItem, PublicBodyList
 
   /** Autocomplete public-body names. */
   async autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/publicbody/autocomplete/", { ...checkedQuery(page), q }, "list");
+    return this.e.getJson("/api/v1/publicbody/autocomplete/", autocompleteQuery(q, page), "list");
   }
 }
 
@@ -214,14 +227,14 @@ class LawResource extends ListResource<FoiLawListItem, LawListParams> {
   protected override listQuery(params: LawListParams): QueryParams {
     const query = { ...super.listQuery(params) };
     for (const name of LAW_ID_FILTERS) {
-      const value = params[name];
+      const value = params?.[name];
       if (value !== undefined && value !== null) query[name] = normalizeIdFilter(name, value);
     }
     return query;
   }
 
   async autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/law/autocomplete/", { ...checkedQuery(page), q }, "list");
+    return this.e.getJson("/api/v1/law/autocomplete/", autocompleteQuery(q, page), "list");
   }
 }
 
@@ -232,7 +245,7 @@ class CategoryResource extends ListResource<CategoryListItem, TreeListParams> {
   }
 
   async autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/category/autocomplete/", { ...checkedQuery(page), q }, "list");
+    return this.e.getJson("/api/v1/category/autocomplete/", autocompleteQuery(q, page), "list");
   }
 }
 
@@ -243,7 +256,7 @@ class GeoRegionResource extends ListResource<GeoRegionListItem, GeoRegionListPar
   }
 
   async autocomplete(q: string, page: Pagination = {}): Promise<TastypieList<AutocompleteItem>> {
-    return this.e.getJson("/api/v1/georegion/autocomplete/", { ...checkedQuery(page), q }, "list");
+    return this.e.getJson("/api/v1/georegion/autocomplete/", autocompleteQuery(q, page), "list");
   }
 }
 

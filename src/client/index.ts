@@ -46,6 +46,7 @@ export {
   normalizeResourceId,
   oneOfProblem,
   pointProblem,
+  queryTextProblem,
   resourceIdProblem,
   validateBaseUrl,
   validateParams,

@@ -17,7 +17,9 @@ import {
   FdsError,
   FdsNetworkError,
   FdsParseError,
+  FdsValidationError,
   credentialsIn,
+  cutForMessage,
   redactCredentials,
   redactUrl,
 } from "./errors.js";
@@ -112,15 +114,15 @@ export function parseRetryAfter(
 
 /**
  * Validate a numeric engine option: absent means the default; anything but a safe
- * integer in 0..max is a FdsError. Without this, a negative or NaN `timeoutMs`
+ * integer in 0..max is an FdsValidationError. Without this, a negative or NaN `timeoutMs`
  * silently disabled the timeout, a negative `maxResponseBytes` the size cap, and a
  * negative `retryDelayMs` produced a Node TimeoutNegativeWarning.
  */
 function intOption(name: string, value: number | undefined, fallback: number, max: number): number {
   if (value === undefined) return fallback;
   if (!Number.isSafeInteger(value) || value < 0 || value > max) {
-    throw new FdsError(
-      `Invalid option ${name}: expected an integer from 0 to ${max}, got ${String(value)}.`,
+    throw new FdsValidationError(
+      `Invalid option ${name}: expected an integer from 0 to ${max}, got ${cutForMessage(String(value))}.`,
     );
   }
   return value;
@@ -219,6 +221,9 @@ export class RequestEngine {
   private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(options: EngineOptions = {}) {
+    // A JavaScript caller may pass null for "no options"; treat it like undefined rather
+    // than failing with a raw TypeError on the first property read.
+    options = options ?? {};
     // Checked on the raw value, before the trailing-slash strip: new URL() ignores
     // whitespace, and a trailing space would defeat the strip. A malformed value is an
     // FdsValidationError (a configuration error, not a transport failure); the default
@@ -290,7 +295,7 @@ export class RequestEngine {
    * turns their "%" into "%25".)
    */
   buildUrl(path: string, query?: QueryParams): string {
-    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+    const normalizedPath = path.startsWith("/") ? path : `/${cutForMessage(path)}`;
     const dotSegment = normalizedPath.split("/").find((s) => s === "." || s === "..");
     if (dotSegment !== undefined) {
       throw new FdsError(
@@ -457,11 +462,11 @@ export class RequestEngine {
       // so it reads as an upstream problem rather than a client bug.
       const type = res.contentType.split(";")[0]?.trim() ?? "";
       const hint = type !== "" && !/json/i.test(type) ? `: expected JSON, got Content-Type "${cleanDetail(type)}"` : "";
-      throw new FdsParseError(`Failed to parse JSON response from ${path}${hint}`, { cause });
+      throw new FdsParseError(`Failed to parse JSON response from ${cutForMessage(path)}${hint}`, { cause });
     }
     const problem = shape === undefined ? undefined : responseShapeProblem(value, shape);
     if (problem !== undefined) {
-      throw new FdsParseError(`Unexpected response from ${path} (HTTP ${res.status}): ${problem}`);
+      throw new FdsParseError(`Unexpected response from ${cutForMessage(path)} (HTTP ${res.status}): ${problem}`);
     }
     return value as T;
   }
@@ -478,7 +483,7 @@ export class RequestEngine {
     const got = isHtml(res) ? "an HTML page" : !/json/i.test(accept) && /[/+]json$/.test(type) ? "JSON" : undefined;
     if (got !== undefined) {
       throw new FdsParseError(
-        `Unexpected response from ${path} (HTTP ${res.status}): expected ${accept}, got ${got}` +
+        `Unexpected response from ${cutForMessage(path)} (HTTP ${res.status}): expected ${accept}, got ${got}` +
           (res.contentType === "" ? "" : ` (Content-Type "${cleanDetail(res.contentType)}")`),
       );
     }
@@ -522,7 +527,9 @@ export class RequestEngine {
     // sequences into the user's terminal when this error message is printed to
     // stderr. The CLI's JSON output is escaped separately (escapeControlChars in
     // cli/shared.ts): JSON.stringify alone leaves DEL and the C1 range raw.
-    if (detail !== undefined) detail = sanitizeServerText(detail);
+    // ... and cap its length, so a hostile or buggy body cannot flood stderr with one huge
+    // line (FdsApiError.body keeps the full text).
+    if (detail !== undefined) detail = cleanDetail(detail);
     // Redirects are not followed; name the target so the user can fix --base-url.
     const location =
       status >= 300 && status < 400 && locationHeader ? redirectTarget(url, locationHeader) : undefined;
@@ -595,7 +602,7 @@ export function decodeBody(body: Buffer, contentType: string, path: string): str
   try {
     decoder = new TextDecoder(charset);
   } catch {
-    throw new FdsParseError(`Unsupported response charset "${sanitizeServerText(charset)}" from ${path}.`);
+    throw new FdsParseError(`Unsupported response charset "${cleanDetail(charset)}" from ${cutForMessage(path)}.`);
   }
   return decoder.decode(body);
 }
@@ -612,7 +619,7 @@ function redirectTarget(requestUrl: string, location: string): string | undefine
   } catch {
     target = location;
   }
-  const clean = sanitizeServerText(target);
+  const clean = cleanDetail(target);
   return clean === "" ? undefined : clean;
 }
 
