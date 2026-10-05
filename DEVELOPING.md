@@ -51,7 +51,17 @@ src/
 
 - **`Transport`** (`http.ts`) — a single `(HttpRequest) => Promise<HttpResponse>`.
   The default uses `node:http`/`https`; tests inject a recording mock. This is the
-  only HTTP seam.
+  only HTTP seam. The engine holds every transport to the same contract, so a custom
+  one (a `fetch` adapter, a test double) needs none of it itself: each call runs under
+  the overall `timeoutMs` deadline (the request carries an `AbortSignal`,
+  `HttpRequest.signal`, that fires then, and the call rejects at the deadline whether
+  the transport stops or not); `maxResponseBytes` is checked on the body it returns
+  (`Response exceeded the size limit of N bytes (maxResponseBytes;
+  --max-response-bytes on the CLI)`); headers may come as a plain record in any case,
+  a `Headers` object or a `Map`; the body may be a `Buffer`, any `ArrayBuffer` view or
+  an `ArrayBuffer` (from any realm). Whatever else a transport throws or returns — a
+  plain `Error`, a string, `null`, a response without a valid status — becomes an
+  `FdsNetworkError` (URL redacted, the original as `cause`).
 - **`CliDeps`** (`io.ts`) — a client factory + I/O object (`out`/`err`/`writeFile`/
   `outBinary`). `run.ts` returns an exit code instead of calling `process.exit`, so
   tests drive the whole CLI with a mocked client and captured output.
@@ -205,7 +215,10 @@ When in doubt, trust the live API, not the schema.
   still retries transient `429`/`503` (defensive): it waits a `Retry-After` when one
   comes (delay-seconds or an IMF-fixdate, `parseRetryAfter`), does not retry at all
   when that asks for more than `MAX_RETRY_AFTER_MS` (30 s), and otherwise backs off
-  linearly (200/400 ms). `maxRetries` is capped at `MAX_RETRIES` (10). It sends a
+  linearly (200/400 ms). A connection reset (`ECONNRESET`, `EPIPE`, `ECONNABORTED`,
+  undici's `UND_ERR_SOCKET`, anywhere in the error's `cause` chain, from any transport)
+  is retried the same way, with the linear backoff; a timeout, a refused connection or
+  a DNS failure is not. `maxRetries` is capped at `MAX_RETRIES` (10). It sends a
   descriptive `User-Agent` (`fragdenstaat-cli`). Be a good citizen when paging.
 - **Filter-name quirks** (verified live): `request list` uses **plural**
   `--categories` and `--public-body`; `publicbody list` uses **singular** `--category`

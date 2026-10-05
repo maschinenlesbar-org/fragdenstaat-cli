@@ -17,10 +17,23 @@ export interface HttpRequest {
   headers?: Record<string, string>;
   /** Optional request body (already serialised). */
   body?: string | Buffer;
-  /** Per-request timeout in milliseconds. */
+  /**
+   * Per-request timeout in milliseconds. The engine enforces it as an overall deadline
+   * whatever the transport does (see `signal`); the default transport also applies it
+   * as an idle-socket timeout.
+   */
   timeoutMs?: number;
-  /** Hard cap on the response body size in bytes; the request aborts if exceeded. */
+  /**
+   * Hard cap on the response body size in bytes. The default transport aborts as soon
+   * as it is exceeded; the engine checks the body it gets back from any transport.
+   */
   maxResponseBytes?: number;
+  /**
+   * Aborted when the engine's overall deadline (`timeoutMs`) passes. A transport should stop
+   * the request then (`fetch(url, { signal })`); the engine rejects at the deadline either way,
+   * and enforces `maxResponseBytes` on the body it gets back, so neither limit depends on it.
+   */
+  signal?: AbortSignal;
 }
 
 export interface HttpResponse {
@@ -29,7 +42,19 @@ export interface HttpResponse {
   body: Buffer;
 }
 
+/**
+ * A transport: one HTTP exchange, resolving with the response whatever its status.
+ * The engine accepts more than the declared shape from a JavaScript transport (a fetch
+ * `Headers` object or a `Map` for `headers`, header names in any case, any ArrayBuffer
+ * view or ArrayBuffer as `body`) and turns anything else it returns or throws into a
+ * `FdsNetworkError`.
+ */
 export type Transport = (request: HttpRequest) => Promise<HttpResponse>;
+
+/** The message for a body over the size cap, naming the option on both sides. */
+export function sizeLimitMessage(maxBytes: number): string {
+  return `Response exceeded the size limit of ${maxBytes} bytes (maxResponseBytes; --max-response-bytes on the CLI)`;
+}
 
 /**
  * The longest delay Node's timers support (2^31 - 1 ms, about 24.8 days). A longer one
@@ -102,7 +127,7 @@ export const nodeHttpTransport: Transport = (request) =>
               aborted = true;
               clearDeadline();
               res.destroy();
-              reject(new FdsNetworkError(`Response exceeded maxResponseBytes (${maxBytes})`));
+              reject(new FdsNetworkError(sizeLimitMessage(maxBytes)));
               return;
             }
             chunks.push(chunk);
@@ -142,6 +167,14 @@ export const nodeHttpTransport: Transport = (request) =>
       }, timerMs);
       // Don't let the deadline timer keep the event loop alive on its own.
       deadline.unref?.();
+    }
+
+    if (request.signal !== undefined) {
+      const abort = (): void => {
+        req.destroy(new FdsNetworkError(`Request exceeded deadline of ${request.timeoutMs ?? 0}ms`));
+      };
+      if (request.signal.aborted) abort();
+      else request.signal.addEventListener("abort", abort, { once: true });
     }
 
     req.on("error", (err) => {

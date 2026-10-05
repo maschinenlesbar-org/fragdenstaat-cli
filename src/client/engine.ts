@@ -2,9 +2,16 @@
 // requests via a Transport, applies retry/backoff for the statuses the API
 // documents as transient (429, 503), and decodes responses.
 
-import { MAX_TIMEOUT_MS, nodeHttpTransport, type Transport } from "./http.js";
+import {
+  MAX_TIMEOUT_MS,
+  nodeHttpTransport,
+  sizeLimitMessage,
+  type HttpRequest,
+  type HttpResponse,
+  type Transport,
+} from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
-import { FdsApiError, FdsError, FdsParseError, redactUrl } from "./errors.js";
+import { FdsApiError, FdsError, FdsNetworkError, FdsParseError, redactUrl } from "./errors.js";
 import { assertNonBlankParams, assertValid, headerValueProblem, validateBaseUrl } from "./validate.js";
 
 export const DEFAULT_BASE_URL = "https://fragdenstaat.de";
@@ -32,8 +39,8 @@ export interface EngineOptions {
   /** Per-request timeout in milliseconds, 0..`MAX_TIMEOUT_MS` (2^31 - 1 ms); 0 disables. */
   timeoutMs?: number;
   /**
-   * Number of automatic retries for transient (429/503) responses, 0..`MAX_RETRIES`
-   * (10). Each waits the response's `Retry-After` (up to `MAX_RETRY_AFTER_MS`; a
+   * Number of automatic retries for transient (429/503) responses and connection
+   * resets (isTransientNetworkError), 0..`MAX_RETRIES` (10). Each waits the response's `Retry-After` (up to `MAX_RETRY_AFTER_MS`; a
    * longer one is not retried), or else `retryDelayMs * attempt`.
    */
   maxRetries?: number;
@@ -108,6 +115,80 @@ function intOption(name: string, value: number | undefined, fallback: number, ma
   return value;
 }
 
+/** Why `value` is not a usable HttpResponse, or undefined when it is. */
+function responseProblem(value: unknown): string | undefined {
+  if (typeof value !== "object" || value === null) return "not an object";
+  const r = value as Partial<Record<"status" | "headers" | "body", unknown>>;
+  if (typeof r.status !== "number" || !Number.isInteger(r.status) || r.status < 100 || r.status > 599) {
+    return "status is not an HTTP status code";
+  }
+  if (typeof r.headers !== "object" || r.headers === null || Array.isArray(r.headers)) return "headers is not an object";
+  if (bodyBytes(r.body) === undefined) return "body is not a Buffer, Uint8Array, other ArrayBuffer view or ArrayBuffer";
+  return undefined;
+}
+
+/**
+ * The response body as a Buffer (a view, no copy): a Buffer, any ArrayBuffer view (a
+ * Uint8Array from fetch, a DataView) or an ArrayBuffer/SharedArrayBuffer — checked by internal
+ * slot, not `instanceof`, so a value from another realm (a vm context, a Jest test) counts.
+ * Undefined for anything else.
+ */
+function bodyBytes(value: unknown): Buffer | undefined {
+  if (Buffer.isBuffer(value)) return value;
+  if (ArrayBuffer.isView(value)) return Buffer.from(value.buffer, value.byteOffset, value.byteLength);
+  const tag = Object.prototype.toString.call(value);
+  if (tag === "[object ArrayBuffer]" || tag === "[object SharedArrayBuffer]") return Buffer.from(value as ArrayBuffer);
+  return undefined;
+}
+
+/**
+ * The response headers as a plain record with lower-case names. A transport built on
+ * `fetch` naturally returns its `Headers` object, which passes as an object but has no
+ * plain properties: the engine then saw no Retry-After, no Content-Type and no Location.
+ * Such an object (anything with `get` and `forEach`, a `Map` too) is copied into a record;
+ * a plain record gets its names lower-cased, as the engine reads them.
+ */
+function plainHeaders(headers: object): Record<string, string | string[] | undefined> {
+  const h = headers as { get?: unknown; forEach?: unknown };
+  if (typeof h.get === "function" && typeof h.forEach === "function") {
+    const record: Record<string, string> = {};
+    (h.forEach as (cb: (value: unknown, name: unknown) => void) => void).call(headers, (value, name) => {
+      record[String(name).toLowerCase()] = String(value);
+    });
+    return record;
+  }
+  // Node's transport lower-cases header names; a custom one may not ("Content-Type").
+  const record: Record<string, string | string[] | undefined> = {};
+  for (const [name, value] of Object.entries(headers as Record<string, string | string[] | undefined>)) {
+    record[name.toLowerCase()] = value;
+  }
+  return record;
+}
+
+/**
+ * Error codes of a connection that broke off mid-request: Node's (`socket hang up` is
+ * ECONNRESET) and undici's (`fetch failed` with cause UND_ERR_SOCKET, "other side closed").
+ */
+const TRANSIENT_NETWORK_CODES = new Set(["ECONNRESET", "EPIPE", "ECONNABORTED", "UND_ERR_SOCKET"]);
+
+/** True when `err` or an error in its `cause` chain has a transient connection code. */
+function hasTransientCode(err: unknown, depth = 0): boolean {
+  if (typeof err !== "object" || err === null || depth > 4) return false;
+  const code = (err as { code?: unknown }).code;
+  if (typeof code === "string" && TRANSIENT_NETWORK_CODES.has(code)) return true;
+  return hasTransientCode((err as { cause?: unknown }).cause, depth + 1);
+}
+
+/**
+ * True for a failure caused by a reset or aborted connection, which the engine retries —
+ * whichever transport raised it (the default transport's FdsNetworkError, Node's own
+ * error, fetch's TypeError with an undici cause). A refused connection, a DNS failure or
+ * a timeout is not transient in that sense and is not retried.
+ */
+export function isTransientNetworkError(err: unknown): boolean {
+  return hasTransientCode(err);
+}
+
 const realSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -169,6 +250,32 @@ export class RequestEngine {
   }
 
   /**
+   * Call the transport under the overall deadline (`timeoutMs`): the request gets an
+   * AbortSignal that fires at the deadline, and the call rejects then whether the transport
+   * stops or not — a custom transport (fetch, a node:http wrapper) that ignores `timeoutMs`
+   * can't hang the caller. A synchronous throw becomes a rejection.
+   */
+  private async callTransport(request: HttpRequest): Promise<HttpResponse> {
+    const call = (signal?: AbortSignal): Promise<HttpResponse> =>
+      Promise.resolve().then(() => this.transport(signal === undefined ? request : { ...request, signal }));
+    if (this.timeoutMs === 0) return call();
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        const err = new FdsNetworkError(`Request exceeded deadline of ${this.timeoutMs}ms`);
+        controller.abort(err);
+        reject(err);
+      }, Math.min(this.timeoutMs, MAX_TIMEOUT_MS));
+    });
+    try {
+      return await Promise.race([call(controller.signal), deadline]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
    * Perform a request with Accept negotiation and transient-error retries. A query
    * with a blank value (or blank parameter name) is rejected with an
    * FdsValidationError before anything is sent: the API reads an empty parameter
@@ -186,23 +293,57 @@ export class RequestEngine {
       "User-Agent": this.userAgent,
     };
 
+    // Only an idempotent request is sent again: request() is public, and a POST re-sent
+    // after a reset or a 503 may be applied twice. The client itself sends GETs only.
+    const idempotent = /^(GET|HEAD)$/i.test(method);
     let attempt = 0;
     // attempts = initial try + maxRetries
     for (;;) {
-      const response = await this.transport({
-        method,
-        url,
-        headers,
-        timeoutMs: this.timeoutMs,
-        ...(this.maxResponseBytes > 0 ? { maxResponseBytes: this.maxResponseBytes } : {}),
-      });
+      let response: HttpResponse;
+      try {
+        response = await this.callTransport({
+          method,
+          url,
+          headers,
+          timeoutMs: this.timeoutMs,
+          ...(this.maxResponseBytes > 0 ? { maxResponseBytes: this.maxResponseBytes } : {}),
+        });
+      } catch (cause) {
+        // A connection the server (or a gateway) reset is the network-level twin of a
+        // 503: retry the GET, whichever transport reported it. Timeouts are not retried —
+        // a slow upstream should not be asked again at once, and timeoutMs bounds each
+        // attempt.
+        if (idempotent && hasTransientCode(cause) && attempt < this.maxRetries) {
+          attempt += 1;
+          await this.sleep(this.retryDelayMs * attempt);
+          continue;
+        }
+        throw this.toNetworkError(method, url, cause);
+      }
 
+      // An injected transport may resolve with anything; a malformed HttpResponse would
+      // otherwise surface below as a raw TypeError, outside the FdsError contract.
+      const invalid = responseProblem(response);
+      if (invalid !== undefined) {
+        throw new FdsNetworkError(
+          `${method} ${redactUrl(url)} failed: the transport returned an invalid response (${invalid}).`,
+        );
+      }
       const status = response.status;
+      const responseHeaders = plainHeaders(response.headers);
+      // fetch gives a Uint8Array; view it as a Buffer (no copy), which the decoders expect.
+      const body = bodyBytes(response.body) as Buffer;
+      // The size cap holds whatever the transport did: the default one aborts early, a
+      // custom one may have read everything.
+      if (this.maxResponseBytes > 0 && body.byteLength > this.maxResponseBytes) {
+        throw new FdsNetworkError(sizeLimitMessage(this.maxResponseBytes));
+      }
+
       const retryable = status === 429 || status === 503;
-      if (retryable && attempt < this.maxRetries) {
+      if (idempotent && retryable && attempt < this.maxRetries) {
         // Honour Retry-After; without a usable one, back off linearly. A Retry-After
         // beyond MAX_RETRY_AFTER_MS is not retried: the error below surfaces at once.
-        const retryAfter = parseRetryAfter(response.headers["retry-after"]);
+        const retryAfter = parseRetryAfter(responseHeaders["retry-after"]);
         if (retryAfter === undefined || retryAfter <= MAX_RETRY_AFTER_MS) {
           attempt += 1;
           await this.sleep(retryAfter ?? this.retryDelayMs * attempt);
@@ -210,13 +351,27 @@ export class RequestEngine {
         }
       }
 
-      const contentType = String(response.headers["content-type"] ?? "");
+      const contentType = String(responseHeaders["content-type"] ?? "");
       if (status < 200 || status >= 300) {
-        throw this.toApiError(method, url, status, response.body, response.headers["location"]);
+        const location = responseHeaders["location"];
+        throw this.toApiError(method, url, status, body, typeof location === "string" ? location : undefined);
       }
 
-      return { data: response.body, contentType, status };
+      return { data: body, contentType, status };
     }
+  }
+
+  /**
+   * A transport failure as the library's error. The default transport rejects with
+   * FdsNetworkError only, which passes through; an injected one may throw anything — a
+   * plain Error, fetch's TypeError, a string, null. That becomes a FdsNetworkError naming
+   * the request (URL redacted), with the original as `cause`, so a caller (and the CLI)
+   * can rely on every failure being a FdsError. Any other FdsError passes through.
+   */
+  private toNetworkError(method: string, url: string, cause: unknown): FdsError {
+    if (cause instanceof FdsError) return cause;
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    return new FdsNetworkError(`${method} ${redactUrl(url)} failed: ${sanitizeServerText(reason)}`, { cause });
   }
 
   /** Perform a GET expecting JSON and parse it into `T`. */

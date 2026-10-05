@@ -7,11 +7,12 @@ export {
   MAX_RETRY_AFTER_MS,
   parseRetryAfter,
   isBidiControl,
+  isTransientNetworkError,
   sanitizeServerText,
   type EngineOptions,
   type RawResponse,
 } from "./engine.js";
-export { MAX_TIMEOUT_MS, nodeHttpTransport } from "./http.js";
+export { MAX_TIMEOUT_MS, nodeHttpTransport, sizeLimitMessage } from "./http.js";
 export type { Transport, HttpRequest, HttpResponse } from "./http.js";
 export { buildQueryString } from "./query.js";
 export type { QueryParams, QueryValue, QueryPrimitive } from "./query.js";
