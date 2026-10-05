@@ -3,7 +3,7 @@
 Echte Beispiele für die Claude-Code-Skills des Plugins `fragdenstaat`, eines pro Skill: eine
 Anfrage, die `fragdenstaat`-Befehle, die der Skill ausgeführt hat, und Claudes Antwort.
 
-Jedes Beispiel lief am 15. September 2026 mit `fragdenstaat` 0.0.7 gegen die Live-API.
+Jedes Beispiel lief am 6. Oktober 2026 mit `fragdenstaat` 0.3.0 gegen die Live-API.
 Die Daten ändern sich, Ihre Ergebnisse werden also abweichen; mit den gezeigten IDs und
 Schlüsseln können Sie die Anfragen selbst ausprobieren. Lange Listen sind gekürzt.
 
@@ -16,10 +16,8 @@ Skills: [fds-authority-lookup](#fds-authority-lookup) · [fds-document-digger](#
 > An welche Behörde richtet man in Sachsen eine IFG-Anfrage zu Luftqualitäts-Messdaten, und antwortet sie überhaupt?
 
 ```bash
-fragdenstaat --compact jurisdiction list                                   # Sachsen = 89
-fragdenstaat --compact publicbody search --q "Umwelt" --jurisdiction 89 --limit 50
+fragdenstaat --compact publicbody search --q "Umwelt" --jurisdiction 89 --limit 50   # Sachsen = 89
 fragdenstaat --compact publicbody get 10892
-fragdenstaat --compact publicbody get 16687
 fragdenstaat --compact request list --public-body 10892 --status resolved --limit 50
 ```
 
@@ -44,7 +42,7 @@ Zum Stellen: die Seite oben öffnen und „Anfrage stellen" wählen – FragDenS
 
 Weitere Treffer (16 insgesamt):
   10898  Sächsisches Staatsministerium für Energie, Klimaschutz, Umwelt und Landwirtschaft · Ministerium · 74 Anfragen
-  16687  Immissionsschutzbehörde Leipzig · kein Typ · umweltschutz@leipzig.de · Prager Straße 118-136, 04317 Leipzig · 3 Anfragen
+  16687  Immissionsschutzbehörde Leipzig · kein Typ · umweltschutz@leipzig.de · 3 Anfragen
   16686  Umweltamt Dresden, Immissionsschutz- und Abfallbehörde · kein Typ · 3 Anfragen
 ```
 
@@ -58,14 +56,14 @@ Als Nächstes angeboten: die erfolgreichen Anfragen an das LfULG (`--resolution 
 fragdenstaat --compact publicbody autocomplete "Bundesministerium für Gesundheit"         # value 92
 fragdenstaat --compact document list --publicbody 92 --limit 1                            # total_count 425
 fragdenstaat --compact document list --publicbody 92 --created-after 2026-01-01 --limit 50  # total_count 15
-fragdenstaat --compact request get 372583                                                 # ebenso 365257, 365135, 371953
-fragdenstaat --compact document get 277870
+fragdenstaat --compact request list --public-body 92 --created-after 2026-01-01 --status resolved --resolution successful --limit 50   # 30, darunter die 4 Quell-Anfragen
 fragdenstaat document list --publicbody 92 --created-after 2026-01-01 --csv -o bmg-documents-2026.csv
 ```
 
 Die Dokumenttitel sind Dateinamen-Slugs ohne Umlaute (`anlage2geschwrzt`), `published_at` ist
 leer, und `foirequest` ist eine API-URL statt einer ID. Deshalb hat der Skill die Dokumente nach
-Anfrage-URL gruppiert und die vier Anfragen abgerufen, um lesbare Titel zu bekommen.
+Anfrage-URL gruppiert und die vier Anfragen mit einem `request list` nachgeschlagen, um lesbare
+Titel zu bekommen.
 `bmg-documents-2026.csv` gab es vorher noch nicht.
 
 **Bundesministerium für Gesundheit (id 92)**: insgesamt 425 herausgegebene Dokumente, **15 seit
@@ -82,7 +80,7 @@ dem Meta-Gesetz IFG Bund.
 Größte Datei: 277824 `anlage2geschwrzt` (76 Seiten, 2.001.970 Bytes, geschwärzt). Die KI-Anfrage
 brachte kurze interne Hinweise hervor, etwa `warnung-vor-ki-diensten-im-internet` (1 Seite), und
 eine 10-seitige geschwärzte Präsentation zur maschinellen Übersetzung (277870,
-`media.frag-den-staat.de/files/foi/1144895/…_geschwaerzt.pdf`).
+`maschinellebersetzungimbmg-prsentationtestnutzer_geschwaerzt`).
 
 13.966 Bytes nach `bmg-documents-2026.csv` geschrieben: 15 Zeilen plus Kopfzeile, 30 Spalten
 (`file_url`, `num_pages`, `site_url`, `properties.author`, …). Die CLI exportiert nur Metadaten;
@@ -93,21 +91,17 @@ das Herunterladen einer `file_url` ist ein eigener Schritt.
 > Hat Bayern ein Transparenzgesetz? Nach welchem Gesetz kann man bei einem bayerischen Ministerium oder bei der Stadt München Unterlagen anfragen?
 
 ```bash
-fragdenstaat --compact jurisdiction list                         # Bayern = 92
-fragdenstaat --compact law list --jurisdiction 92 --limit 50     # 4 Gesetze
+fragdenstaat --compact law list --jurisdiction 92 --limit 50     # Bayern = 92; 4 Gesetze
 fragdenstaat --compact law get 120
-fragdenstaat --compact law get 170
 fragdenstaat --compact publicbody get 15890
-fragdenstaat --compact law list --q "Satzung" --limit 50         # kommunale Satzungen haben jurisdiction null
-fragdenstaat --compact law autocomplete "Informationsfreiheitssatzung der Landeshauptstadt München"   # 0 Treffer
-fragdenstaat --compact law list --q "München" --limit 50
+fragdenstaat --compact law list --q "München" --limit 50         # 2 kommunale Satzungen, jurisdiction null
 fragdenstaat --compact law get 51
 ```
 
 Kommunale Informationsfreiheitssatzungen haben keine Zuständigkeit zugeordnet, deshalb fehlen
 sie im Bayern-Filter. Der Skill fand die Münchner Satzung stattdessen über die Namenssuche.
-`legal_text` war bei den Gesetzen 120, 170 und 51 leer; Fristen und Hinweise stammen daher aus
-den strukturierten Feldern.
+`legal_text` war bei den Gesetzen 120 und 51 leer; Fristen und Hinweise stammen daher aus den
+strukturierten Feldern.
 
 **Nein.** Bayern hat weder ein Informationsfreiheits- noch ein Transparenzgesetz. Der Hinweis
 von FragDenStaat zum bayerischen Meta-Gesetz (id 120) lautet: „In Bayern gibt es bisher kein
@@ -120,16 +114,16 @@ Umweltinformationen fragen, ist dies nicht nötig."
 | 120 | Datenschutz-, Umwelt- und Verbraucherinformationsgesetz Bayern (BayDSG, BayUIG, VIG) | Meta, bündelt 119 + 3 + 170 | 1 Kalendermonat (`month_de`) | nein |
 | 170 | Bayerisches Datenschutzgesetz (BayDSG) | Datenschutzrecht | 1 Kalendermonat | nein |
 | 119 | Umweltinformationsgesetz Bayern (BayUIG) | UIG | 1 Kalendermonat | nein |
-| 166 | Bayerisches Pressegesetz (BayPrG) | Presserecht, nur für Presse | 5 Arbeitstage (`working_day`) | nein |
+| 166 | Bayerisches Pressegesetz (BayPrG) | Presserecht | 5 Arbeitstage (`working_day`) | nein |
 
 - **Ein Ministerium:** Anfrage nach Gesetz 120. Für Umweltinformationen gilt das BayUIG ohne
-  Begründung; sonst verlangt der Weg über das BayDSG ein berechtigtes Interesse, und seine
-  `refusal_reasons` beginnen mit „berechtigtes Interesse nicht vorhanden". Vermittlungsstelle:
-  Der Bayerische Landesbeauftragte für den Datenschutz (Behörde 15890).
+  Begründung; sonst müssen Sie angeben, warum Sie fragen, und ein berechtigtes Interesse
+  nachweisen. Vermittlungsstelle: Der Bayerische Landesbeauftragte für den Datenschutz
+  (Behörde 15890).
 - **Stadt München:** eigene **Informationsfreiheitssatzung der Stadt München** (Gesetz 51,
   Satzung) für „Informationen des eigenen Wirkungskreises der Stadt München". Frist 1
-  Kalendermonat, keine Unterschrift, keine Vermittlungsstelle. Weitere bayerische Satzungen im
-  Katalog sind u. a. Nürnberg (56), Schweinfurt (74), Amberg (72) und Landkreis Dachau (187).
+  Kalendermonat, keine Unterschrift, keine Vermittlungsstelle. Die Namenssuche fand außerdem die
+  Informationsfreiheitssatzung der Gemeinde Kirchheim bei München (186, 30 Tage).
 
 ## fds-request-finder
 
@@ -138,16 +132,14 @@ Umweltinformationen fragen, ist dies nicht nötig."
 ```bash
 fragdenstaat --compact request search --q "Palantir" --limit 50                 # total_count 103
 fragdenstaat --compact request tags "Palantir"
-fragdenstaat --compact request list --tags "Palantir" --limit 1                  # 63
-fragdenstaat --compact request list --tags "Palantir" --status resolved --limit 1   # 45
-fragdenstaat --compact request list --tags "Palantir" --status resolved --resolution refused --limit 1   # ebenso die anderen 5 Ergebnisse
-fragdenstaat --compact request list --tags "Palantir" --status asleep --limit 1  # ebenso awaiting_response, awaiting_classification
-fragdenstaat --compact request list --tags "Palantir" --status resolved --limit 50
+fragdenstaat --compact request list --tags "Palantir" --limit 50                 # total_count 63
+fragdenstaat --compact request list --tags "Palantir" --limit 50 --offset 50
 ```
 
 Die Volltextsuche fand 103 Anfragen, aber nur 29 der ersten 50 trugen das Tag `Palantir`. Der
-Skill hat deshalb über das Tag mit `request list` gezählt, dessen `total_count` exakt ist. Alle 45
-abgeschlossenen Anfragen passten auf eine Seite; so ließ sich auch nach Zuständigkeit aufschlüsseln.
+Skill hat deshalb über das Tag mit `request list` gezählt, dessen `total_count` exakt ist. Alle 63
+Anfragen mit dem Tag passten auf zwei Seiten; so ließ sich nach Status, Ergebnis und Zuständigkeit
+aufschlüsseln.
 
 **Anfragen mit Tag `Palantir`: 63**, davon 45 abgeschlossen und 18 noch offen (11 ruhend, 6 warten
 auf Einstufung, 1 wartet auf Antwort).
