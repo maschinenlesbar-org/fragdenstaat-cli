@@ -122,8 +122,11 @@ What the library rejects with `FdsValidationError`, before any request:
   whitespace and no whitespace or control character inside it (`baseUrlSpaceProblem`;
   `new URL()` trims and drops such characters, so the URL check passed while request
   paths were appended to the raw string and `"https://h/ "` requested
-  `/%20/api/v1/...`), parseable, an `http:`/`https:` scheme, and no query or fragment
-  (paths are appended as a string, so `?`/`#` would swallow every path). Userinfo is
+  `/%20/api/v1/...`), parseable, an `http:`/`https:` scheme, no query or fragment
+  (paths are appended as a string, so `?`/`#` would swallow every path), and no `%` in
+  the user name or password that doesn't start an escape (Node decodes the userinfo for
+  the Authorization header and failed at request time with "URI malformed"; a literal
+  `%` is `%25`). Userinfo is
   allowed (Basic auth for a protected mirror) and redacted in every message (see
   "Credential redaction" below). This is a configuration error, so it is an `FdsValidationError`, not the transport's
   `FdsNetworkError`. The CLI's `parseBaseUrl` calls the same `baseUrlProblem`, with the

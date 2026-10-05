@@ -204,7 +204,9 @@ function redactAnyUrl(value: string): string {
  * characters ({@link baseUrlSpaceProblem}); parseable by `new URL()`; an `http:` or
  * `https:` scheme; no query or fragment. Request paths are appended to the base URL
  * as a string, so a `?` or `#` would swallow every path (`http://h/?x=1` requested
- * `/?x=1/api/...`, `http://h/#f` requested `/`). Userinfo is allowed (Basic auth for
+ * `/?x=1/api/...`, `http://h/#f` requested `/`); a `%` in the user name or password
+ * that starts a valid escape (`%25` for a literal one: Node decodes the userinfo for the
+ * Authorization header and failed at request time). Userinfo is allowed (Basic auth for
  * a protected mirror) and never appears in a message.
  */
 export const baseUrlProblem: Problem<unknown> = (value) => {
@@ -221,6 +223,15 @@ export const baseUrlProblem: Problem<unknown> = (value) => {
     return `Unsupported protocol "${url.protocol}" (use http or https).`;
   }
   if (/[?#]/.test(value)) return "A base URL cannot have a query (?) or fragment (#).";
+  // Node decodes the userinfo into the Authorization header and throws "URI malformed" for a
+  // "%" that isn't an escape — at request time, as a network error. Reject it here.
+  for (const part of [url.username, url.password]) {
+    try {
+      decodeURIComponent(part);
+    } catch {
+      return 'The user name or password has a "%" that is not followed by two hex digits; write a literal "%" as %25.';
+    }
+  }
   return undefined;
 };
 
