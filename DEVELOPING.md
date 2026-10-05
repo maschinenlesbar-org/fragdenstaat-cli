@@ -115,7 +115,9 @@ What the library rejects with `FdsValidationError`, before any request:
 - **Non-numeric ids.** `get(id)` takes a non-negative safe integer or a digit string
   (`resourceIdProblem`, `normalizeResourceId`); `"search"` or `"autocomplete"` would
   otherwise reach a list sub-endpoint and return its list envelope as a detail object,
-  and `""`, `" 10 "`, `1.5`, `-1` or `NaN` would fail late on the server.
+  and `""`, `" 10 "`, `1.5`, `-1` or `NaN` would fail late on the server. A digit
+  string beyond `Number.MAX_SAFE_INTEGER` (`"99999999999999999999"`) is refused too,
+  as for the id filters.
 - **Filters the API would ignore or drop (strict filters).** Every `list`, `listCsv`,
   `search` and `searchCsv` call checks its params object against its endpoint's table
   in `filters.ts` (`assertParams`; tables such as `REQUEST_LIST_PARAMS`, from Froide's

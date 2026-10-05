@@ -82,7 +82,10 @@ export const resourceIdProblem: Problem<unknown> = (id) => {
     typeof id === "number"
       ? Number.isSafeInteger(id) && id >= 0
       : typeof id === "string" && /^[0-9]+$/.test(id);
-  return ok ? undefined : "Expected a numeric id (digits only).";
+  if (!ok) return "Expected a numeric id (digits only).";
+  // Like the id filters: no database id is that large, and the server would most likely
+  // fail on the integer overflow ("99999999999999999999").
+  return Number.isSafeInteger(Number(id)) ? undefined : "Expected a numeric id up to 9007199254740991.";
 };
 
 /**

@@ -298,3 +298,9 @@ test("amountProblem accepts a finite non-negative number", () => {
     assert.equal(amountProblem(v), "Expected a non-negative number.", String(v));
   }
 });
+
+// Exploratory test 2026-10-05, result 04 question 2: a 20-digit id was sent as is.
+test("resourceIdProblem refuses an id beyond the safe-integer range", () => {
+  assert.equal(resourceIdProblem(String(Number.MAX_SAFE_INTEGER)), undefined);
+  assert.equal(resourceIdProblem("99999999999999999999"), "Expected a numeric id up to 9007199254740991.");
+});
