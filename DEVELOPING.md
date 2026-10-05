@@ -64,7 +64,12 @@ src/
   `FdsNetworkError` (URL redacted, the original as `cause`).
 - **`CliDeps`** (`io.ts`) — a client factory + I/O object (`out`/`err`/`writeFile`/
   `outBinary`). `run.ts` returns an exit code instead of calling `process.exit`, so
-  tests drive the whole CLI with a mocked client and captured output.
+  tests drive the whole CLI with a mocked client and captured output. The bin shim
+  (`cli/index.ts`) installs `handleOutputErrors` before `run()`: an EPIPE on stdout
+  (`| head`) exits 0 quietly instead of Node's unhandled-`error` stack trace and exit
+  1; an EPIPE on stderr is ignored, so a failed run keeps its exit code; any other
+  write error exits 1. `test/conformance-p7-pipes-exit-codes.test.ts` runs the built
+  bin through real pipes.
 
 Zero runtime HTTP dependencies (built on `node:http`/`https` — no axios/fetch).
 The CLI's only runtime dependency is `commander`. Strict TS, ESM (`NodeNext`).

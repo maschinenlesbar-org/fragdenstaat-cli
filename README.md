@@ -112,7 +112,9 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
   a usage error before any request.
 - **Anonymous = public only.** `resolution` is empty until a request is `resolved`.
 - **Exit codes:** `0` success; `4` for a 404 (not found); `1` for any other API or
-  runtime error. Errors print to stderr; stdout stays clean for piping.
+  runtime error. Errors print to stderr; stdout stays clean for piping. A reader that
+  stops early (`| head`, `| jq` exiting) ends the run quietly with `0`; a failed run
+  keeps its exit code even when stderr's reader is gone (`2>&1 | true`).
 
 ## Library usage
 
