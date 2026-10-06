@@ -103,7 +103,9 @@ export interface PublicBodyListParams extends Pagination {
 /**
  * Filters for `GET /api/v1/publicbody/search/` (public-body full-text search). The
  * category is the **plural** `categories` (the endpoint ignores a singular `category`),
- * and the endpoint has no `classification_id`, `slug` or `lnglat`.
+ * and the endpoint has no `classification_id`, `slug` or `lnglat` (it ignores them).
+ * `classification` is its working classification filter (checked live 2026-10-06:
+ * id 118, Ministerium, narrowed 10000 hits to 225).
  */
 export interface PublicBodySearchParams extends Pagination {
   q?: string;

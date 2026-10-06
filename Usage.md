@@ -72,6 +72,10 @@ fragdenstaat publicbody autocomplete <query>
 ```
 
 Note: **singular** `--category` here (`--categories` is rejected as an unknown option).
+`search --classification <id>` is the search endpoint's classification filter (it has no
+exact `--classification-id`; the API ignores that parameter there): checked live,
+`--classification 118` (Ministerium) narrows the search to 225 bodies, where the exact
+`list --classification-id 118` finds 207, so it likely includes sub-classifications.
 On `search` the CLI sends it as the API's `categories` parameter, the only name the
 search endpoint reads.
 `--classification` matches a subtree; `--classification-id` is exact. `--regions` takes

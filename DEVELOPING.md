@@ -308,7 +308,12 @@ When in doubt, trust the live API, not the schema.
   (`buildPublicBodySearchParams`; the library's `PublicBodySearchParams` has
   `categories`). The search endpoint has no `classification_id`, `slug` or `lnglat`
   (Froide's `PublicBodyAPIFilterSet`; `lnglat` was checked live: 1817 hits with and
-  without it), so `PublicBodySearchParams` no longer has them. `publicbody list`
+  without it), so `PublicBodySearchParams` no longer has them. Its working classification
+  filter is `classification` (an id; `publicbody search --classification`), checked live on
+  2026-10-06: `classification=118` (Ministerium) narrowed the 10000 hits to 225, every one
+  shown a Ministerium, while `classification_id=118` was ignored (10000 again). The list
+  endpoint's exact `classification_id=118` matched 207, so search's filter is at least as
+  wide as the exact one — consistent with a subtree match like list's `--classification`. `publicbody list`
   distinguishes `--classification` (subtree) from `--classification-id` (exact).
   `--regions` with one id matches that region and its sub-regions; a comma list matches
   exactly those regions; a single id that doesn't exist filters nothing upstream (every
