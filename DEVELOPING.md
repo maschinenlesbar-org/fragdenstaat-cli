@@ -348,7 +348,8 @@ validation (P19 skipped: this CLI reads no environment variable), P5 the transpo
 contract, P6 the retry policy, P7 pipes and exit codes (runs the built bin), P8/P9/P13
 charset, 2xx body shape and error classes, P10 strict filters, P12 `-o -`, and from the
 follow-up round 2026-10-06 P20 the stderr warning for a plain-`http:` base URL (environment and
-API-key cases skipped: no variable, no key).
+API-key cases skipped: no variable, no key) and P21 README links (a relative link must point at
+a file `files` ships, since npmjs.com shows the README; anything else is an absolute GitHub URL).
 Tests must keep passing on Node 22/24 (`engines`: `>=22.12`, the floor of the pinned commander 15).
 
 ## CI / release
