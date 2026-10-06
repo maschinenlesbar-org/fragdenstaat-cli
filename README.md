@@ -93,7 +93,7 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
 
 | Flag | Purpose |
 |---|---|
-| `--base-url <url>` | override the API base (default `https://fragdenstaat.de`); an `http:`/`https:` URL without query, fragment or whitespace, and a `%` in a user name or password must be an escape (write a literal `%` as `%25`) — anything else is a usage error before any request |
+| `--base-url <url>` | override the API base (default `https://fragdenstaat.de`); an `http:`/`https:` URL without query, fragment or whitespace, and a `%` in a user name or password must be an escape (write a literal `%` as `%25`) — anything else is a usage error before any request. Plain `http:` to a host other than loopback (`localhost`, `127.0.0.0/8`, `::1`) prints one `warning: … sent unencrypted to <host> (http:, not https:)` line on stderr per run, naming a `user:password@` as "the base URL's credentials" (never its value); stdout and the exit code are unchanged |
 | `--timeout <ms>` | per-request timeout (at most `2147483647`) |
 | `--user-agent <ua>` | override the `User-Agent` |
 | `--max-retries <n>` | retries for transient 429/503 and connection resets (0..10). Each retry backs off linearly (200 ms, 400 ms, …), or waits the server's `Retry-After` when that is longer (up to 30 s; a longer one is not retried, and the error says so). Timeouts and refused connections are not retried |

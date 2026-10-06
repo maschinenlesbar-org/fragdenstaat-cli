@@ -3,7 +3,11 @@
 Full command reference for `fragdenstaat`. Run `fragdenstaat <group> <sub> --help`
 for the authoritative, always-current flag list. Global options
 (`--base-url`, `--timeout`, `--user-agent`, `--max-retries`, `--max-response-bytes`,
-`--compact`, `-o/--output`, `--force`) work on every command. `-o -` means stdout,
+`--compact`, `-o/--output`, `--force`) work on every command. A `--base-url` on plain
+`http:` to a host other than loopback gets one stderr line before the first request,
+`warning: requests to <host> are sent unencrypted (http:, not https:)` (or "the base URL's
+credentials are sent unencrypted …" with a `user:password@`, never printed); stdout and the
+exit code are unchanged. `-o -` means stdout,
 like no `-o` at all. `-o` never overwrites an
 existing file (`refusing to overwrite existing file … (use --force)`, exit 1); add
 `--force` to overwrite it. An answer that isn't the data asked for fails with exit 1

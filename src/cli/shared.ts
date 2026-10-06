@@ -4,7 +4,14 @@
 import { Command, InvalidArgumentError, Option } from "commander";
 import type { CliDeps } from "./io.js";
 import { FdsError } from "../client/errors.js";
-import { isBidiControl, sanitizeServerText, type EngineOptions, type RawResponse } from "../client/engine.js";
+import {
+  DEFAULT_BASE_URL,
+  cleartextProblem,
+  isBidiControl,
+  sanitizeServerText,
+  type EngineOptions,
+  type RawResponse,
+} from "../client/engine.js";
 import type { QueryParams } from "../client/query.js";
 import {
   amountProblem,
@@ -469,6 +476,10 @@ export function action(
     const positionals = args.slice(0, Math.max(0, args.length - 2)) as string[];
     const global = command.optsWithGlobals() as GlobalOptions;
     const client = deps.createClient(toEngineOptions(global));
+    // One warning per run, before the first request, when the base URL is plain http: to
+    // a host other than loopback. Help, version and usage errors never get here.
+    const cleartext = cleartextProblem(global.baseUrl ?? DEFAULT_BASE_URL);
+    if (cleartext !== undefined) deps.io.err(`warning: ${cleartext}`);
     await fn({ client, global, opts: command.opts() }, positionals);
   };
 }

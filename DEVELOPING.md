@@ -231,6 +231,12 @@ When in doubt, trust the live API, not the schema.
   redirects (a 3xx surfaces as an `FdsApiError` whose message names the target:
   `redirect to <Location> not followed`, the Location resolved, redacted and
   sanitised), so this matters. `http://` likewise 301s to `https://`.
+- **A plain-`http:` base URL warns.** To a host other than loopback (`localhost`,
+  `127.0.0.0/8`, `::1`) the CLI writes one `warning: <sentence>` line on stderr per run,
+  before the first request (`action()` in `shared.ts`); the sentence comes from the exported
+  `cleartextProblem(baseUrl, secrets?)`, names the host and, for a `user:password@`, "the base
+  URL's credentials" (never the value). Help, version and usage errors never warn; stdout
+  and the exit code are untouched.
 - **`--base-url` is validated at parse time** (`parseBaseUrl` in `shared.ts`) with
   the library's `baseUrlProblem`, so a commander usage error names the value the user
   passed: only `http:`/`https:`, no query or fragment, no whitespace or control
@@ -340,7 +346,9 @@ The `conformance-p*.test.ts` files are shared across the `*-cli` repos (fix plan
 repo-specific): P1 CLI output redaction, P2 library redaction, P4/P19 configuration
 validation (P19 skipped: this CLI reads no environment variable), P5 the transport
 contract, P6 the retry policy, P7 pipes and exit codes (runs the built bin), P8/P9/P13
-charset, 2xx body shape and error classes, P10 strict filters, P12 `-o -`.
+charset, 2xx body shape and error classes, P10 strict filters, P12 `-o -`, and from the
+follow-up round 2026-10-06 P20 the stderr warning for a plain-`http:` base URL (environment and
+API-key cases skipped: no variable, no key).
 Tests must keep passing on Node 22/24 (`engines`: `>=22.12`, the floor of the pinned commander 15).
 
 ## CI / release

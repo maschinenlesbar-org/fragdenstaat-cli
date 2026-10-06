@@ -4,6 +4,7 @@ export {
   RequestEngine,
   DEFAULT_BASE_URL,
   MAX_RETRIES,
+  cleartextProblem,
   MAX_RETRY_AFTER_MS,
   parseRetryAfter,
   isBidiControl,
