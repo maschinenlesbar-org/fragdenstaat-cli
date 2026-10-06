@@ -76,7 +76,10 @@ On `search` the CLI sends it as the API's `categories` parameter, the only name 
 search endpoint reads.
 `--classification` matches a subtree; `--classification-id` is exact. `--regions` takes
 one geo-region id (that region and its sub-regions) or a comma list (exactly those
-regions); upstream, a single id that doesn't exist filters nothing. `--lnglat` is
+regions). Each id is looked up first (`GET /api/v1/georegion/<id>/`, one request per id),
+because upstream a single id that doesn't exist filters nothing and returns every public
+body: an unknown id is an error naming it (`Error: Invalid regions: no geo-region has the
+id …`, exit 1) and the list is not requested. `--lnglat` is
 `lng,lat` (longitude first) and keeps only bodies whose `regions` contain that point, in
 name order rather than by distance, and a body appears once per region that contains
 the point (Stadt Leipzig twice for a Leipzig point).

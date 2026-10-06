@@ -142,3 +142,73 @@ test("an empty request list under a name filter prints a note naming it", async 
   assert.equal(await run(["request", "list", "--classification", "Ministerium"], full.deps), 0);
   assert.deepEqual(full.err, []);
 });
+
+// Follow-up 2026-10-06, answer 1: upstream, a single --regions id that doesn't exist filters
+// nothing (every public body comes back). Each id is looked up first; a 404 is an error.
+function regionsLib(known: number[]) {
+  const mt = makeMockTransport((req) => {
+    const m = /\/api\/v1\/georegion\/(\d+)\/$/.exec(new URL(req.url).pathname);
+    if (m) {
+      return known.includes(Number(m[1]))
+        ? jsonResponse({ id: Number(m[1]), name: "Leipzig" })
+        : jsonResponse({ detail: "No GeoRegion matches the given query." }, 404);
+    }
+    return jsonResponse(fx.requestList);
+  });
+  return { c: new FragDenStaatClient({ transport: mt.transport }), mt };
+}
+
+test("a --regions id the API doesn't know rejects before the list, naming it; known ids are looked up first", async () => {
+  const single = regionsLib([]);
+  await assert.rejects(
+    single.c.publicBodies.list({ regions: 999999999 }),
+    (e: unknown) =>
+      e instanceof FdsValidationError &&
+      (e as Error).message ===
+        "Invalid regions: no geo-region has the id 999999999 (the API would ignore the filter and list every public body). " +
+          "Look a region up by name first (georegion autocomplete / georegions.autocomplete()).",
+  );
+  assert.deepEqual(single.mt.calls.map((r) => new URL(r.url).pathname), ["/api/v1/georegion/999999999/"]);
+
+  const list = regionsLib([26]);
+  await assert.rejects(
+    list.c.publicBodies.listCsv({ regions: "26,98,99" }),
+    /no geo-region has the ids 98, 99 \(the API would match nothing for them\)/,
+  );
+  assert.equal(list.mt.calls.length, 3, "one lookup per id, then no list request");
+
+  const search = regionsLib([3]);
+  await assert.rejects(search.c.publicBodies.search({ regions: [3, 4] }), /no geo-region has the id 4 \(the API would match nothing for it\)/);
+  await assert.rejects(search.c.publicBodies.searchCsv({ regions: 4 }), /the id 4 \(the API would ignore the filter/);
+
+  const ok = regionsLib([26, 27]);
+  await ok.c.publicBodies.list({ regions: "26, 27" });
+  assert.deepEqual(ok.mt.calls.map((r) => new URL(r.url).pathname + new URL(r.url).search), [
+    "/api/v1/georegion/26/",
+    "/api/v1/georegion/27/",
+    "/api/v1/publicbody/?regions=26%2C27",
+  ]);
+});
+
+test("a lookup that fails otherwise propagates; no regions filter means no lookup", async () => {
+  const mt = makeMockTransport(() => jsonResponse({ detail: "boom" }, 500));
+  const c = new FragDenStaatClient({ transport: mt.transport, maxRetries: 0 });
+  await assert.rejects(c.publicBodies.list({ regions: 26 }), (e: unknown) => !(e instanceof FdsValidationError) && /HTTP 500/.test(String(e)));
+  const { c: plain, mt: plainMt } = lib();
+  await plain.publicBodies.list({ jurisdiction: 1 });
+  assert.equal(plainMt.calls.length, 1);
+});
+
+test("publicbody list --regions with an unknown id exits 1 naming it, before the list request", async () => {
+  const out: string[] = [];
+  const err: string[] = [];
+  const { mt } = regionsLib([]);
+  const deps: CliDeps = {
+    io: { out: (s) => out.push(s), err: (s) => err.push(s), writeFile: () => {}, outBinary: () => {} },
+    createClient: (opts) => new FragDenStaatClient({ ...opts, transport: mt.transport }),
+  };
+  assert.equal(await run(["publicbody", "list", "--regions", "424242"], deps), 1);
+  assert.deepEqual(out, []);
+  assert.match(err.join("\n"), /^Error: Invalid regions: no geo-region has the id 424242 /);
+  assert.equal(mt.calls.length, 1);
+});

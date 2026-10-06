@@ -311,8 +311,13 @@ When in doubt, trust the live API, not the schema.
   without it), so `PublicBodySearchParams` no longer has them. `publicbody list`
   distinguishes `--classification` (subtree) from `--classification-id` (exact).
   `--regions` with one id matches that region and its sub-regions; a comma list matches
-  exactly those regions; a single id that doesn't exist filters nothing upstream (the
-  library can't tell without a lookup). `document --tag` takes a tag **slug**
+  exactly those regions; a single id that doesn't exist filters nothing upstream (every
+  public body comes back), and an unknown id in a list silently matches nothing. So
+  `publicBodies.list`/`listCsv`/`search`/`searchCsv` look each `regions` id up first
+  (`GET /api/v1/georegion/<id>/`, sequentially; the detail includes the geometry, so a
+  Land costs a larger download) and reject an id answered with 404 as an
+  `FdsValidationError` naming it, before the list request (CLI: exit 1); any other lookup
+  failure propagates. The 404 for an unknown georegion was checked live (2026-10-06). `document --tag` takes a tag **slug**
   (`to_field_name="slug"` in django-filingcabinet: `--tag lobbyismus` found 53
   documents, `--tag 1` none), and `request --tags` one tag **name**, exact and
   case-sensitive. Request `--categories` and `--classification` match the exact

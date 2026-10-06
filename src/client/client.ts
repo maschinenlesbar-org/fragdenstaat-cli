@@ -10,7 +10,8 @@
 //   client.laws.get(124)
 
 import { RequestEngine, type EngineOptions, type RawResponse } from "./engine.js";
-import type { QueryParams } from "./query.js";
+import type { QueryParams, QueryValue } from "./query.js";
+import { FdsApiError, FdsValidationError } from "./errors.js";
 import { assertValid, normalizeResourceId, queryTextProblem } from "./validate.js";
 import {
   CATEGORY_LIST_PARAMS,
@@ -152,23 +153,81 @@ class RequestResource extends ListResource<FoiRequestListItem, RequestListParams
   }
 }
 
-/** Public bodies, plus full-text search and name autocomplete. */
+/** The ids in a checked `regions` value: `"26,27"` (list), `26` or `[26, 27]` (search). */
+function regionIds(value: QueryValue | undefined): number[] {
+  if (value === undefined || value === null) return [];
+  const values = Array.isArray(value) ? value : String(value).split(",");
+  return [...new Set(values.map((v) => Number(v)))];
+}
+
+/**
+ * Public bodies, plus full-text search and name autocomplete.
+ *
+ * A `regions` filter is checked against the API first: one `GET /api/v1/georegion/<id>/`
+ * per id, before the list or search request. Upstream, a single region id that doesn't
+ * exist filters nothing (every public body comes back, as if the filter were left out),
+ * and an unknown id in a list silently matches nothing, so an id the lookup answers with
+ * 404 rejects with an FdsValidationError naming it, and nothing else is sent.
+ */
 class PublicBodyResource extends ListResource<PublicBodyListItem, PublicBodyListParams> {
   constructor(e: RequestEngine) {
     super(e, "/api/v1/publicbody/", PUBLICBODY_LIST_PARAMS);
   }
 
-  /** Full-text search over public bodies. */
-  async search(params: PublicBodySearchParams = {}, options?: FilterOptions): Promise<TastypieList<PublicBodyListItem>> {
-    return this.e.getJson("/api/v1/publicbody/search/", checkedQuery(params, PUBLICBODY_SEARCH_PARAMS, options), "list");
+  /** The filtered list; a `regions` id the API doesn't know rejects (see the class). */
+  override async list(params: PublicBodyListParams = {}, options?: FilterOptions): Promise<TastypieList<PublicBodyListItem>> {
+    const query = checkedQuery(params, PUBLICBODY_LIST_PARAMS, options);
+    await this.assertRegionsExist(query["regions"]);
+    return this.e.getJson(this.path, query, "list");
   }
 
-  /** The public-body search as server-rendered CSV. */
+  /** The list as server-rendered CSV; a `regions` id the API doesn't know rejects. */
+  override async listCsv(params: PublicBodyListParams = {}, options?: FilterOptions): Promise<RawResponse> {
+    const query = checkedQuery(params, PUBLICBODY_LIST_PARAMS, options);
+    await this.assertRegionsExist(query["regions"]);
+    return this.e.getRaw(this.path, CSV_ACCEPT, { ...query, format: "csv" });
+  }
+
+  /** Full-text search over public bodies; a `regions` id the API doesn't know rejects. */
+  async search(params: PublicBodySearchParams = {}, options?: FilterOptions): Promise<TastypieList<PublicBodyListItem>> {
+    const query = checkedQuery(params, PUBLICBODY_SEARCH_PARAMS, options);
+    await this.assertRegionsExist(query["regions"]);
+    return this.e.getJson("/api/v1/publicbody/search/", query, "list");
+  }
+
+  /** The public-body search as server-rendered CSV; a `regions` id the API doesn't know rejects. */
   async searchCsv(params: PublicBodySearchParams = {}, options?: FilterOptions): Promise<RawResponse> {
-    return this.e.getRaw("/api/v1/publicbody/search/", CSV_ACCEPT, {
-      ...checkedQuery(params, PUBLICBODY_SEARCH_PARAMS, options),
-      format: "csv",
-    });
+    const query = checkedQuery(params, PUBLICBODY_SEARCH_PARAMS, options);
+    await this.assertRegionsExist(query["regions"]);
+    return this.e.getRaw("/api/v1/publicbody/search/", CSV_ACCEPT, { ...query, format: "csv" });
+  }
+
+  /**
+   * Look each region id up (`GET /api/v1/georegion/<id>/`, one after another) and reject
+   * with an FdsValidationError naming every id the API answers with 404. Any other
+   * failure of a lookup (network, 5xx) propagates as it is.
+   */
+  private async assertRegionsExist(value: QueryValue | undefined): Promise<void> {
+    const ids = regionIds(value);
+    const unknown: number[] = [];
+    for (const id of ids) {
+      try {
+        await this.e.getJson(`/api/v1/georegion/${id}/`, undefined, "record");
+      } catch (err) {
+        if (err instanceof FdsApiError && err.status === 404) unknown.push(id);
+        else throw err;
+      }
+    }
+    if (unknown.length === 0) return;
+    const what = unknown.length === 1 ? `the id ${unknown[0]}` : `the ids ${unknown.join(", ")}`;
+    const effect =
+      ids.length === 1
+        ? "the API would ignore the filter and list every public body"
+        : `the API would match nothing for ${unknown.length === 1 ? "it" : "them"}`;
+    throw new FdsValidationError(
+      `Invalid regions: no geo-region has ${what} (${effect}). Look a region up by name first ` +
+        "(georegion autocomplete / georegions.autocomplete()).",
+    );
   }
 
   /** Autocomplete public-body names. */

@@ -110,7 +110,9 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
   `list --q`, then filter by id. Id filters take integers only, and id lists
   (`document --ids`, `georegion --id`, `publicbody --regions`) comma-separated
   integers: anything else is a usage error before any request, because the server
-  would drop the filter and answer with the whole table. The exceptions are names:
+  would drop the filter and answer with the whole table. `publicbody --regions` ids are
+  also looked up first (one request each): one the API doesn't know is an error naming
+  it (exit 1), since a single unknown region id would list every public body. The exceptions are names:
   `request list --categories`/`--classification` take the exact category or
   classification name (`Umwelt`, `Ministerium`), `--tags` a tag name, and
   `document list --tag` a tag slug. `category autocomplete` returns names, not ids; use

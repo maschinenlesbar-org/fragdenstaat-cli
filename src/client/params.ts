@@ -88,7 +88,8 @@ export interface PublicBodyListParams extends Pagination {
   category?: Id | Id[];
   /**
    * One geo-region id (that region and its sub-regions) or a comma list `"1,2"` / `[1, 2]`
-   * (exactly those regions). Upstream, a single id that doesn't exist filters nothing.
+   * (exactly those regions). Upstream, a single id that doesn't exist filters nothing, so
+   * the client looks each id up first and rejects an unknown one (FdsValidationError).
    */
   regions?: IdList;
   slug?: string;
@@ -110,7 +111,7 @@ export interface PublicBodySearchParams extends Pagination {
   classification?: Id;
   /** Category id. */
   categories?: Id;
-  /** Geo-region id(s); several are sent as repeated keys. */
+  /** Geo-region id(s); several are sent as repeated keys. Each is looked up first; an unknown one rejects. */
   regions?: Id | Id[];
   /** Only bodies in regions of this kind. */
   regions_kind?: GeoRegionKind;
