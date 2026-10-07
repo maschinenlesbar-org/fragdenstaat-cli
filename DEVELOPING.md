@@ -366,7 +366,7 @@ Tests must keep passing on Node 22/24 (`engines`: `>=22.12`, the floor of the pi
 
 `.github/workflows/`: `ci.yml` (typecheck + build + test on Node 22/24),
 `release.yml` (on a `v*` tag: test, `npm pack`, CycloneDX SBOMs, GitHub Release),
-`publish.yml` (manual npm publish via OIDC trusted publishing), `docs.yml` (website + TypeDoc
+`publish.yml` (manual npm publish via OIDC trusted publishing, dispatched from the release tag: `gh workflow run publish.yml --ref vX.Y.Z`), `docs.yml` (website + TypeDoc
 → GitHub Pages, via the isolated `tools/docs/` toolchain). The npm tarball ships only `dist/src` + `LICENSING.md` +
 `CONTRIBUTING.md` (see `package.json` `files` and `.npmignore`); `skills/`,
 `.claude-plugin/`, tests and the spec are excluded.
