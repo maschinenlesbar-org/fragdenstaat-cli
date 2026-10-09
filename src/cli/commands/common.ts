@@ -79,7 +79,7 @@ export function addList(parent: Command, deps: CliDeps, spec: ListSpec): Command
         ...paginationParams(opts),
       };
       if (opts["csv"] && spec.doListCsv) {
-        renderCsvPage(deps, global, await spec.doListCsv(client, params), params);
+        await renderCsvPage(deps, global, await spec.doListCsv(client, params), params);
       } else {
         const result = await spec.doList(client, params);
         renderJson(deps, global, result);

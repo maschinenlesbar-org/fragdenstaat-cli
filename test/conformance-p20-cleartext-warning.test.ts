@@ -40,7 +40,7 @@ function makeDeps(out: string[], err: string[], _env: Record<string, string>): C
       writeFile: () => {
         throw new Error("no file output in this test");
       },
-      outBinary: (data) => out.push(data.toString("utf8")),
+      outBinary: (data) => void out.push(data.toString("utf8")),
     },
     createClient: (opts) => new Client({ ...opts, transport }),
   };

@@ -121,7 +121,7 @@ export async function parity(
       out: (t) => out.push(t),
       err: (t) => err.push(t),
       writeFile: () => {},
-      outBinary: (d) => out.push(d.toString("utf8")),
+      outBinary: (d) => void out.push(d.toString("utf8")),
     },
     createClient: (options) => new FragDenStaatClient({ ...options, transport: mt.transport }),
   };

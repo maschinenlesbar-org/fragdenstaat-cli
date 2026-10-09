@@ -91,7 +91,7 @@ export function registerPublicBodyCommands(program: Command, deps: CliDeps): voi
     action(deps, async ({ client, global, opts }) => {
       const params: QueryParams = { ...buildPublicBodySearchParams(opts), ...paginationParams(opts) };
       if (opts["csv"]) {
-        renderCsvPage(deps, global, await client.publicBodies.searchCsv(params), params);
+        await renderCsvPage(deps, global, await client.publicBodies.searchCsv(params), params);
       } else {
         renderJson(deps, global, await client.publicBodies.search(params));
       }

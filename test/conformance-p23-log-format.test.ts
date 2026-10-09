@@ -57,7 +57,7 @@ function makeDeps(out: string[], err: string[], now: () => Date, answer?: HttpRe
       out: (s) => out.push(s),
       err: (s) => err.push(s),
       writeFile: () => {},
-      outBinary: (data) => out.push(data.toString("utf8")),
+      outBinary: (data) => void out.push(data.toString("utf8")),
     },
     now,
     createClient: (opts) => new Client({ ...opts, transport }),

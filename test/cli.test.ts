@@ -29,7 +29,7 @@ function makeCli(responder: (req: HttpRequest) => HttpResponse) {
         }
         files.set(p, d);
       },
-      outBinary: (d) => out.push(d.toString("utf8")),
+      outBinary: (d) => void out.push(d.toString("utf8")),
     },
     createClient: (opts) => new FragDenStaatClient({ ...opts, transport: mt.transport }),
   };
@@ -800,4 +800,30 @@ test("every -o failure is an ERROR record of fragdenstaat.output, exit 1 (B04-1,
       assert.doesNotMatch(cli.err.join("\n"), /Unexpected error/);
     }
   }
+});
+
+test("a CSV to stdout logs \"Wrote N bytes to stdout\" and the page note only once the write has succeeded (B04-2)", async () => {
+  const fullPage = `id,title\n${Array.from({ length: 50 }, (_, i) => `${i},t${i}`).join("\n")}\n`;
+  // The write fails (EBADF: stdout opened read-only): no success note, no page note; handleOutputErrors reports the failure.
+  const failed = makeCli(() => rawResponse(fullPage, "text/csv"));
+  failed.deps.io.outBinary = async () => false;
+  assert.equal(await run(["request", "list", "--csv"], failed.deps), 0);
+  assert.deepEqual(failed.err, []);
+
+  // The write completes later: the notes come after it, still within the run.
+  const slow = makeCli(() => rawResponse(fullPage, "text/csv"));
+  const order: string[] = [];
+  slow.deps.io.outBinary = (data) =>
+    new Promise<boolean>((resolve) =>
+      setImmediate(() => {
+        order.push(`wrote ${data.length}`);
+        resolve(true);
+      }),
+    );
+  slow.deps.io.err = (line) => order.push(untimed(line));
+  assert.equal(await run(["request", "list", "--csv"], slow.deps), 0);
+  assert.equal(order.length, 3, order.join("\n"));
+  assert.match(order[0] ?? "", /^wrote \d+$/);
+  assert.match(order[1] ?? "", /^INFO  \[fragdenstaat\.output\] Wrote \d+ bytes to stdout \(Content-Type: text\/csv\)$/);
+  assert.match(order[2] ?? "", /^INFO  \[fragdenstaat\.api\] the CSV holds one page/);
 });

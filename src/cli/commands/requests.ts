@@ -140,7 +140,7 @@ export function registerRequestCommands(program: Command, deps: CliDeps): void {
     action(deps, async ({ client, global, opts }) => {
       const params: QueryParams = { ...buildSearchParams(opts), ...paginationParams(opts) };
       if (opts["csv"]) {
-        renderCsvPage(deps, global, await client.requests.searchCsv(params), params);
+        await renderCsvPage(deps, global, await client.requests.searchCsv(params), params);
       } else {
         renderJson(deps, global, await client.requests.search(params));
       }

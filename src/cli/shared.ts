@@ -387,7 +387,12 @@ function sanitizeTerminalText(text: string): string {
   return out;
 }
 
-export function renderRaw(deps: CliDeps, global: GlobalOptions, response: RawResponse): void {
+/**
+ * Render a raw download (a CSV page): to the `-o` file, or to stdout. The "Wrote N bytes
+ * to …" note follows the write; for stdout only once the write has succeeded. Resolves
+ * to false when the stdout write failed (reported by handleOutputErrors), true otherwise.
+ */
+export async function renderRaw(deps: CliDeps, global: GlobalOptions, response: RawResponse): Promise<boolean> {
   // The Content-Type is server text: sanitised and cut at 500 characters (cleanDetail)
   // like any other server text a message quotes.
   const contentType = cleanDetail(response.contentType);
@@ -401,9 +406,12 @@ export function renderRaw(deps: CliDeps, global: GlobalOptions, response: RawRes
     // Terminal path: strip control/escape bytes so a hostile response cannot drive
     // ANSI/OSC sequences into the user's terminal, while preserving CSV structure.
     const cleaned = Buffer.from(sanitizeTerminalText(response.data.toString("utf8")), "utf8");
-    deps.io.outBinary(cleaned);
+    // The note only once the bytes are written: a write that fails (stdout opened
+    // read-only, EBADF) is reported by handleOutputErrors, never preceded by "Wrote".
+    if ((await deps.io.outBinary(cleaned)) === false) return false;
     logOf(deps).info("output", `Wrote ${cleaned.length} bytes to stdout${typeNote}`);
   }
+  return true;
 }
 
 
@@ -435,15 +443,16 @@ export function countCsvRows(text: string): number {
 /**
  * Render a CSV page (`--csv`) like renderRaw, then — because a CSV body carries no
  * `meta.total_count` or `next` link — tell the user on stderr when the page came
- * back full, so a one-page file is never mistaken for the whole dataset.
+ * back full, so a one-page file is never mistaken for the whole dataset. After a failed
+ * stdout write there is no note at all.
  */
-export function renderCsvPage(
+export async function renderCsvPage(
   deps: CliDeps,
   global: GlobalOptions,
   response: RawResponse,
   params: QueryParams,
-): void {
-  renderRaw(deps, global, response);
+): Promise<void> {
+  if (!(await renderRaw(deps, global, response))) return;
   const limit = typeof params["limit"] === "number" ? params["limit"] : MAX_PAGE_SIZE;
   const offset = typeof params["offset"] === "number" ? params["offset"] : 0;
   const rows = countCsvRows(response.data.toString("utf8"));
