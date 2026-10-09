@@ -73,7 +73,7 @@ src/
   (`cli/index.ts`) installs `handleOutputErrors` before `run()`: an EPIPE on stdout
   (`| head`) exits 0 quietly instead of Node's unhandled-`error` stack trace and exit
   1; an EPIPE on stderr is ignored, so a failed run keeps its exit code; any other
-  write error exits 1. `test/conformance-p7-pipes-exit-codes.test.ts` runs the built
+  stdout write error is an ERROR record of `fragdenstaat.output` and exits 1. `test/conformance-p7-pipes-exit-codes.test.ts` runs the built
   bin through real pipes.
 
 Zero runtime HTTP dependencies (built on `node:http`/`https` — no axios/fetch).
@@ -441,7 +441,9 @@ an ERROR "missing command: `fragdenstaat request <subcommand>`" before that help
 failed run has an ERROR record (`writeCommanderErr`). The log is built with the run's redaction,
 which replaces a secret in the message before the record is formatted, so a secret is kept
 out of the log in either format and the frame is never touched. `CliDeps.now` makes the
-timestamps testable. stdout carries data only. The one line that is not a record is
-`Output error: …`, which `handleOutputErrors` writes straight to `process.stderr` when
-stdout itself fails, outside any run. Conformance test P23 checks all of this, and its
+timestamps testable. stdout carries data only. A stdout write error other than a closed
+pipe (EBADF, EIO) is an ERROR record of `fragdenstaat.output` too, `Could not write to
+stdout: …` (`handleOutputErrors`, which the bin shim installs outside any run with
+`processLogger(argv)`: the format argv asks for, the run's redaction), and exits 1; a
+reader that stops early (EPIPE, ENOTCONN) exits 0 quietly. Conformance test P23 checks all of this, and its
 body is shared across the *-cli repos.
