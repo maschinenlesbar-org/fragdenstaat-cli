@@ -430,7 +430,11 @@ after one, unexpected errors), `api` (the API's answers, the notes on an empty n
 `request list` and on a full CSV page), `http` (the connection, the cleartext warning) and
 `output` (`Wrote N bytes to …`). Code logs through `logOf(deps)` and never writes
 diagnostics with `io.err` directly. `run()` builds the logger from argv before commander
-parses it, so commander's own usage errors are records too: its `error: …` an ERROR of
+parses it (`logFormatFromArgv`, used only for the records of a parse error: the last
+`--log-format` counts, as in commander, and the value of an option that takes one is
+skipped, as commander reads it; a `preAction` hook then sets the format commander parsed,
+so `--user-agent --log-format=jsonl` logs text), so commander's own usage errors are
+records too: its `error: …` an ERROR of
 `cli` (a `(Did you mean …?)` line joined to it), the help it shows after one an INFO record
 per line, and a command group run without its subcommand (or `help` with an unknown topic)
 an ERROR "missing command: `fragdenstaat request <subcommand>`" before that help, so every

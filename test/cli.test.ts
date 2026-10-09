@@ -760,3 +760,30 @@ test("an unknown option's (Did you mean …?) hint is part of its ERROR record (
   assert.equal(await run(["publicbody", "list", "--categories", "Umwelt"], cli.deps), 1);
   assert.equal(untimed(cli.err[0] ?? ""), "ERROR [fragdenstaat.cli] unknown option '--categories' (Did you mean --category?)");
 });
+
+test("a repeated --log-format logs in the last one, as commander keeps it (L6)", async () => {
+  for (const [argv, jsonl] of [
+    [["--log-format", "jsonl", "--log-format", "text", "request", "get", "1"], false],
+    [["--log-format", "text", "--log-format", "jsonl", "request", "get", "1"], true],
+  ] as const) {
+    const cli = makeCli(() => jsonResponse({ detail: "Nicht gefunden." }, 404));
+    assert.equal(await run([...argv], cli.deps), 4, JSON.stringify(argv));
+    const first = cli.err[0] ?? "";
+    if (jsonl) assert.equal((JSON.parse(first) as Record<string, unknown>)["topic"], "fragdenstaat.api", first);
+    else assert.match(untimed(first), /^ERROR \[fragdenstaat\.api\] /);
+  }
+});
+
+test("an option's value that looks like --log-format sets no format, in a parse error too (B03-1, L6)", async () => {
+  // commander takes "--log-format" as the User-Agent (or the -o path) and then fails on the command "jsonl".
+  for (const argv of [["--user-agent", "--log-format", "jsonl", "request", "get", "1"], ["-o", "--log-format", "jsonl", "request", "get", "1"]]) {
+    const cli = makeCli(() => jsonResponse({}));
+    assert.equal(await run(argv, cli.deps), 1, JSON.stringify(argv));
+    assert.match(untimed(cli.err[0] ?? ""), /^ERROR \[fragdenstaat\.cli\] unknown command 'jsonl'/, cli.err.join("\n"));
+  }
+  // commander takes "--log-format=jsonl" as the User-Agent and sends it: the log stays text.
+  const ua = makeCli(() => jsonResponse({ detail: "Nicht gefunden." }, 404));
+  assert.equal(await run(["--user-agent", "--log-format=jsonl", "request", "get", "1"], ua.deps), 4);
+  assert.equal(ua.mt.last().headers?.["User-Agent"], "--log-format=jsonl");
+  assert.match(untimed(ua.err[0] ?? ""), /^ERROR \[fragdenstaat\.api\] /);
+});
