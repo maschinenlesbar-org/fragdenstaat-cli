@@ -11,7 +11,7 @@
 
 import { RequestEngine, type EngineOptions, type RawResponse } from "./engine.js";
 import type { QueryParams, QueryValue } from "./query.js";
-import { FdsApiError, FdsValidationError } from "./errors.js";
+import { FdsApiError, FdsValidationError, cutForMessage } from "./errors.js";
 import { assertValid, normalizeResourceId, queryTextProblem } from "./validate.js";
 import {
   CATEGORY_LIST_PARAMS,
@@ -219,7 +219,7 @@ class PublicBodyResource extends ListResource<PublicBodyListItem, PublicBodyList
       }
     }
     if (unknown.length === 0) return;
-    const what = unknown.length === 1 ? `the id ${unknown[0]}` : `the ids ${unknown.join(", ")}`;
+    const what = unknown.length === 1 ? `the id ${unknown[0]}` : `the ids ${cutForMessage(unknown.join(", "))}`;
     const effect =
       ids.length === 1
         ? "the API would ignore the filter and list every public body"

@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { cutForMessage } from "../../client/errors.js";
 import type { CliDeps } from "../io.js";
 import {
   action,
@@ -67,7 +68,7 @@ export function requestEmptyNote(opts: Record<string, unknown>): string | undefi
     ["--tags", opts["tags"], "one exact tag name (request tags <text>)"],
   ].filter(([, value]) => typeof value === "string");
   if (named.length === 0) return undefined;
-  const parts = named.map(([flag, value, hint]) => `${String(flag)} ${JSON.stringify(value)} takes ${String(hint)}`);
+  const parts = named.map(([flag, value, hint]) => `${String(flag)} ${JSON.stringify(cutForMessage(String(value)))} takes ${String(hint)}`);
   return `no request matched. Name filters match exactly and case-sensitively: ${parts.join("; ")}.`;
 }
 

@@ -132,7 +132,8 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
   writes one JSON object per line instead. A record is always one line: a line break, a
   control character or a bidi control in a message (a server's text, a value you typed)
   is written as an escape (`\n`, `\u001b`, `\u202e`), so it can neither split a record
-  nor forge another one, nor steer the terminal:
+  nor forge another one, nor steer the terminal; a message longer than 4000 characters
+  is cut and ends in `… (N more characters)`:
 
   ```text
   2026-10-09T14:03:12.481Z WARN  [fragdenstaat.http] requests to mirror.example are sent unencrypted (http:, not https:)

@@ -4,7 +4,7 @@
 // a request; the CLI's commander parsers call the same Problem functions, so a
 // rule is written once and both layers reject exactly the same inputs.
 
-import { FdsValidationError, redactUrl } from "./errors.js";
+import { FdsValidationError, cutForMessage, redactUrl } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import { MAX_PAGE_SIZE, type Pagination } from "./params.js";
 
@@ -236,10 +236,10 @@ export const baseUrlProblem: Problem<unknown> = (value) => {
   try {
     url = new URL(value);
   } catch {
-    return `Invalid URL "${redactAnyUrl(value)}".`;
+    return `Invalid URL "${cutForMessage(redactAnyUrl(value))}".`;
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    return `Unsupported protocol "${url.protocol}" (use http or https).`;
+    return `Unsupported protocol "${cutForMessage(url.protocol)}" (use http or https).`;
   }
   if (/[?#]/.test(value)) return "A base URL cannot have a query (?) or fragment (#).";
   // Node decodes the userinfo into the Authorization header and throws "URI malformed" for a

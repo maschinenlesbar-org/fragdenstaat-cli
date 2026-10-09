@@ -3,12 +3,12 @@
 
 import { Command, InvalidArgumentError, Option } from "commander";
 import { logOf, type CliDeps } from "./io.js";
-import { FdsError } from "../client/errors.js";
+import { FdsError, cutForMessage } from "../client/errors.js";
 import {
   DEFAULT_BASE_URL,
   cleartextProblem,
+  cleanDetail,
   isBidiControl,
-  sanitizeServerText,
   type EngineOptions,
   type RawResponse,
 } from "../client/engine.js";
@@ -170,7 +170,7 @@ export function assertEnum<T extends string>(
   argName: string,
 ): T {
   if (!(allowed as readonly string[]).includes(value)) {
-    throw new FdsError(`Invalid ${argName} "${value}". Expected one of: ${allowed.join(", ")}.`);
+    throw new FdsError(`Invalid ${argName} "${cutForMessage(value)}". Expected one of: ${allowed.join(", ")}.`);
   }
   return value as T;
 }
@@ -386,7 +386,9 @@ function sanitizeTerminalText(text: string): string {
 }
 
 export function renderRaw(deps: CliDeps, global: GlobalOptions, response: RawResponse): void {
-  const contentType = sanitizeServerText(response.contentType);
+  // The Content-Type is server text: sanitised and cut at 500 characters (cleanDetail)
+  // like any other server text a message quotes.
+  const contentType = cleanDetail(response.contentType);
   const typeNote = contentType ? ` (Content-Type: ${contentType})` : "";
   const file = outputFile(global);
   if (file !== undefined) {

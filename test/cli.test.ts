@@ -194,6 +194,24 @@ test("an -o path with a line break, ESC or a bidi control stays inside one escap
   }
 });
 
+test("own notes quote a server or user value at most 500 characters long (L3)", async () => {
+  const csv = makeCli(() => rawResponse(fx.csvBody, `text/csv; x=${"z".repeat(10_000)}`));
+  assert.equal(await run(["-o", "/tmp/out.csv", "request", "list", "--csv"], csv.deps), 0);
+  const note = csv.err.join("\n");
+  assert.match(note, /\(Content-Type: text\/csv; x=z+…\)$/);
+  assert.ok(note.length < 700, `${note.length}`);
+
+  const empty = makeCli(() => jsonResponse({ meta: { total_count: 0, limit: 50, offset: 0, next: null, previous: null }, objects: [] }));
+  assert.equal(await run(["--compact", "request", "list", "--tags", "t".repeat(10_000)], empty.deps), 0);
+  const hint = empty.err.join("\n");
+  assert.match(hint, /--tags "t+…" takes one exact tag name/);
+  assert.ok(hint.length < 800, `${hint.length}`);
+
+  const bool = makeCli(() => jsonResponse(fx.requestList));
+  assert.equal(await run(["request", "list", "--is-foi", "b".repeat(10_000)], bool.deps), 1);
+  assert.ok(bool.err.join("\n").length < 800, `${bool.err.join("\n").length}`);
+});
+
 // FDS-02 — -o must not silently clobber an existing file; --force opts back in.
 test("--output refuses to overwrite an existing file without --force", async () => {
   const cli = makeCli(() => jsonResponse(fx.requestList));

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { RequestEngine, isBidiControl, parseRetryAfter, sanitizeServerText } from "../src/client/engine.js";
-import { FdsApiError, FdsNetworkError, FdsParseError, FdsValidationError, cutForMessage, cutText, redactUrl, toWellFormed } from "../src/client/errors.js";
+import { FdsApiError, FdsError, FdsNetworkError, FdsParseError, FdsValidationError, cutForMessage, cutText, redactUrl, toWellFormed } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
 import * as fx from "./fixtures.js";
 
@@ -338,6 +338,17 @@ test("a server detail cut at 500 characters keeps the message well-formed", asyn
       assert.match(e.detail ?? "", /…$/);
       return true;
     });
+  }
+});
+
+test("own messages quote a server or user value at most 500 characters long (L3)", async () => {
+  const charset = `x${"y".repeat(10_000)}`;
+  const engine = new RequestEngine({ transport: async () => rawResponse("{}", `application/json; charset=${charset}`) });
+  await assert.rejects(engine.getJson("/x"), (e: unknown) => e instanceof FdsParseError && e.message.length < 700 && /charset "xy+…"/.test(e.message));
+  const id = "i".repeat(10_000);
+  assert.throws(() => engine.buildUrl(`/api/v1/request/${id}/..`), (e: unknown) => e instanceof FdsError && e.message.length < 700);
+  for (const baseUrl of [`http://[${"a".repeat(10_000)}`, `${"s".repeat(10_000)}://host`]) {
+    assert.throws(() => new RequestEngine({ baseUrl }), (e: unknown) => e instanceof FdsValidationError && e.message.length < 700, baseUrl.slice(0, 20));
   }
 });
 
