@@ -128,7 +128,8 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
   level (`ERROR`, `WARN`, `INFO`) and a topic, the program and the area it comes from
   (`fragdenstaat.cli` for usage errors, `fragdenstaat.api` for the API's answers and the
   notes on them, `fragdenstaat.http` for the connection, `fragdenstaat.output` for `-o`
-  files and CSV byte counts). By default it is written log4j style; `--log-format jsonl`
+  files and CSV byte counts, and any failure to write the output, to the `-o` file or to
+  stdout). By default it is written log4j style; `--log-format jsonl`
   writes one JSON object per line instead. A record is always one line: a line break, a
   control character or a bidi control in a message (a server's text, a value you typed)
   is written as an escape (`\n`, `\u001b`, `\u202e`), so it can neither split a record

@@ -220,7 +220,7 @@ test("--output refuses to overwrite an existing file without --force", async () 
   assert.notEqual(code, 0);
   // The existing file is untouched, and the message points at --force.
   assert.equal(cli.files.get("/tmp/exists.json")?.toString("utf8"), "keep me");
-  assert.match(cli.err.join("\n"), /refusing to overwrite/);
+  assert.match(untimed(cli.err.join("\n")), /^ERROR \[fragdenstaat\.output\] refusing to overwrite/);
   assert.match(cli.err.join("\n"), /--force/);
   assert.doesNotMatch(cli.err.join("\n"), /Unexpected error/);
 });
@@ -638,7 +638,7 @@ test("a directory error from writeFile is printed as is, without the --force hin
     throw new FdsError('"/tmp" is a directory; give a file path to --output.');
   };
   assert.equal(await run(["-o", "/tmp", "request", "list"], cli.deps), 1);
-  assert.equal(untimed(cli.err.join("\n")), 'ERROR [fragdenstaat.cli] "/tmp" is a directory; give a file path to --output.');
+  assert.equal(untimed(cli.err.join("\n")), 'ERROR [fragdenstaat.output] "/tmp" is a directory; give a file path to --output.');
 });
 
 // Exploratory test 2026-09-26, finding 17: a repeated filter kept only its last value.
@@ -786,4 +786,18 @@ test("an option's value that looks like --log-format sets no format, in a parse 
   assert.equal(await run(["--user-agent", "--log-format=jsonl", "request", "get", "1"], ua.deps), 4);
   assert.equal(ua.mt.last().headers?.["User-Agent"], "--log-format=jsonl");
   assert.match(untimed(ua.err[0] ?? ""), /^ERROR \[fragdenstaat\.api\] /);
+});
+
+test("every -o failure is an ERROR record of fragdenstaat.output, exit 1 (B04-1, L8)", async () => {
+  for (const argv of [["-o", "out.json", "request", "list"], ["-o", "out.csv", "request", "list", "--csv"]]) {
+    for (const thrown of [new Error("ENOENT: no such file or directory, open 'out.json'"), new Error("EACCES: permission denied, open 'out.json'"), new FdsError('"out" is a directory; give a file path to --output.')]) {
+      const cli = makeCli(() => (argv.includes("--csv") ? rawResponse(fx.csvBody, "text/csv") : jsonResponse(fx.requestList)));
+      cli.deps.io.writeFile = () => {
+        throw thrown;
+      };
+      assert.equal(await run(argv, cli.deps), 1);
+      assert.match(untimed(cli.err.join("\n")), /^ERROR \[fragdenstaat\.output\] /);
+      assert.doesNotMatch(cli.err.join("\n"), /Unexpected error/);
+    }
+  }
 });

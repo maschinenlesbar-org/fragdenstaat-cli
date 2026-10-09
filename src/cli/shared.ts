@@ -2,7 +2,7 @@
 // option resolver, and the two result-rendering paths (JSON and raw download).
 
 import { Command, InvalidArgumentError, Option } from "commander";
-import { logOf, type CliDeps } from "./io.js";
+import { OutputError, logOf, type CliDeps } from "./io.js";
 import { FdsError, cutForMessage } from "../client/errors.js";
 import {
   DEFAULT_BASE_URL,
@@ -230,23 +230,25 @@ export interface GlobalOptions {
 
 /**
  * Write bytes to the --output path, refusing to overwrite an existing file unless
- * --force was given. A failed write (missing dir, permissions, or an existing file
- * without --force) is wrapped in a FdsError so it exits 1 with a clean message
- * rather than the generic "Unexpected error" handler. The EEXIST case gets a
- * dedicated hint pointing at --force.
+ * --force was given. Any failed write (missing dir, permissions, a directory, or an
+ * existing file without --force) is an OutputError, so it exits 1 with a clean message,
+ * logged as an ERROR record of `fragdenstaat.output`, rather than the generic
+ * "Unexpected error" handler. The EEXIST case gets a dedicated hint pointing at --force.
  */
 function writeOutput(deps: CliDeps, global: GlobalOptions, path: string, data: Buffer): void {
   try {
     deps.io.writeFile(path, data, !global.force);
   } catch (err) {
-    if (err instanceof FdsError) throw err; // already a clean message (a directory)
+    if (err instanceof OutputError) throw err;
+    // Already a clean message (a directory): kept as it is.
+    if (err instanceof FdsError) throw new OutputError(err.message, { cause: err });
     if ((err as NodeJS.ErrnoException | undefined)?.code === "EEXIST") {
-      throw new FdsError(`refusing to overwrite existing file ${path} (use --force)`, {
+      throw new OutputError(`refusing to overwrite existing file ${path} (use --force)`, {
         cause: err,
       });
     }
     const reason = err instanceof Error ? err.message : String(err);
-    throw new FdsError(`could not write ${path}: ${reason}`, { cause: err });
+    throw new OutputError(`could not write ${path}: ${reason}`, { cause: err });
   }
 }
 

@@ -428,7 +428,8 @@ whole stream) becomes U+FFFD (`toWellFormed`), and a message longer than
 `… (N more characters)`. The areas are `cli` (usage errors, commander's messages and the help it shows
 after one, unexpected errors), `api` (the API's answers, the notes on an empty name-filtered
 `request list` and on a full CSV page), `http` (the connection, the cleartext warning) and
-`output` (`Wrote N bytes to …`). Code logs through `logOf(deps)` and never writes
+`output` (`Wrote N bytes to …`, and any failure to write the output: an `OutputError` for
+the `-o` file, refusing to overwrite included, a stdout write error). Code logs through `logOf(deps)` and never writes
 diagnostics with `io.err` directly. `run()` builds the logger from argv before commander
 parses it (`logFormatFromArgv`, used only for the records of a parse error: the last
 `--log-format` counts, as in commander, and the value of an option that takes one is

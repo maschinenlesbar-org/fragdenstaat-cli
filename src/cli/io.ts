@@ -7,6 +7,13 @@ import type { EngineOptions } from "../client/engine.js";
 import { FdsError } from "../client/errors.js";
 import { createLogger, type Logger } from "./log.js";
 
+/**
+ * Writing the output to the `-o` file failed (an existing file without `--force`, a
+ * missing directory, a directory, EACCES, …). Logged as an ERROR of
+ * `fragdenstaat.output`, exit 1.
+ */
+export class OutputError extends FdsError {}
+
 export interface CliIO {
   out(text: string): void;
   err(text: string): void;
