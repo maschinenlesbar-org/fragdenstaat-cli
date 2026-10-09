@@ -834,3 +834,23 @@ test("a malformed answer to a CSV page is an ERROR record of fragdenstaat.api to
   assert.match(untimed(cli.err.join("\n")), /^ERROR \[fragdenstaat\.api\] Unexpected response from /);
   assert.equal(cli.files.size, 0);
 });
+
+test("an empty name-filtered request list --csv notes the exact-name rule too (B04-3)", async () => {
+  // A header-only CSV: the CSV export's form of "no request matched".
+  const empty = makeCli(() => rawResponse("id,title\r\n", "text/csv"));
+  assert.equal(await run(["request", "list", "--tags", "Videoueberwachung", "--csv", "-o", "requests.csv"], empty.deps), 0);
+  assert.deepEqual(empty.err.map(untimed), [
+    "INFO  [fragdenstaat.output] Wrote 10 bytes to requests.csv (Content-Type: text/csv)",
+    'INFO  [fragdenstaat.api] no request matched. Name filters match exactly and case-sensitively: --tags "Videoueberwachung" takes one exact tag name (request tags <text>).',
+  ]);
+  // No note without a name filter, for rows, or past the first page (the total may be more than 0).
+  for (const [argv, body] of [
+    [["request", "list", "--csv"], "id,title\r\n"],
+    [["request", "list", "--tags", "Umwelt", "--csv"], "id,title\r\n1,a\r\n"],
+    [["request", "list", "--tags", "Umwelt", "--csv", "--offset", "50"], "id,title\r\n"],
+  ] as const) {
+    const cli = makeCli(() => rawResponse(body, "text/csv"));
+    assert.equal(await run([...argv], cli.deps), 0);
+    assert.ok(cli.err.every((line) => !line.includes("no request matched")), cli.err.join("\n"));
+  }
+});

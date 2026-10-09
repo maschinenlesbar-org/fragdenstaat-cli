@@ -51,9 +51,10 @@ export interface ListSpec {
   /** Fetch the list as CSV. When provided, a `--csv` flag is added. */
   doListCsv?: (client: Client, params: QueryParams) => Promise<RawResponse>;
   /**
-   * A stderr note for an empty JSON result (`meta.total_count` 0), when a filter the API
-   * matches literally — so a wrong spelling matches nothing rather than failing — may be
-   * the reason. Returns undefined when no such filter was given.
+   * A stderr note for an empty result (JSON: `meta.total_count` 0; `--csv`: no data row on
+   * the first page), when a filter the API matches literally — so a wrong spelling matches
+   * nothing rather than failing — may be the reason. Returns undefined when no such
+   * filter was given.
    */
   emptyNote?: (opts: Record<string, unknown>) => string | undefined;
 }
@@ -79,7 +80,11 @@ export function addList(parent: Command, deps: CliDeps, spec: ListSpec): Command
         ...paginationParams(opts),
       };
       if (opts["csv"] && spec.doListCsv) {
-        await renderCsvPage(deps, global, await spec.doListCsv(client, params), params);
+        const rows = await renderCsvPage(deps, global, await spec.doListCsv(client, params), params);
+        // A CSV carries no total_count: no row on the first page is the CSV's "0".
+        const firstPage = params["offset"] === undefined || params["offset"] === 0;
+        const note = rows === 0 && firstPage ? spec.emptyNote?.(opts) : undefined;
+        if (note !== undefined) logOf(deps).info("api", note);
       } else {
         const result = await spec.doList(client, params);
         renderJson(deps, global, result);

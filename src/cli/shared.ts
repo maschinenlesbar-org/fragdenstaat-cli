@@ -444,15 +444,16 @@ export function countCsvRows(text: string): number {
  * Render a CSV page (`--csv`) like renderRaw, then — because a CSV body carries no
  * `meta.total_count` or `next` link — tell the user on stderr when the page came
  * back full, so a one-page file is never mistaken for the whole dataset. After a failed
- * stdout write there is no note at all.
+ * stdout write there is no note at all. Resolves to the number of data rows, or
+ * undefined when the stdout write failed.
  */
 export async function renderCsvPage(
   deps: CliDeps,
   global: GlobalOptions,
   response: RawResponse,
   params: QueryParams,
-): Promise<void> {
-  if (!(await renderRaw(deps, global, response))) return;
+): Promise<number | undefined> {
+  if (!(await renderRaw(deps, global, response))) return undefined;
   const limit = typeof params["limit"] === "number" ? params["limit"] : MAX_PAGE_SIZE;
   const offset = typeof params["offset"] === "number" ? params["offset"] : 0;
   const rows = countCsvRows(response.data.toString("utf8"));
@@ -464,6 +465,7 @@ export async function renderCsvPage(
         `--offset ${offset + rows}, or read meta.total_count from the JSON output (--limit 1).`,
     );
   }
+  return rows;
 }
 
 export interface ActionContext {

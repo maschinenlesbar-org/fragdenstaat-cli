@@ -61,7 +61,7 @@ fragdenstaat request tags <query>        # autocomplete tag names
 
 `--categories`, `--classification` and `--tags` match names, not ids or slugs: an id,
 a slug or a lower-cased name matches nothing. When such a filter leaves the result
-empty, the CLI says so on stderr (`INFO  [fragdenstaat.api] no request matched. Name filters match exactly
+empty (JSON, or a `--csv` first page with only the header), the CLI says so on stderr (`INFO  [fragdenstaat.api] no request matched. Name filters match exactly
 and case-sensitively: …`), since the server answers an unknown name with 0, not an error.
 
 ## publicbody — authorities (Behörden)
