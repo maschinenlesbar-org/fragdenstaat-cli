@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { run } from "../src/cli/run.js";
 import { FragDenStaatClient } from "../src/client/client.js";
-import { FdsError } from "../src/client/errors.js";
+import { FdsError, credentialsIn } from "../src/client/errors.js";
 import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
 import { makeMockTransport, jsonResponse, rawResponse, untimed } from "./helpers.js";
@@ -727,4 +727,16 @@ test("an empty name-filtered request list notes the exact-name rule as an INFO r
   assert.deepEqual(cli.err.map(untimed), [
     'INFO  [fragdenstaat.api] no request matched. Name filters match exactly and case-sensitively: --categories "umwelt" takes the exact category name, e.g. "Umwelt" (category list --q).',
   ]);
+});
+
+test("an a:b@c argument (a --tags text, an -o path) is neither a credential in the log nor rewritten in the JSON on stdout (L14)", async () => {
+  const cli = makeCli(() => jsonResponse({ meta: { total_count: 0, limit: 50, offset: 0, next: null, previous: null }, objects: [], note: "a:b@c" }));
+  assert.equal(await run(["--compact", "request", "list", "--tags", "a:b@c"], cli.deps), 0);
+  assert.match(cli.out.join("\n"), /"note":"a:b@c"/);
+  assert.match(cli.err.join("\n"), /--tags "a:b@c" takes/);
+  const file = makeCli(() => jsonResponse(fx.requestList));
+  assert.equal(await run(["-o", "run:2026-10-09@x.json", "request", "list"], file.deps), 0);
+  assert.match(untimed(file.err.join("\n")), /^INFO  \[fragdenstaat\.output\] Wrote \d+ bytes to run:2026-10-09@x\.json$/);
+  assert.deepEqual(credentialsIn("run:2026-10-09@x"), []);
+  assert.deepEqual(credentialsIn("https://alice:pw@host"), ["alice:pw"]);
 });

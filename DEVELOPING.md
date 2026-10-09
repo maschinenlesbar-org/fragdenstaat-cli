@@ -193,11 +193,14 @@ What the library rejects with `FdsValidationError`, before any request:
 
 **Credential redaction.** A credential in the base URL never reaches the output. The
 CLI redacts on output: `run.ts` (`redactionFor`, used by `withRedactedOutput`) takes the
-exact userinfo of every argument (`credentialsIn`, exported) and replaces it with `***` in
+exact userinfo of every URL argument (`credentialsIn`, exported) and replaces it with `***` in
 everything it prints — commander's usage errors, which echo rejected values
 (`argument '<url>' is invalid`, `unknown command '<url>'`), and the help that follows them
 — so a password with spaces, quotes, `#`, `?` or `/` is caught as well as an ordinary one.
-On stderr the log replaces them in each record's message, before the record is cut and
+Only a value that starts with a scheme counts (a bare `a:b@c` is a file name, a search
+text or a User-Agent as often as a credential: `-o run:2026-10-09@x.json` and
+`--tags 'a:b@c'` stay as they are), except as the `--base-url` value, where a
+`user:password@host` typed without its scheme is still a credential. On stderr the log replaces them in each record's message, before the record is cut and
 escaped (`createLogger({ redact })`), so a password holding DEL, C1 or bidi characters is
 found in its raw form, and the record's frame (time, level, topic) is never touched;
 `io.out` (stdout) is redacted as a whole. The forms a server echoes a userinfo back in are
