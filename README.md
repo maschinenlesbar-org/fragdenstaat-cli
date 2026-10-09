@@ -126,8 +126,8 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
   keeps its exit code even when stderr's reader is gone (`2>&1 | true`).
 - **stderr is a log.** Each line on stderr is a **log record**: a timestamp (UTC), a
   level (`ERROR`, `WARN`, `INFO`) and a topic, the program and the area it comes from
-  (`fragdenstaat.cli` for usage errors, `fragdenstaat.api` for the API's answers and the
-  notes on them, `fragdenstaat.http` for the connection, `fragdenstaat.output` for `-o`
+  (`fragdenstaat.cli` for usage errors, `fragdenstaat.api` for the API's answers, a
+  malformed one included, and the notes on them, `fragdenstaat.http` for the connection, `fragdenstaat.output` for `-o`
   files and CSV byte counts, and any failure to write the output, to the `-o` file or to
   stdout). By default it is written log4j style; `--log-format jsonl`
   writes one JSON object per line instead. A record is always one line: a line break, a

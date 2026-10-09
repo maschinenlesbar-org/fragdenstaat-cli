@@ -96,3 +96,14 @@ by a Land's jurisdiction does not return them.
   client rejects a `limit` outside 1–50 instead of letting the server clamp it.
 - `redacted_description` and `redacted_*` fields carry the redaction-safe variants —
   prefer them for republication (the corpus contains personal data).
+
+## The log on stderr
+
+**Log record** — every diagnostic line the CLI writes to stderr: a timestamp, a level
+(`ERROR`, `WARN`, `INFO`) and a topic `fragdenstaat.<area>`, as text (log4j style) or with
+`--log-format jsonl` as one JSON object per line. The areas: `cli` (usage errors,
+commander's messages, unexpected errors), `api` (the API's answers: an error status, and a
+malformed answer — bad JSON, the wrong shape, an HTML page, an unknown charset — plus the
+notes on an empty name filter and a full CSV page), `http` (the connection, the cleartext
+warning) and `output` (the `Wrote N bytes` notes, a failure to write the `-o` file or
+stdout). A record is always one line; control characters in it are escaped.

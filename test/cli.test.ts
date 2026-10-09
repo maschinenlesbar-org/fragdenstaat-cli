@@ -711,7 +711,7 @@ test("a 200 with the wrong shape exits 1; an HTML 'CSV' writes no -o file", asyn
     const cli = makeCli(() => jsonResponse(body));
     assert.equal(await run(["request", "list"], cli.deps), 1, JSON.stringify(body));
     assert.equal(cli.out.length, 0);
-    assert.match(untimed(cli.err.join("\n")), /^ERROR \[fragdenstaat\.cli\] Unexpected response from \/api\/v1\/request\/ \(HTTP 200\)/);
+    assert.match(untimed(cli.err.join("\n")), /^ERROR \[fragdenstaat\.api\] Unexpected response from \/api\/v1\/request\/ \(HTTP 200\)/);
   }
   const arr = makeCli(() => jsonResponse([1, 2]));
   assert.equal(await run(["request", "get", "5"], arr.deps), 1);
@@ -826,4 +826,11 @@ test("a CSV to stdout logs \"Wrote N bytes to stdout\" and the page note only on
   assert.match(order[0] ?? "", /^wrote \d+$/);
   assert.match(order[1] ?? "", /^INFO  \[fragdenstaat\.output\] Wrote \d+ bytes to stdout \(Content-Type: text\/csv\)$/);
   assert.match(order[2] ?? "", /^INFO  \[fragdenstaat\.api\] the CSV holds one page/);
+});
+
+test("a malformed answer to a CSV page is an ERROR record of fragdenstaat.api too (B01-3, L9)", async () => {
+  const cli = makeCli(() => rawResponse("<!doctype html><html>Wartung</html>", "text/html"));
+  assert.equal(await run(["-o", "/tmp/out.csv", "request", "list", "--csv"], cli.deps), 1);
+  assert.match(untimed(cli.err.join("\n")), /^ERROR \[fragdenstaat\.api\] Unexpected response from /);
+  assert.equal(cli.files.size, 0);
 });

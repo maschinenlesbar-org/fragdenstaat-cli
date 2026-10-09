@@ -231,7 +231,8 @@ When in doubt, trust the live API, not the schema.
   list, search or autocomplete call must get an object with an `objects` array and a
   `meta` object holding a numeric `total_count`, a `get` a non-empty object. Anything
   else — `null`, `{}`, `{"detail": "Wartung"}`, an array — is an `FdsParseError`
-  (`Unexpected response from <path> (HTTP 200): …`, exit 1), never printed as data or
+  (`Unexpected response from <path> (HTTP 200): …`, exit 1, an ERROR record of
+  `fragdenstaat.api`), never printed as data or
   read as "nothing found". The records themselves are not schema-validated.
 - **Related resources are hyperlinked** as absolute `resource_uri` URLs, not embedded
   (a request's `public_body` is a nested exception; detail responses inline
@@ -426,8 +427,10 @@ terminal. Before that a lone surrogate (half a character, which jq rejects, stop
 whole stream) becomes U+FFFD (`toWellFormed`), and a message longer than
 `MAX_RECORD_MESSAGE` (4000 characters, exported) is cut at a code point and ends in
 `… (N more characters)`. The areas are `cli` (usage errors, commander's messages and the help it shows
-after one, unexpected errors), `api` (the API's answers, the notes on an empty name-filtered
-`request list` and on a full CSV page), `http` (the connection, the cleartext warning) and
+after one, unexpected errors), `api` (the API's answers: an error status, and a malformed
+answer, an `FdsParseError`: bad JSON, the wrong shape, an HTML page answered with 200, an
+unknown charset; and the notes on an empty name-filtered `request list` and on a full CSV
+page), `http` (the connection, the cleartext warning) and
 `output` (`Wrote N bytes to …` — for stdout only once the write has succeeded:
 `CliIO.outBinary` may return a promise that settles then, `false` after a failed write,
 which leaves the note and the CSV page note out — and any failure to write the output: an `OutputError` for
