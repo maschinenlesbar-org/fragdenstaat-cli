@@ -350,7 +350,9 @@ sample bodies. `http.test.ts` exercises the real transport against a local
 `http.createServer`. `cli.test.ts` drives `run()` end-to-end with a mocked client.
 `parity.test.ts` sends one input through the CLI and through the library (`parity()` in
 `helpers.ts`) and asserts the same outcome; `validate.test.ts` covers the rules and
-`filters.test.ts` the per-endpoint parameter tables.
+`filters.test.ts` the per-endpoint parameter tables. `log.test.ts` tests the record helpers
+of `src/cli/log.ts` on their own (`escapeForRecord`, `formatLogRecord`); the CLI-level
+checks are P23's.
 
 The `conformance-p*.test.ts` files are shared across the `*-cli` repos (fix plan
 `.reviews/2026-10-05-exploratory/`; only their adapter block at the top is
@@ -399,7 +401,12 @@ Every diagnostic line on stderr is a log record (`src/cli/log.ts`): a timestamp,
 (`ERROR`, `WARN`, `INFO`) and a topic, `fragdenstaat.<area>`. `--log-format text` (the
 default) writes it log4j style, `<ISO 8601 UTC> <LEVEL padded to 5> [<topic>] <message>`;
 `--log-format jsonl` writes one JSON object per line with exactly `ts`, `level`, `topic`
-and `msg`. The areas are `cli` (usage errors, commander's messages and the help it shows
+and `msg`. A record is always one line: `formatLogRecord` runs `escapeForRecord` over
+the message (text) or the whole JSON object (jsonl), which writes CR and LF as `\r`/`\n`,
+every other C0 control but TAB, DEL and C1 as `\u00XX`, and U+2028, U+2029 and the bidi
+controls as `\uXXXX`, so no text that reaches a record, by whatever path (a server's text,
+a value the user typed, an `-o` path), can split it, forge another one or steer the
+terminal. The areas are `cli` (usage errors, commander's messages and the help it shows
 after one, unexpected errors), `api` (the API's answers, the notes on an empty name-filtered
 `request list` and on a full CSV page), `http` (the connection, the cleartext warning) and
 `output` (`Wrote N bytes to …`). Code logs through `logOf(deps)` and never writes

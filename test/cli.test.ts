@@ -179,6 +179,21 @@ test("--output writes CSV to a file and keeps stdout clean", async () => {
   assert.match(untimed(cli.err.join("\n")), /^INFO  \[fragdenstaat\.output\] Wrote \d+ bytes to \/tmp\/out\.csv/);
 });
 
+test("an -o path with a line break, ESC or a bidi control stays inside one escaped record", async () => {
+  const path = "/tmp/f\n2026-10-09T00:00:00.000Z ERROR [fragdenstaat.api] HTTP 500 forged\u001b[31m\u202e.json";
+  for (const format of ["text", "jsonl"]) {
+    const cli = makeCli(() => jsonResponse(fx.requestList));
+    const code = await run(["--log-format", format, "-o", path, "request", "list"], cli.deps);
+    assert.equal(code, 0);
+    assert.ok(cli.files.has(path));
+    assert.equal(cli.err.length, 1, cli.err.join("\n"));
+    const line = cli.err[0] as string;
+    assert.ok(!/[\n\u001b\u202e]/.test(line), JSON.stringify(line));
+    if (format === "jsonl") assert.match((JSON.parse(line) as { msg: string }).msg, /^Wrote \d+ bytes to \/tmp\/f\n2026/);
+    else assert.match(untimed(line), /^INFO  \[fragdenstaat\.output\] Wrote \d+ bytes to \/tmp\/f\\n2026-10-09T00:00:00\.000Z ERROR \[fragdenstaat\.api\] HTTP 500 forged\\u001b\[31m\\u202e\.json/);
+  }
+});
+
 // FDS-02 — -o must not silently clobber an existing file; --force opts back in.
 test("--output refuses to overwrite an existing file without --force", async () => {
   const cli = makeCli(() => jsonResponse(fx.requestList));
