@@ -115,8 +115,8 @@ Key `objects[]` fields:
 > - **`--limit` maxes at 50, on the JSON *and* the CSV path.** `--csv` is one page
 >   too, not the whole dataset, and a CSV has no `total_count`. Read `meta.total_count`
 >   from the JSON output first, then page with `--offset` (Step 3). When a CSV page
->   comes back full, the CLI prints a `Note: the CSV holds one page, rows …` line on
->   stderr.
+>   comes back full, the CLI logs an `INFO  [fragdenstaat.api] the CSV holds one page, rows …`
+>   record on stderr.
 > - **The CLI returns metadata/URLs, not the binary.** `file_url` points at the raw
 >   file on the server; downloading it (e.g. `curl "$file_url" -o doc.pdf`) is a
 >   separate step the CLI does not perform.
@@ -139,7 +139,7 @@ per page with `--offset`.
 if the file already exists, confirm before overwriting rather than clobbering it
 silently. The CLI itself refuses an existing `-o` file (`refusing to overwrite
 existing file … (use --force)`, exit 1); add `--force` only once the user has agreed. **After writing:** report what was written — the CLI prints
-`Wrote N bytes to <path>` to stderr; surface that plus the row count.
+an `INFO  [fragdenstaat.output] Wrote N bytes to <path>` record to stderr; surface that plus the row count.
 
 ```bash
 # One authority's documents -> CSV, page by page (50 rows per file)

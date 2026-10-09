@@ -38,7 +38,8 @@ src/
     client.ts    # FragDenStaatClient — resource groups over the engine
     index.ts
   cli/
-    io.ts        # injectable I/O + client factory (CliDeps / CliIO)
+    io.ts        # injectable I/O + client factory (CliDeps / CliIO), the logger and the clock
+    log.ts       # the stderr log: records with ts, level, topic; --log-format text|jsonl
     shared.ts    # option parsers, global-option -> EngineOptions, render helpers
     commands/    # one file per resource group + a small `common.ts` helper
     program.ts   # assembles the commander program from injectable deps
@@ -88,7 +89,7 @@ returns the reason a value is invalid, or `undefined`. Client methods enforce it
 reject with it, and no request is sent. The CLI's commander parsers call the same
 functions and turn the reason into a usage error (exit 1, commander's usage exit code),
 and `run.ts` maps an `FdsValidationError` raised inside an action to exit 1 as well,
-printed as `Error: <message>`. So the CLI and the library reject the same inputs, and
+logged as an `ERROR` record of `fragdenstaat.cli`. So the CLI and the library reject the same inputs, and
 `test/helpers.ts`'s `parity()` checks that: it runs one input through `run()` and through
 the library on one recording mock transport and returns both outcomes.
 
@@ -232,7 +233,7 @@ When in doubt, trust the live API, not the schema.
   `redirect to <Location> not followed`, the Location resolved, redacted and
   sanitised), so this matters. `http://` likewise 301s to `https://`.
 - **A plain-`http:` base URL warns.** To a host other than loopback (`localhost`,
-  `127.0.0.0/8`, `::1`) the CLI writes one `warning: <sentence>` line on stderr per run,
+  `127.0.0.0/8`, `::1`) the CLI writes one `WARN` record of `fragdenstaat.http` on stderr per run,
   before the first request (`action()` in `shared.ts`); the sentence comes from the exported
   `cleartextProblem(baseUrl, secrets?)`, names the host and, for a `user:password@`, "the base
   URL's credentials" (never the value). Help, version and usage errors never warn; stdout
@@ -359,7 +360,8 @@ contract, P6 the retry policy, P7 pipes and exit codes (runs the built bin), P8/
 charset, 2xx body shape and error classes, P10 strict filters, P12 `-o -`, and from the
 follow-up round 2026-10-06 P20 the stderr warning for a plain-`http:` base URL (environment and
 API-key cases skipped: no variable, no key) and P21 README links (a relative link must point at
-a file `files` ships, since npmjs.com shows the README; anything else is an absolute GitHub URL).
+a file `files` ships, since npmjs.com shows the README; anything else is an absolute GitHub URL),
+and P23 the log on stderr (records with timestamp, level and topic; `--log-format text|jsonl`).
 Tests must keep passing on Node 22/24 (`engines`: `>=22.12`, the floor of the pinned commander 15).
 
 ## CI / release
@@ -390,3 +392,21 @@ npm run build                        # the CLI, for the command reference
 cd site && npm ci && bundle install  # once (Node >= 22.12, Ruby 3.4, Bundler)
 npm run serve                        # http://127.0.0.1:4000/fragdenstaat-cli/
 ```
+
+## The log on stderr
+
+Every diagnostic line on stderr is a log record (`src/cli/log.ts`): a timestamp, a level
+(`ERROR`, `WARN`, `INFO`) and a topic, `fragdenstaat.<area>`. `--log-format text` (the
+default) writes it log4j style, `<ISO 8601 UTC> <LEVEL padded to 5> [<topic>] <message>`;
+`--log-format jsonl` writes one JSON object per line with exactly `ts`, `level`, `topic`
+and `msg`. The areas are `cli` (usage errors, commander's messages and the help it shows
+after one, unexpected errors), `api` (the API's answers, the notes on an empty name-filtered
+`request list` and on a full CSV page), `http` (the connection, the cleartext warning) and
+`output` (`Wrote N bytes to …`). Code logs through `logOf(deps)` and never writes
+diagnostics with `io.err` directly. `run()` builds the logger from argv before commander
+parses it, so commander's own usage errors are records too, and on top of the redacted
+`io.err`, so a secret is kept out of the log in either format. `CliDeps.now` makes the
+timestamps testable. stdout carries data only. The one line that is not a record is
+`Output error: …`, which `handleOutputErrors` writes straight to `process.stderr` when
+stdout itself fails, outside any run. Conformance test P23 checks all of this, and its
+body is shared across the *-cli repos.

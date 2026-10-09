@@ -3,9 +3,12 @@
 Full command reference for `fragdenstaat`. Run `fragdenstaat <group> <sub> --help`
 for the authoritative, always-current flag list. Global options
 (`--base-url`, `--timeout`, `--user-agent`, `--max-retries`, `--max-response-bytes`,
-`--compact`, `-o/--output`, `--force`) work on every command. A `--base-url` on plain
-`http:` to a host other than loopback gets one stderr line before the first request,
-`warning: requests to <host> are sent unencrypted (http:, not https:)` (or "the base URL's
+`--compact`, `--log-format`, `-o/--output`, `--force`) work on every command. Every
+line on stderr is a log record: `--log-format text` (the default) writes it log4j style,
+`2026-10-09T14:03:12.481Z WARN  [fragdenstaat.http] …`, `--log-format jsonl` one JSON
+object per line (`ts`, `level`, `topic`, `msg`); stdout is not affected. A `--base-url` on plain
+`http:` to a host other than loopback gets one warning record before the first request,
+`WARN  [fragdenstaat.http] requests to <host> are sent unencrypted (http:, not https:)` (or "the base URL's
 credentials are sent unencrypted …" with a `user:password@`, never printed); stdout and the
 exit code are unchanged. `-o -` means stdout,
 like no `-o` at all. `-o` never overwrites an
@@ -58,7 +61,7 @@ fragdenstaat request tags <query>        # autocomplete tag names
 
 `--categories`, `--classification` and `--tags` match names, not ids or slugs: an id,
 a slug or a lower-cased name matches nothing. When such a filter leaves the result
-empty, the CLI says so on stderr (`Note: no request matched. Name filters match exactly
+empty, the CLI says so on stderr (`INFO  [fragdenstaat.api] no request matched. Name filters match exactly
 and case-sensitively: …`), since the server answers an unknown name with 0, not an error.
 
 ## publicbody — authorities (Behörden)
@@ -82,7 +85,7 @@ search endpoint reads.
 one geo-region id (that region and its sub-regions) or a comma list (exactly those
 regions). Each id is looked up first (`GET /api/v1/georegion/<id>/`, one request per id),
 because upstream a single id that doesn't exist filters nothing and returns every public
-body: an unknown id is an error naming it (`Error: Invalid regions: no geo-region has the
+body: an unknown id is an error naming it (`ERROR [fragdenstaat.cli] Invalid regions: no geo-region has the
 id …`, exit 1) and the list is not requested. `--lnglat` is
 `lng,lat` (longitude first) and keeps only bodies whose `regions` contain that point, in
 name order rather than by distance, and a body appears once per region that contains

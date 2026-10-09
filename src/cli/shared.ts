@@ -2,7 +2,7 @@
 // option resolver, and the two result-rendering paths (JSON and raw download).
 
 import { Command, InvalidArgumentError, Option } from "commander";
-import type { CliDeps } from "./io.js";
+import { logOf, type CliDeps } from "./io.js";
 import { FdsError } from "../client/errors.js";
 import {
   DEFAULT_BASE_URL,
@@ -338,7 +338,7 @@ export function renderJson(deps: CliDeps, global: GlobalOptions, value: unknown)
   if (file !== undefined) {
     const data = Buffer.from(text + "\n", "utf8");
     writeOutput(deps, global, file, data);
-    deps.io.err(`Wrote ${data.length} bytes to ${file}`);
+    logOf(deps).info("output", `Wrote ${data.length} bytes to ${file}`);
   } else {
     deps.io.out(text);
   }
@@ -356,7 +356,7 @@ export function renderJson(deps: CliDeps, global: GlobalOptions, value: unknown)
  *
  * The --output path is trusted input (the user owns their shell). A failed write
  * (missing directory, permissions, read-only FS) is wrapped in a FdsError so it
- * exits 1 with a clean `Error: could not write ...` message rather than falling
+ * exits 1 with a clean `ERROR [fragdenstaat.cli] could not write ...` record rather than falling
  * through to the generic "Unexpected error" handler.
  */
 /**
@@ -392,13 +392,13 @@ export function renderRaw(deps: CliDeps, global: GlobalOptions, response: RawRes
   if (file !== undefined) {
     // File path: write the server's bytes verbatim (only the terminal is at risk).
     writeOutput(deps, global, file, response.data);
-    deps.io.err(`Wrote ${response.data.length} bytes to ${file}${typeNote}`);
+    logOf(deps).info("output", `Wrote ${response.data.length} bytes to ${file}${typeNote}`);
   } else {
     // Terminal path: strip control/escape bytes so a hostile response cannot drive
     // ANSI/OSC sequences into the user's terminal, while preserving CSV structure.
     const cleaned = Buffer.from(sanitizeTerminalText(response.data.toString("utf8")), "utf8");
     deps.io.outBinary(cleaned);
-    deps.io.err(`Wrote ${cleaned.length} bytes to stdout${typeNote}`);
+    logOf(deps).info("output", `Wrote ${cleaned.length} bytes to stdout${typeNote}`);
   }
 }
 
@@ -444,8 +444,9 @@ export function renderCsvPage(
   const offset = typeof params["offset"] === "number" ? params["offset"] : 0;
   const rows = countCsvRows(response.data.toString("utf8"));
   if (rows > 0 && rows >= limit) {
-    deps.io.err(
-      `Note: the CSV holds one page, rows ${offset + 1}-${offset + rows}; there may be more. ` +
+    logOf(deps).info(
+      "api",
+      `the CSV holds one page, rows ${offset + 1}-${offset + rows}; there may be more. ` +
         `The API sends at most ${MAX_PAGE_SIZE} rows per request: fetch the next page with ` +
         `--offset ${offset + rows}, or read meta.total_count from the JSON output (--limit 1).`,
     );
@@ -479,7 +480,7 @@ export function action(
     // One warning per run, before the first request, when the base URL is plain http: to
     // a host other than loopback. Help, version and usage errors never get here.
     const cleartext = cleartextProblem(global.baseUrl ?? DEFAULT_BASE_URL);
-    if (cleartext !== undefined) deps.io.err(`warning: ${cleartext}`);
+    if (cleartext !== undefined) logOf(deps).warn("http", cleartext);
     await fn({ client, global, opts: command.opts() }, positionals);
   };
 }

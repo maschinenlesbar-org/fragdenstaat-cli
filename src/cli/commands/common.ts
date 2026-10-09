@@ -3,7 +3,7 @@
 // so we build them from a small spec instead of repeating the wiring ten times.
 
 import { Command } from "commander";
-import type { CliDeps } from "../io.js";
+import { logOf, type CliDeps } from "../io.js";
 import type { FragDenStaatClient } from "../../client/client.js";
 import type { RawResponse } from "../../client/engine.js";
 import type { QueryParams } from "../../client/query.js";
@@ -84,7 +84,7 @@ export function addList(parent: Command, deps: CliDeps, spec: ListSpec): Command
         const result = await spec.doList(client, params);
         renderJson(deps, global, result);
         const note = totalCount(result) === 0 ? spec.emptyNote?.(opts) : undefined;
-        if (note !== undefined) deps.io.err(note);
+        if (note !== undefined) logOf(deps).info("api", note);
       }
     }),
   );

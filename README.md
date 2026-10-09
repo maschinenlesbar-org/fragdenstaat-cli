@@ -93,12 +93,13 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
 
 | Flag | Purpose |
 |---|---|
-| `--base-url <url>` | override the API base (default `https://fragdenstaat.de`); an `http:`/`https:` URL without query, fragment or whitespace, and a `%` in a user name or password must be an escape (write a literal `%` as `%25`) — anything else is a usage error before any request. Plain `http:` to a host other than loopback (`localhost`, `127.0.0.0/8`, `::1`) prints one `warning: … sent unencrypted to <host> (http:, not https:)` line on stderr per run, naming a `user:password@` as "the base URL's credentials" (never its value); stdout and the exit code are unchanged |
+| `--base-url <url>` | override the API base (default `https://fragdenstaat.de`); an `http:`/`https:` URL without query, fragment or whitespace, and a `%` in a user name or password must be an escape (write a literal `%` as `%25`) — anything else is a usage error before any request. Plain `http:` to a host other than loopback (`localhost`, `127.0.0.0/8`, `::1`) prints one warning record (`WARN  [fragdenstaat.http] … sent unencrypted to <host> (http:, not https:)`) on stderr per run, naming a `user:password@` as "the base URL's credentials" (never its value); stdout and the exit code are unchanged |
 | `--timeout <ms>` | per-request timeout (at most `2147483647`) |
 | `--user-agent <ua>` | override the `User-Agent` |
 | `--max-retries <n>` | retries for transient 429/503 and connection resets (0..10). Each retry backs off linearly (200 ms, 400 ms, …), or waits the server's `Retry-After` when that is longer (up to 30 s; a longer one is not retried, and the error says so). Timeouts and refused connections are not retried |
 | `--max-response-bytes <n>` | cap the response body size (0 = unlimited) |
 | `--compact` | single-line JSON |
+| `--log-format <format>` | how errors, warnings and notes are written to stderr: `text` (default; log4j style, `2026-10-09T14:03:12.481Z WARN  [fragdenstaat.http] …`) or `jsonl` (one JSON object per line: `ts`, `level`, `topic`, `msg`). stdout is not affected |
 | `-o, --output <file>` | write JSON (or CSV with `--csv`) to a file instead of stdout; an existing file is refused; `-o -` means stdout (as in other Unix tools) |
 | `--force` | with `-o`, overwrite the output file if it already exists |
 
@@ -123,6 +124,21 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
   runtime error. Errors print to stderr; stdout stays clean for piping. A reader that
   stops early (`| head`, `| jq` exiting) ends the run quietly with `0`; a failed run
   keeps its exit code even when stderr's reader is gone (`2>&1 | true`).
+- **stderr is a log.** Each line on stderr is a **log record**: a timestamp (UTC), a
+  level (`ERROR`, `WARN`, `INFO`) and a topic, the program and the area it comes from
+  (`fragdenstaat.cli` for usage errors, `fragdenstaat.api` for the API's answers and the
+  notes on them, `fragdenstaat.http` for the connection, `fragdenstaat.output` for `-o`
+  files and CSV byte counts). By default it is written log4j style; `--log-format jsonl`
+  writes one JSON object per line instead:
+
+  ```text
+  2026-10-09T14:03:12.481Z WARN  [fragdenstaat.http] requests to mirror.example are sent unencrypted (http:, not https:)
+  2026-10-09T14:03:12.902Z ERROR [fragdenstaat.api] HTTP 404 for GET https://fragdenstaat.de/api/v1/request/1/: …
+  ```
+
+  ```bash
+  fragdenstaat --log-format jsonl request get 1 2>log.jsonl   # {"ts":"…","level":"ERROR","topic":"fragdenstaat.api","msg":"HTTP 404 …"}
+  ```
 
 ## Library usage
 

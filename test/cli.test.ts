@@ -5,7 +5,7 @@ import { FragDenStaatClient } from "../src/client/client.js";
 import { FdsError } from "../src/client/errors.js";
 import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
-import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
+import { makeMockTransport, jsonResponse, rawResponse, untimed } from "./helpers.js";
 import { countCsvRows } from "../src/cli/shared.js";
 import * as fx from "./fixtures.js";
 
@@ -164,7 +164,7 @@ test("request list --csv streams CSV to stdout and requests format=csv", async (
   assert.equal(code, 0);
   assert.equal(cli.out.join(""), fx.csvBody);
   assert.equal(new URL(cli.mt.last().url).searchParams.get("format"), "csv");
-  assert.match(cli.err.join("\n"), /Wrote \d+ bytes to stdout \(Content-Type: text\/csv/);
+  assert.match(untimed(cli.err.join("\n")), /^INFO  \[fragdenstaat\.output\] Wrote \d+ bytes to stdout \(Content-Type: text\/csv/);
 });
 
 test("--output writes CSV to a file and keeps stdout clean", async () => {
@@ -176,7 +176,7 @@ test("--output writes CSV to a file and keeps stdout clean", async () => {
   assert.equal(code, 0);
   assert.equal(cli.files.get("/tmp/out.csv")?.toString("utf8"), fx.csvBody);
   assert.equal(cli.out.length, 0);
-  assert.match(cli.err.join("\n"), /Wrote \d+ bytes to \/tmp\/out\.csv/);
+  assert.match(untimed(cli.err.join("\n")), /^INFO  \[fragdenstaat\.output\] Wrote \d+ bytes to \/tmp\/out\.csv/);
 });
 
 // FDS-02 — -o must not silently clobber an existing file; --force opts back in.
@@ -441,15 +441,15 @@ test("a full CSV page notes on stderr that there may be more rows", async () => 
   const code = await run(["--output", "/tmp/p.csv", "document", "list", "--offset", "100", "--csv"], cli.deps);
   assert.equal(code, 0);
   assert.match(
-    cli.err.join("\n"),
-    /Note: the CSV holds one page, rows 101-150; there may be more\. .*--offset 150/,
+    untimed(cli.err.join("\n")),
+    /^INFO  \[fragdenstaat\.api\] the CSV holds one page, rows 101-150; there may be more\. .*--offset 150/m,
   );
 });
 
 test("a CSV page shorter than --limit gets no paging note", async () => {
   const cli = makeCli(() => rawResponse(fx.csvBody, "text/csv"));
   assert.equal(await run(["publicbody", "search", "--q", "x", "--limit", "5", "--csv"], cli.deps), 0);
-  assert.doesNotMatch(cli.err.join("\n"), /Note:/);
+  assert.doesNotMatch(cli.err.join("\n"), /the CSV holds one page/);
   const full = makeCli(() => rawResponse(fx.csvBody, "text/csv"));
   assert.equal(await run(["request", "search", "--q", "x", "--limit", "2", "--csv"], full.deps), 0);
   assert.match(full.err.join("\n"), /rows 1-2; there may be more/);
@@ -546,7 +546,7 @@ test("a deeply nested response is a clean error, not 'Unexpected error'", async 
   const deep = `{"meta":{"total_count":1},"objects":[${"[".repeat(depth) + "]".repeat(depth)}]}`;
   const cli = makeCli(() => rawResponse(deep, "application/json"));
   assert.equal(await run(["request", "search", "--q", "deep"], cli.deps), 1);
-  assert.match(cli.err.join("\n"), /^Error: The response is nested too deeply to pretty-print; try --compact\.$/);
+  assert.match(untimed(cli.err.join("\n")), /^ERROR \[fragdenstaat\.cli\] The response is nested too deeply to pretty-print; try --compact\.$/);
 
   const compact = makeCli(() => rawResponse(deep, "application/json"));
   const code = await run(["--compact", "request", "search", "--q", "deep"], compact.deps);
@@ -605,7 +605,7 @@ test("a directory error from writeFile is printed as is, without the --force hin
     throw new FdsError('"/tmp" is a directory; give a file path to --output.');
   };
   assert.equal(await run(["-o", "/tmp", "request", "list"], cli.deps), 1);
-  assert.equal(cli.err.join("\n"), 'Error: "/tmp" is a directory; give a file path to --output.');
+  assert.equal(untimed(cli.err.join("\n")), 'ERROR [fragdenstaat.cli] "/tmp" is a directory; give a file path to --output.');
 });
 
 // Exploratory test 2026-09-26, finding 17: a repeated filter kept only its last value.
@@ -678,7 +678,7 @@ test("a 200 with the wrong shape exits 1; an HTML 'CSV' writes no -o file", asyn
     const cli = makeCli(() => jsonResponse(body));
     assert.equal(await run(["request", "list"], cli.deps), 1, JSON.stringify(body));
     assert.equal(cli.out.length, 0);
-    assert.match(cli.err.join("\n"), /^Error: Unexpected response from \/api\/v1\/request\/ \(HTTP 200\)/);
+    assert.match(untimed(cli.err.join("\n")), /^ERROR \[fragdenstaat\.cli\] Unexpected response from \/api\/v1\/request\/ \(HTTP 200\)/);
   }
   const arr = makeCli(() => jsonResponse([1, 2]));
   assert.equal(await run(["request", "get", "5"], arr.deps), 1);
@@ -686,4 +686,12 @@ test("a 200 with the wrong shape exits 1; an HTML 'CSV' writes no -o file", asyn
   assert.equal(await run(["-o", "requests.csv", "request", "list", "--csv"], html.deps), 1);
   assert.equal(html.files.size, 0);
   assert.match(html.err.join("\n"), /expected text\/csv, got an HTML page/);
+});
+
+test("an empty name-filtered request list notes the exact-name rule as an INFO record of fragdenstaat.api", async () => {
+  const cli = makeCli(() => jsonResponse({ meta: { total_count: 0, limit: 50, offset: 0, next: null, previous: null }, objects: [] }));
+  assert.equal(await run(["--compact", "request", "list", "--categories", "umwelt"], cli.deps), 0);
+  assert.deepEqual(cli.err.map(untimed), [
+    'INFO  [fragdenstaat.api] no request matched. Name filters match exactly and case-sensitively: --categories "umwelt" takes the exact category name, e.g. "Umwelt" (category list --q).',
+  ]);
 });

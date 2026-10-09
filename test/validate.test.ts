@@ -29,6 +29,7 @@ import { MAX_PAGE_SIZE } from "../src/client/params.js";
 import { run } from "../src/cli/run.js";
 import type { CliDeps } from "../src/cli/io.js";
 import type { FragDenStaatClient } from "../src/client/client.js";
+import { untimed } from "./helpers.js";
 
 const notBlank: Problem<string> = (value) =>
   value.trim() === "" ? "Expected a non-empty value." : undefined;
@@ -69,7 +70,7 @@ test("run() maps an FdsValidationError from an action to a usage error (exit 1)"
   };
   assert.equal(await run(["jurisdiction", "list"], deps), 1);
   assert.deepEqual(out, []);
-  assert.deepEqual(err, ["Error: Invalid limit: Must be <= 50."]);
+  assert.deepEqual(err.map(untimed), ["ERROR [fragdenstaat.cli] Invalid limit: Must be <= 50."]);
 });
 
 // --- blank values (PAT-9) ---------------------------------------------------------

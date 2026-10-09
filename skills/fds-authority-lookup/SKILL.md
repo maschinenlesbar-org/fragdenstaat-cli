@@ -105,7 +105,7 @@ its wins) — a concrete read on responsiveness beyond `number_of_requests`.
 
 > **Traps.**
 > - **`publicbody` uses SINGULAR `--category`** — `--categories` is rejected with
->   `error: unknown option '--categories' (Did you mean --category?)` and exit 1. (The
+>   `ERROR [fragdenstaat.cli] unknown option '--categories' (Did you mean --category?)` on stderr and exit 1. (The
 >   *request* commands use `--categories`; don't carry that habit over.)
 > - **`--classification` vs `--classification-id` differ.** `--classification`
 >   matches the whole **subtree** under a Behördentyp (e.g. all ministries);

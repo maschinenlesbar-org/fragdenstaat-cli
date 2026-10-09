@@ -115,7 +115,7 @@ page — page with `--offset`. Fetch one request in full, including its complete
 > - **`--categories`, `--classification` and `--tags` match exact names,
 >   case-sensitively.** Take the name as `category list --q`, `classification list --q`
 >   or `request tags` print it (`Umwelt`, not `umwelt`, `9` or the slug). A wrong
->   spelling matches nothing — 0, exit 0, with a stderr `Note: no request matched…` —
+>   spelling matches nothing — 0, exit 0, with a stderr `INFO  [fragdenstaat.api] no request matched…` record —
 >   so treat a 0 under these filters as "check the name" before reporting "none".
 >   `--tags` takes one tag; `"A,B"` is read as one name.
 > - **Related resources are URIs in `list`.** `law` and `jurisdiction` come back as

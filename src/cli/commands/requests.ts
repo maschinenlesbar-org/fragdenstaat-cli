@@ -68,7 +68,7 @@ export function requestEmptyNote(opts: Record<string, unknown>): string | undefi
   ].filter(([, value]) => typeof value === "string");
   if (named.length === 0) return undefined;
   const parts = named.map(([flag, value, hint]) => `${String(flag)} ${JSON.stringify(value)} takes ${String(hint)}`);
-  return `Note: no request matched. Name filters match exactly and case-sensitively: ${parts.join("; ")}.`;
+  return `no request matched. Name filters match exactly and case-sensitively: ${parts.join("; ")}.`;
 }
 
 function buildRequestParams(opts: Record<string, unknown>): QueryParams {

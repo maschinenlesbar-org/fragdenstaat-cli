@@ -8,7 +8,7 @@ import { FdsValidationError } from "../src/client/errors.js";
 import { normalizeIdList } from "../src/client/filters.js";
 import { run } from "../src/cli/run.js";
 import type { CliDeps } from "../src/cli/io.js";
-import { makeMockTransport, jsonResponse } from "./helpers.js";
+import { makeMockTransport, jsonResponse, untimed } from "./helpers.js";
 import * as fx from "./fixtures.js";
 
 function lib() {
@@ -209,6 +209,6 @@ test("publicbody list --regions with an unknown id exits 1 naming it, before the
   };
   assert.equal(await run(["publicbody", "list", "--regions", "424242"], deps), 1);
   assert.deepEqual(out, []);
-  assert.match(err.join("\n"), /^Error: Invalid regions: no geo-region has the id 424242 /);
+  assert.match(untimed(err.join("\n")), /^ERROR \[fragdenstaat\.cli\] Invalid regions: no geo-region has the id 424242 /);
   assert.equal(mt.calls.length, 1);
 });
