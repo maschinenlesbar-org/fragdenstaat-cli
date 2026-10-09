@@ -5,6 +5,15 @@
 // usage errors are records too; stdout carries data only; a secret is kept out of the log
 // in either format. Shared across the *-cli repos; only the adapter block below differs
 // per repo.
+//
+// The fix plan of the 2026-10-09 sweep (.reviews/2026-10-09-exploratory/fix-plan.md) added:
+// a hostile message is one line with nothing raw, well-formed and bounded (L1-L3); a secret
+// is replaced in the message only, before escaping (L4); commander's help is one record per
+// line and every failure has an ERROR (L5); the format is commander's (L6); a malformed
+// answer is `api` (L9); echoed credentials are replaced (L13); an `a:b@c` value that is no
+// URL is left alone (L14). Adapter switches added with them: VALUE_OPTION, OUTPUT_OPTION,
+// errorAnswer, MALFORMED_ANSWERS, secretArgv, HELP_AFTER_ERROR, BASE_URL_USERINFO, and the
+// import of MAX_RECORD_MESSAGE.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -18,16 +27,16 @@ import { MAX_RECORD_MESSAGE } from "../src/cli/log.js";
 import { jurisdictionList } from "./fixtures.js";
 /** The program's name, the first part of every topic. */
 const PROGRAM = "fragdenstaat";
-/** The exit code of a usage error. */
-const USAGE_EXIT = 1; // fragdenstaat's usage errors exit 1 (commander's default)
 /** A command that needs no arguments and makes one request. */
 const SIMPLE_COMMAND = ["jurisdiction", "list"];
 /** A successful answer to SIMPLE_COMMAND. */
 const okBody = jurisdictionList;
-/** Whether --base-url accepts userinfo (destatis-genesis/regionalstatistik refuse it: nothing a server could echo). */
-const BASE_URL_USERINFO = true;
+/** The exit code of a usage error. */
+const USAGE_EXIT = 1; // fragdenstaat's usage errors exit 1 (commander's default)
 /** Whether commander shows the command's whole help after a usage error (autobahn-cli: a one-line pointer). */
 const HELP_AFTER_ERROR = true;
+/** Whether --base-url accepts userinfo (destatis-genesis/regionalstatistik refuse it: nothing a server could echo). */
+const BASE_URL_USERINFO = true;
 /** The option that writes the output to a file and logs where, or undefined if the CLI has none. */
 const OUTPUT_OPTION: string | undefined = "-o";
 /** An option that takes a value and validates it: a rejected value is echoed in the record. */
@@ -61,12 +70,7 @@ function makeDeps(out: string[], err: string[], now: () => Date, answer?: HttpRe
     body: Buffer.from(JSON.stringify(okBody)),
   };
   return {
-    io: {
-      out: (s) => out.push(s),
-      err: (s) => err.push(s),
-      writeFile: () => {},
-      outBinary: (data) => void out.push(data.toString("utf8")),
-    },
+    io: { out: (s) => out.push(s), err: (s) => err.push(s), writeFile: () => {}, outBinary: () => {} },
     now,
     createClient: (opts) => new Client({ ...opts, transport }),
   };
