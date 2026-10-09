@@ -740,3 +740,23 @@ test("an a:b@c argument (a --tags text, an -o path) is neither a credential in t
   assert.deepEqual(credentialsIn("run:2026-10-09@x"), []);
   assert.deepEqual(credentialsIn("https://alice:pw@host"), ["alice:pw"]);
 });
+
+test("a group without its subcommand, and an unknown help topic, log an ERROR before the help (L5)", async () => {
+  for (const [argv, error] of [
+    [["request"], /^ERROR \[fragdenstaat\.cli\] missing command: `fragdenstaat request <subcommand>`$/],
+    [[], /^ERROR \[fragdenstaat\.cli\] missing command: `fragdenstaat <subcommand>`$/],
+    [["help", "nope"], /^ERROR \[fragdenstaat\.cli\] /],
+  ] as const) {
+    const cli = makeCli(() => jsonResponse({}));
+    assert.equal(await run([...argv], cli.deps), 1, JSON.stringify(argv));
+    const records = cli.err.map(untimed);
+    assert.match(records[0] ?? "", error, records.join("\n"));
+    assert.ok(records.length > 2 && records.slice(1).every((line) => line.startsWith("INFO  [fragdenstaat.cli] ")), records.join("\n"));
+  }
+});
+
+test("an unknown option's (Did you mean …?) hint is part of its ERROR record (L5)", async () => {
+  const cli = makeCli(() => jsonResponse({}));
+  assert.equal(await run(["publicbody", "list", "--categories", "Umwelt"], cli.deps), 1);
+  assert.equal(untimed(cli.err[0] ?? ""), "ERROR [fragdenstaat.cli] unknown option '--categories' (Did you mean --category?)");
+});
