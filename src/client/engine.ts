@@ -21,7 +21,9 @@ import {
   credentialsIn,
   cutForMessage,
   cutText,
+  echoedCredentialForms,
   redactCredentials,
+  redactSecrets,
   redactUrl,
 } from "./errors.js";
 import { assertNonBlankParams, assertValid, headerValueProblem, validateBaseUrl } from "./validate.js";
@@ -253,6 +255,12 @@ export class RequestEngine {
   readonly #baseUrl: string;
   /** The base URL's userinfo, raw and percent-decoded, for scrubbing server and transport text. */
   readonly #credentials: string[];
+  /**
+   * The forms a server echoes that userinfo back in (the Basic value, the decoded
+   * `user:password`, the password alone), longest first, so a password never leaves half
+   * of the `user:password` around it.
+   */
+  readonly #echoed: string[];
   private readonly transport: Transport;
   private readonly userAgent: string;
   private readonly timeoutMs: number;
@@ -277,6 +285,9 @@ export class RequestEngine {
         return [raw];
       }
     });
+    this.#echoed = credentialsIn(this.#baseUrl)
+      .flatMap(echoedCredentialForms)
+      .sort((a, b) => b.length - a.length);
     this.transport = options.transport ?? nodeHttpTransport;
     // A blank, control-character or non-Latin-1 value is an FdsValidationError here,
     // not a raw TypeError from Node at send time (or CR/LF handed to a custom transport).
@@ -302,7 +313,7 @@ export class RequestEngine {
    * includes credentials: <url>") can carry them.
    */
   private scrub(text: string): string {
-    return this.#credentials.length === 0 ? text : redactCredentials(text, this.#credentials);
+    return this.#credentials.length === 0 ? text : redactSecrets(redactCredentials(text, this.#credentials), this.#echoed);
   }
 
   /**
