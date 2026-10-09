@@ -437,7 +437,7 @@ which leaves the note and the CSV page note out — and any failure to write the
 the `-o` file, refusing to overwrite included, a stdout write error). Code logs through `logOf(deps)` and never writes
 diagnostics with `io.err` directly. `run()` builds the logger from argv before commander
 parses it (`logFormatFromArgv`, used only for the records of a parse error: the last
-`--log-format` counts, as in commander, and the value of an option that takes one is
+`--log-format` counts, as in commander, and the value of one of the program's own value options is
 skipped, as commander reads it; a `preAction` hook then sets the format commander parsed,
 so `--user-agent --log-format=jsonl` logs text), so commander's own usage errors are
 records too: its `error: …` an ERROR of
