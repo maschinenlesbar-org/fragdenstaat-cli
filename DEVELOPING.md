@@ -111,7 +111,8 @@ What the library rejects with `FdsValidationError`, before any request:
   (`Invalid option <name>: …`), like a bad `baseUrl` or `userAgent`; `null` options
   count as none. Every failure the library raises is an `FdsError` subclass; server
   text in a message (an error `detail`, a redirect target) is cut at 500 characters
-  (`MAX_DETAIL_LENGTH`), and so is a URL or path (`cutForMessage`), while
+  (`MAX_DETAIL_LENGTH`), and so is a URL or path (`cutForMessage`), never inside a
+  surrogate pair (`cutText`), so the message stays well-formed, while
   `FdsApiError.body` and `.url` keep the full text.
 - **Non-numeric ids.** `get(id)` takes a non-negative safe integer or a digit string
   (`resourceIdProblem`, `normalizeResourceId`); `"search"` or `"autocomplete"` would
@@ -406,7 +407,8 @@ the message (text) or the whole JSON object (jsonl), which writes CR and LF as `
 every other C0 control but TAB, DEL and C1 as `\u00XX`, and U+2028, U+2029 and the bidi
 controls as `\uXXXX`, so no text that reaches a record, by whatever path (a server's text,
 a value the user typed, an `-o` path), can split it, forge another one or steer the
-terminal. The areas are `cli` (usage errors, commander's messages and the help it shows
+terminal. Before that a lone surrogate (half a character, which jq rejects, stopping the
+whole stream) becomes U+FFFD (`toWellFormed`). The areas are `cli` (usage errors, commander's messages and the help it shows
 after one, unexpected errors), `api` (the API's answers, the notes on an empty name-filtered
 `request list` and on a full CSV page), `http` (the connection, the cleartext warning) and
 `output` (`Wrote N bytes to …`). Code logs through `logOf(deps)` and never writes

@@ -15,7 +15,7 @@
 // The parameter semantics come from Froide's FilterSets (okfde/froide,
 // okfde/django-filingcabinet) and were checked against the live API.
 
-import { FdsValidationError } from "./errors.js";
+import { FdsValidationError, cutText } from "./errors.js";
 import {
   amountProblem,
   assertValid,
@@ -324,7 +324,7 @@ function suggest(key: string, known: readonly string[]): string | undefined {
 
 /** A parameter name as an error message shows it: quoted and escaped, cut at 100 characters. */
 function quoteKey(key: string): string {
-  return JSON.stringify(key.length > 100 ? `${key.slice(0, 100)}…` : key);
+  return JSON.stringify(key.length > 100 ? `${cutText(key, 100)}…` : key);
 }
 
 /**

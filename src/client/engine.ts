@@ -20,6 +20,7 @@ import {
   FdsValidationError,
   credentialsIn,
   cutForMessage,
+  cutText,
   redactCredentials,
   redactUrl,
 } from "./errors.js";
@@ -623,10 +624,10 @@ function isHtml(res: RawResponse): boolean {
 /** Longest server text (in characters) an error message keeps; a longer one ends in "…". */
 export const MAX_DETAIL_LENGTH = 500;
 
-/** sanitizeServerText, then cut at MAX_DETAIL_LENGTH characters. */
+/** sanitizeServerText, then cut at MAX_DETAIL_LENGTH characters (never inside a surrogate pair). */
 export function cleanDetail(text: string): string {
   const clean = sanitizeServerText(text);
-  return clean.length > MAX_DETAIL_LENGTH ? `${clean.slice(0, MAX_DETAIL_LENGTH)}…` : clean;
+  return clean.length > MAX_DETAIL_LENGTH ? `${cutText(clean, MAX_DETAIL_LENGTH)}…` : clean;
 }
 
 /**
