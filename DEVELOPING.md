@@ -192,11 +192,15 @@ What the library rejects with `FdsValidationError`, before any request:
   `parseNonNegativeNumber` use the same rules.
 
 **Credential redaction.** A credential in the base URL never reaches the output. The
-CLI redacts on output: `run.ts` (`withRedactedOutput`) takes the exact userinfo of every
-argument (`credentialsIn`, exported) and replaces it with `***` in everything it prints —
-commander's usage errors, which echo rejected values (`argument '<url>' is invalid`,
-`unknown command '<url>'`), and the help that follows them — so a password with spaces,
-quotes, `#`, `?` or `/` is caught as well as an ordinary one. `redactUrl` falls back to
+CLI redacts on output: `run.ts` (`redactionFor`, used by `withRedactedOutput`) takes the
+exact userinfo of every argument (`credentialsIn`, exported) and replaces it with `***` in
+everything it prints — commander's usage errors, which echo rejected values
+(`argument '<url>' is invalid`, `unknown command '<url>'`), and the help that follows them
+— so a password with spaces, quotes, `#`, `?` or `/` is caught as well as an ordinary one.
+On stderr the log replaces them in each record's message, before the record is cut and
+escaped (`createLogger({ redact })`), so a password holding DEL, C1 or bidi characters is
+found in its raw form, and the record's frame (time, level, topic) is never touched;
+`io.out` (stdout) is redacted as a whole. `redactUrl` falls back to
 the same text-based cut (`redactCredentials`) for a value that doesn't parse as a URL.
 In the library, the engine keeps the base URL in a real `#private` field, so
 `console.log(client)`, `util.inspect` and `JSON.stringify` never show it, and it scrubs
@@ -418,8 +422,9 @@ after one, unexpected errors), `api` (the API's answers, the notes on an empty n
 `request list` and on a full CSV page), `http` (the connection, the cleartext warning) and
 `output` (`Wrote N bytes to …`). Code logs through `logOf(deps)` and never writes
 diagnostics with `io.err` directly. `run()` builds the logger from argv before commander
-parses it, so commander's own usage errors are records too, and on top of the redacted
-`io.err`, so a secret is kept out of the log in either format. `CliDeps.now` makes the
+parses it, so commander's own usage errors are records too, and with the run's redaction,
+which replaces a secret in the message before the record is formatted, so a secret is kept
+out of the log in either format and the frame is never touched. `CliDeps.now` makes the
 timestamps testable. stdout carries data only. The one line that is not a record is
 `Output error: …`, which `handleOutputErrors` writes straight to `process.stderr` when
 stdout itself fails, outside any run. Conformance test P23 checks all of this, and its
