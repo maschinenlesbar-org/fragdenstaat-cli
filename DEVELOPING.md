@@ -315,7 +315,14 @@ When in doubt, trust the live API, not the schema.
   holds the count. A connection reset (`ECONNRESET`, `EPIPE`, `ECONNABORTED`,
   undici's `UND_ERR_SOCKET`, anywhere in the error's `cause` chain, from any transport)
   is retried the same way, with the linear backoff; a timeout, a refused connection or
-  a DNS failure is not. `maxRetries` is capped at `MAX_RETRIES` (10). It sends a
+  a DNS failure is not. `maxRetries` is capped at `MAX_RETRIES` (10). Each retry is
+  announced: the engine option `onRetry(event: RetryEvent)` (exported type: `{ retry`
+  (1-based), `maxRetries`, `delayMs`, `status?` (absent for a reset), `url` (userinfo
+  redacted) `}`) is called once per retry right before the sleep, never when there is none,
+  and a throw in it is swallowed. The CLI's `action()` sets it to log one `WARN` record of
+  `fragdenstaat.http`, `HTTP 503 from <host>: retry 1 of 3 in 2 s` (`retryMessage`; host
+  only, whole seconds, ms under 1 s). Tests: `test/engine.test.ts`, `test/retry-log.test.ts`.
+  It sends a
   descriptive `User-Agent` (`fragdenstaat-cli`). Be a good citizen when paging.
 - **Filter-name quirks** (verified live): `request list` uses **plural**
   `--categories` and `--public-body`; `publicbody list` uses **singular** `--category`

@@ -106,7 +106,7 @@ als Text (im Stil von log4j) oder mit `--log-format jsonl` als ein JSON-Objekt p
 Die Bereiche: `cli` (Bedienfehler, Meldungen von commander, unerwartete Fehler), `api` (die
 Antworten der API: ein Fehlerstatus und eine fehlerhafte Antwort – ungültiges JSON, die
 falsche Form, eine HTML-Seite, ein unbekannter Zeichensatz – sowie die Hinweise zu einem
-leeren Namensfilter und einer vollen CSV-Seite), `http` (die Verbindung, die
+leeren Namensfilter und einer vollen CSV-Seite), `http` (die Verbindung, je Wiederholung eine WARN-Zeile vor dem Warten, die
 Klartext-Warnung) und `output` (die Hinweise `Wrote N bytes`, ein Fehler beim Schreiben der
 `-o`-Datei oder nach stdout). Ein Eintrag ist immer eine Zeile; Steuerzeichen darin werden
 maskiert.

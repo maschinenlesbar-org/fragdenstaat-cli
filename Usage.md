@@ -4,7 +4,7 @@ Full command reference for `fragdenstaat`. Run `fragdenstaat <group> <sub> --hel
 for the authoritative, always-current flag list. Global options
 (`--base-url`, `--timeout`, `--user-agent`, `--max-retries`, `--max-response-bytes`,
 `--compact`, `--log-format`, `-o/--output`, `--force`) work on every command. Every
-line on stderr is a log record: `--log-format text` (the default) writes it log4j style,
+line on stderr is a log record (each retry of a `429`/`503` or reset connection is one WARN record of `fragdenstaat.http` before the client waits): `--log-format text` (the default) writes it log4j style,
 `2026-10-09T14:03:12.481Z WARN  [fragdenstaat.http] …`, `--log-format jsonl` one JSON
 object per line (`ts`, `level`, `topic`, `msg`); stdout is not affected. A `--base-url` on plain
 `http:` to a host other than loopback gets one warning record before the first request,

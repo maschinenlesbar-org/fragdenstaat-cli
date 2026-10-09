@@ -17,6 +17,7 @@ export {
   sanitizeServerText,
   type EngineOptions,
   type RawResponse,
+  type RetryEvent,
 } from "./engine.js";
 export { MAX_TIMEOUT_MS, nodeHttpTransport, sizeLimitMessage } from "./http.js";
 export type { Transport, HttpRequest, HttpResponse } from "./http.js";
