@@ -11,22 +11,61 @@ data terms see [DATA_LICENSE.md](DATA_LICENSE.md).
 
 ```bash
 npm install
-npm run build       # tsc -> dist/
-npm run typecheck   # tsc --noEmit
-npm test            # pretest builds, then `node --test --test-timeout=5000 dist/test/*.test.js`
-npm start -- --help # run the built CLI
+npm run build       # compiles every workspace (tsc -b) to its dist/
+npm run typecheck   # tsc -b over every workspace, as build
+npm test            # pretest builds, then `node --test` over each workspace's dist/test
+npm run coverage    # the same tests in one run, with a coverage report
+npm start -- --help # run the built CLI (node apps/cli/dist/src/cli/index.js)
 npm run docs        # TypeDoc -> out/ (first: npm ci --prefix tools/docs)
+npm run bump -- <patch|minor|major>  # bump apps/cli, commit, tag vX.Y.Z
 ```
 
-Run one test file after building: `node --test dist/test/cli.test.js`.
+Run one test file after building: `node --test apps/cli/dist/test/cli.test.js`.
 
 ## Architecture
 
 Two layers, two seams — the same blueprint as the sibling `*-cli` repos.
 
+The repository is an **npm workspace** with two folders: `apps/` holds the programs it
+publishes, `packages/` the libraries they are built from.
+
 ```
-src/
-  client/        # typed API client, usable as a library on its own
+package.json         # private workspace manifest: no version, never packed
+apps/cli/            # @maschinenlesbar.org/fragdenstaat-cli — the published package
+  package.json       # its version, bin, files, bundleDependencies
+  src/index.ts       # library entry: re-exports @maschinenlesbar.org/fragdenstaat-client
+  src/cli/           # the CLI (below)
+  test/              # CLI tests and every conformance-*.test.ts
+packages/client/     # @maschinenlesbar.org/fragdenstaat-client — private, bundled into the CLI
+  src/               # the API client (below)
+  test/              # tests that only touch the client, + the transport helpers and fixtures
+tools/pack/          # prepack/postpack: bundle the client and commander into the tarball
+tools/bump.mjs       # version bump + commit + tag (npm run bump)
+tsconfig.docs.json   # TypeDoc only: the package entry, with the client read from its sources
+```
+
+- **The client is its own package** so a later MCP app can share it with the CLI. It is
+  never published on its own: `apps/cli`'s `prepack` copies it (and commander) into the
+  app's `node_modules`, and `bundleDependencies` ships it inside the tarball. The library
+  entry re-exports the client's `"."`, so `import { FragDenStaatClient } from
+  "@maschinenlesbar.org/fragdenstaat-cli"` is unchanged.
+- **The client's exports:** `"."` is the public library surface (`src/index.ts`);
+  `"./internal/*"` maps to any module (`…/fragdenstaat-client/internal/engine`) for what
+  the CLI needs beyond that; `"./test/*"` reaches the client's test helpers and fixtures
+  from the CLI's tests (not bundled). Only `"."` is part of the library.
+- **Dependencies point one way:** the app depends on the client, the client on nothing
+  in the workspace.
+- **The version lives in `apps/cli/package.json`.** The root has none; a plain
+  `npm version` at the root is refused. Release with `npm run bump -- <patch|minor|major>`,
+  which bumps the app, commits (the bare version as the message) and tags `vX.Y.Z`.
+- **TypeScript:** `tsconfig.base.json` holds the compiler options; every workspace has a
+  `tsconfig.json` (`src/`) and a `tsconfig.test.json` (`test/`), and the root
+  `tsconfig.json`/`tsconfig.test.json` reference them, built with `tsc -b`.
+
+The client (`packages/client/src/`) and the CLI (`apps/cli/src/`):
+
+```
+packages/client/src/   # typed API client, usable as a library on its own
     types.ts     # Tastypie envelope + typed list-item interfaces
     enums.ts     # request status/resolution, message kind, region kind
     query.ts     # dependency-free query-string builder
@@ -36,8 +75,8 @@ src/
     validate.ts  # Problem rules + assertValid (input checks shared with the CLI)
     params.ts    # per-endpoint filter interfaces
     client.ts    # FragDenStaatClient — resource groups over the engine
-    index.ts
-  cli/
+    index.ts     # the client's public surface (the library entry re-exports it)
+apps/cli/src/cli/
     io.ts        # injectable I/O + client factory (CliDeps / CliIO), the logger and the clock
     log.ts       # the stderr log: records with ts, level, topic; --log-format text|jsonl
     shared.ts    # option parsers, global-option -> EngineOptions, render helpers
@@ -45,7 +84,6 @@ src/
     program.ts   # assembles the commander program from injectable deps
     run.ts       # parses argv -> exit code (no process.exit; testable)
     index.ts     # #! bin shim
-  index.ts       # library entry
 ```
 
 **Two seams make it testable in-process (no subprocesses):**
@@ -73,7 +111,7 @@ src/
   (`cli/index.ts`) installs `handleOutputErrors` before `run()`: an EPIPE on stdout
   (`| head`) exits 0 quietly instead of Node's unhandled-`error` stack trace and exit
   1; an EPIPE on stderr is ignored, so a failed run keeps its exit code; any other
-  stdout write error is an ERROR record of `fragdenstaat.output` and exits 1. `test/conformance-p7-pipes-exit-codes.test.ts` runs the built
+  stdout write error is an ERROR record of `fragdenstaat.output` and exits 1. `apps/cli/test/conformance-p7-pipes-exit-codes.test.ts` runs the built
   bin through real pipes.
 
 Zero runtime HTTP dependencies (built on `node:http`/`https` — no axios/fetch).
@@ -82,7 +120,7 @@ The CLI's only runtime dependency is `commander`. Strict TS, ESM (`NodeNext`).
 ## Input validation
 
 The library owns every rule about what a request may contain, and checks it before
-sending anything. A rule is a pure `Problem` function in `client/validate.ts`: it
+sending anything. A rule is a pure `Problem` function in `packages/client/src/validate.ts`: it
 returns the reason a value is invalid, or `undefined`. Client methods enforce it with
 `assertValid(name, value, problem)`, which throws `FdsValidationError` (a subclass of
 `FdsError`) with the message `Invalid <name>: <reason>`; methods that return a promise
@@ -90,7 +128,7 @@ reject with it, and no request is sent. The CLI's commander parsers call the sam
 functions and turn the reason into a usage error (exit 1, commander's usage exit code),
 and `run.ts` maps an `FdsValidationError` raised inside an action to exit 1 as well,
 logged as an `ERROR` record of `fragdenstaat.cli`. So the CLI and the library reject the same inputs, and
-`test/helpers.ts`'s `parity()` checks that: it runs one input through `run()` and through
+`apps/cli/test/helpers.ts`'s `parity()` checks that: it runs one input through `run()` and through
 the library on one recording mock transport and returns both outcomes.
 
 What the library rejects with `FdsValidationError`, before any request:
@@ -321,7 +359,7 @@ When in doubt, trust the live API, not the schema.
   redacted) `}`) is called once per retry right before the sleep, never when there is none,
   and a throw in it is swallowed. The CLI's `action()` sets it to log one `WARN` record of
   `fragdenstaat.http`, `HTTP 503 from <host>: retry 1 of 3 in 2 s` (`retryMessage`; host
-  only, whole seconds, ms under 1 s). Tests: `test/engine.test.ts`, `test/retry-log.test.ts`.
+  only, whole seconds, ms under 1 s). Tests: `packages/client/test/engine.test.ts`, `apps/cli/test/retry-log.test.ts`.
   It sends a
   descriptive `User-Agent` (`fragdenstaat-cli`). Be a good citizen when paging.
 - **Filter-name quirks** (verified live): `request list` uses **plural**
@@ -368,14 +406,16 @@ ids, `venue`, `feature`). They can be added later if a use case appears.
 
 ## Testing
 
-Node's built-in test runner (`node:test`), no jest/vitest. `test/helpers.ts` builds
-canned responses and a recording mock transport; `test/fixtures.ts` holds Tastypie
-sample bodies. `http.test.ts` exercises the real transport against a local
+Node's built-in test runner (`node:test`), no jest/vitest. The client's tests are in
+`packages/client/test/` (`query`, `http`, `engine`, `client`), everything that drives the
+CLI is in `apps/cli/test/`. `packages/client/test/helpers.ts` builds canned responses and a
+recording mock transport (`apps/cli/test/helpers.ts` re-exports it next to the CLI's own
+helpers); `packages/client/test/fixtures.ts` holds Tastypie sample bodies. `http.test.ts` exercises the real transport against a local
 `http.createServer`. `cli.test.ts` drives `run()` end-to-end with a mocked client.
 `parity.test.ts` sends one input through the CLI and through the library (`parity()` in
-`helpers.ts`) and asserts the same outcome; `validate.test.ts` covers the rules and
+`apps/cli/test/helpers.ts`) and asserts the same outcome; `validate.test.ts` covers the rules and
 `filters.test.ts` the per-endpoint parameter tables. `log.test.ts` tests the record helpers
-of `src/cli/log.ts` on their own (`escapeForRecord`, `formatLogRecord`); the CLI-level
+of `apps/cli/src/cli/log.ts` on their own (`escapeForRecord`, `formatLogRecord`); the CLI-level
 checks are P23's.
 
 The `conformance-p*.test.ts` files are shared across the `*-cli` repos (fix plan
@@ -392,12 +432,16 @@ Tests must keep passing on Node 22/24 (`engines`: `>=22.12`, the floor of the pi
 
 ## CI / release
 
-`.github/workflows/`: `ci.yml` (typecheck + build + test on Node 22/24),
-`release.yml` (on a `v*` tag: test, `npm pack`, CycloneDX SBOMs, GitHub Release),
-`publish.yml` (manual npm publish via OIDC trusted publishing, dispatched from the release tag: `gh workflow run publish.yml --ref vX.Y.Z`), `docs.yml` (website + TypeDoc
-→ GitHub Pages, via the isolated `tools/docs/` toolchain). The npm tarball ships only `dist/src` + `LICENSING.md` +
-`CONTRIBUTING.md` (see `package.json` `files` and `.npmignore`); `skills/`,
-`.claude-plugin/`, tests and the spec are excluded.
+`.github/workflows/`: `ci.yml` (typecheck + build + test on Node 22/24, then pack the real
+tarball, check the pack left nothing behind, install it globally with the registry out of
+reach and run the bin), `release.yml` (on a `v*` tag, made by `npm run bump`: verify the tag
+against `apps/cli/package.json`, test, CycloneDX SBOMs scoped to the `apps/cli` workspace,
+`npm pack --workspace apps/cli`, GitHub Release), `publish.yml` (manual
+`npm publish --workspace apps/cli` via OIDC trusted publishing, dispatched from the release tag: `gh workflow run publish.yml --ref vX.Y.Z`), `docs.yml` (website + TypeDoc
+→ GitHub Pages, via the isolated `tools/docs/` toolchain). The npm tarball ships only `dist/src`, the bundled client and
+commander + `LICENSING.md` + `CONTRIBUTING.md` (see `apps/cli/package.json` `files`; `prepack`
+copies the documents in from the root); `skills/`, `.claude-plugin/`, tests and the spec are
+excluded.
 
 ## Website
 
@@ -408,7 +452,9 @@ and [Fylgja](https://fylgja.dev/) CSS, and deployed by `docs.yml` together with 
 reference under `/api/`. Its content comes from this repository: the README intro and quick
 start, the command tree of the built CLI (`site/scripts/cli-reference.mjs`), `Usage.md`,
 `GLOSSARY.md` and its German version `GLOSSARY.de.md`, the skills, and the skill examples in
-`EXAMPLE.md` and `EXAMPLE.de.md`. The only repo-specific files are `site/_config.yml` and
+`EXAMPLE.md` and `EXAMPLE.de.md`. The only repo-specific files are `site/_config.yml` (which
+also says where the published manifest and the built program are: `manifest:
+apps/cli/package.json`, `program: apps/cli/dist/src/cli/program.js`) and
 `site/_data/project.yml` (the German intro and the access requirements); the rest of `site/` is
 identical in every maschinenlesbar.org CLI, so change it in all of them together. When the
 README intro changes, update the German intro in `site/_data/project.yml`.
@@ -421,7 +467,7 @@ npm run serve                        # http://127.0.0.1:4000/fragdenstaat-cli/
 
 ## The log on stderr
 
-Every diagnostic line on stderr is a log record (`src/cli/log.ts`): a timestamp, a level
+Every diagnostic line on stderr is a log record (`apps/cli/src/cli/log.ts`): a timestamp, a level
 (`ERROR`, `WARN`, `INFO`) and a topic, `fragdenstaat.<area>`. `--log-format text` (the
 default) writes it log4j style, `<ISO 8601 UTC> <LEVEL padded to 5> [<topic>] <message>`;
 `--log-format jsonl` writes one JSON object per line with exactly `ts`, `level`, `topic`
