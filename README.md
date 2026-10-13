@@ -4,7 +4,7 @@
 [![Release](https://github.com/maschinenlesbar-org/fragdenstaat-cli/actions/workflows/release.yml/badge.svg)](https://github.com/maschinenlesbar-org/fragdenstaat-cli/actions/workflows/release.yml)
 [![npm](https://img.shields.io/npm/v/@maschinenlesbar.org/fragdenstaat-cli)](https://www.npmjs.com/package/@maschinenlesbar.org/fragdenstaat-cli)
 
-**Website:** [English](https://maschinenlesbar-org.github.io/fragdenstaat-cli/) · [Deutsch](https://maschinenlesbar-org.github.io/fragdenstaat-cli/de/) — command reference, guides and API docs
+**Website:** [English](https://maschinenlesbar.org/fragdenstaat-cli/) · [Deutsch](https://maschinenlesbar.org/fragdenstaat-cli/de/) — command reference, guides and API docs
 
 A command-line client and TypeScript library for the public, read-only API of
 **[FragDenStaat.de](https://fragdenstaat.de)** — Germany's central Freedom-of-Information
