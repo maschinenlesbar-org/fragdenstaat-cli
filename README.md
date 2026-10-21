@@ -129,7 +129,11 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
   (`fragdenstaat.cli` for usage errors, `fragdenstaat.api` for the API's answers, a
   malformed one included, and the notes on them, `fragdenstaat.http` for the connection, `fragdenstaat.output` for `-o`
   files and CSV byte counts, and any failure to write the output, to the `-o` file or to
-  stdout). By default it is written log4j style; `--log-format jsonl`
+  stdout). An error about an answer names the request (`GET <url>: the answer is not
+  valid JSON`). Text in an answer is never changed silently: bytes that are not valid in
+  its charset (a `--csv` page on stdout is decoded by the charset it declares) and half
+  characters (lone surrogates) are replaced with U+FFFD, so the output stays readable for
+  `jq`, and a `WARN` record of `fragdenstaat.api` says how many. By default it is written log4j style; `--log-format jsonl`
   writes one JSON object per line instead. A record is always one line: a line break, a
   control character or a bidi control in a message (a server's text, a value you typed)
   is written as an escape (`\n`, `\u001b`, `\u202e`), so it can neither split a record

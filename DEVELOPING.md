@@ -131,8 +131,16 @@ apps/cli/src/cli/
   this API carries a number that large (ids, counts and coordinates are far below it), so the
   client declares no `bigIntegerKeys` (the engine option, from the kit: a declared member's
   number is delivered as its exact literal, as a string). The check is one linear pass that skips
-  strings (`scanNumbers`), never a reviver. CSV
-  downloads stay raw bytes.
+  strings (`scanNumbers`), never a reviver. Text is never changed silently (the kit's
+  decision D2): bytes that are not valid in the charset (`decodeText` decodes fatally first,
+  then with replacement, and counts) and a lone surrogate written as a JSON escape
+  (`\ud800`, `wellFormedEscapes`) become U+FFFD, so the result is well-formed (`jq` refuses a
+  lone surrogate, and the whole output with it), and the engine option `onWarning` gets one
+  message naming the request and the count (`replacementWarning`); the CLI logs it as a WARN
+  record of `fragdenstaat.api`. It is not an error: one bad character never sinks an answer.
+  CSV downloads stay raw bytes in the library and in an `-o` file; on stdout a CSV page is
+  decoded by the charset it declares, with the same replacement and WARN, before the
+  terminal controls are stripped.
 - **`CliDeps`** (`io.ts`) — a client factory + I/O object (`out`/`err`/`writeFile`/
   `outBinary`). `run.ts` returns an exit code instead of calling `process.exit`, so
   tests drive the whole CLI with a mocked client and captured output. The bin shim
@@ -486,6 +494,8 @@ NFC or is refused, every `get` id is refused unless it is digits; `kitParity` in
 `apps/cli/test/helpers.ts` maps this repo's `parity` to the kit's shape), P25 the response
 corpus (a number a double can't carry is a parse error; an empty answer too) and P26 `-o`
 integrity (the built bin under `ulimit -f`: a cut write leaves the old file and nothing else).
+From the fix round 2026-10-21: P27 big and odd answers (a lone surrogate or invalid bytes are
+replaced with U+FFFD and reported with a WARN, never silent or fatal).
 Tests must keep passing on Node 22/24/26 (`engines`: `>=22.12`, the floor of the pinned commander 15).
 
 ## CI / release
@@ -545,7 +555,7 @@ whole stream) becomes U+FFFD (`toWellFormed`), and a message longer than
 `… (N more characters)`. The areas are `cli` (usage errors, commander's messages and the help it shows
 after one, unexpected errors), `api` (the API's answers: an error status, and a malformed
 answer, an `FdsParseError`: bad JSON, the wrong shape, a number it can't carry exactly, an HTML
-page answered with 200, an unknown charset; and the notes on an empty name-filtered `request list` and on a full CSV
+page answered with 200, an unknown charset; a WARN about text replaced with U+FFFD; and the notes on an empty name-filtered `request list` and on a full CSV
 page), `http` (the connection, the cleartext warning) and
 `output` (`Wrote N bytes to …` — for stdout only once the write has succeeded:
 `CliIO.outBinary` may return a promise that settles then, `false` after a failed write,

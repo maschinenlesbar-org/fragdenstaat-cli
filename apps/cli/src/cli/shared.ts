@@ -8,7 +8,9 @@ import {
   DEFAULT_BASE_URL,
   cleartextProblem,
   cleanDetail,
+  decodeText,
   isBidiControl,
+  replacementWarning,
   type EngineOptions,
   type RawResponse,
   type RetryEvent,
@@ -475,9 +477,14 @@ export async function renderRaw(deps: CliDeps, global: GlobalOptions, response: 
     writeOutput(deps, global, file, response.data);
     logOf(deps).info("output", `Wrote ${response.data.length} bytes to ${file}${typeNote}`);
   } else {
-    // Terminal path: strip control/escape bytes so a hostile response cannot drive
-    // ANSI/OSC sequences into the user's terminal, while preserving CSV structure.
-    const cleaned = Buffer.from(sanitizeTerminalText(response.data.toString("utf8")), "utf8");
+    // Terminal path: the text is decoded by the charset the answer declares (UTF-8 when it
+    // names none), so a Latin-1 "ü" stays one; bytes that don't fit become U+FFFD, with a WARN
+    // record naming the request. Then control/escape bytes are stripped so a hostile response
+    // cannot drive ANSI/OSC sequences into the user's terminal, while preserving CSV structure.
+    const request = response.request ?? "GET";
+    const decoded = decodeText(response.data, response.contentType, request);
+    if (decoded.replaced > 0) logOf(deps).warn("api", replacementWarning(request, decoded.replaced));
+    const cleaned = Buffer.from(sanitizeTerminalText(decoded.text), "utf8");
     // The note only once the bytes are written: a write that fails (stdout opened
     // read-only, EBADF) is reported by handleOutputErrors, never preceded by "Wrote".
     if ((await deps.io.outBinary(cleaned)) === false) return false;
@@ -579,6 +586,8 @@ export function action(
     checkOutputTarget(deps, global);
     const options = toEngineOptions(global);
     options.onRetry = (event) => logOf(deps).warn("http", retryMessage(event));
+    // An answer delivered changed (invalid text replaced with U+FFFD) is never silent.
+    options.onWarning = (message) => logOf(deps).warn("api", message);
     const client = deps.createClient(options);
     // One warning per run, before the first request, when the base URL is plain http: to
     // a host other than loopback. Help, version and usage errors never get here.

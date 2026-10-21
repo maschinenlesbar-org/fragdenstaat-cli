@@ -964,3 +964,27 @@ test("--compact takes the gap path only for an answer holding a huge string, the
   assert.deepEqual(calls.map((args) => (args.length >= 3 ? args[2] : "none")), ["", "none", "", "", 2]);
   assert.deepEqual(out, ['"stub"', '"stub"', '"stub"', '"stub"', '"stub"']);
 });
+
+// Exploratory test 2026-10-21, bug 02-2: a Latin-1 CSV on stdout became U+FFFD (decoded as UTF-8).
+test("--csv on stdout is decoded by its declared charset; bytes that don't fit become U+FFFD with a WARN (D2)", async () => {
+  const latin1 = makeCli(() => rawResponse(Buffer.from("id,name\n1,M\xfcller\n", "latin1"), "text/csv; charset=iso-8859-1"));
+  assert.equal(await run(["request", "list", "--csv"], latin1.deps), 0);
+  assert.equal(latin1.out.join(""), "id,name\n1,Müller\n");
+  assert.doesNotMatch(untimed(latin1.err.join("\n")), /WARN/);
+  // The file keeps the server's bytes.
+  const file = makeCli(() => rawResponse(Buffer.from("id,name\n1,M\xfcller\n", "latin1"), "text/csv; charset=iso-8859-1"));
+  assert.equal(await run(["-o", "/tmp/l1.csv", "request", "list", "--csv"], file.deps), 0);
+  assert.deepEqual(file.files.get("/tmp/l1.csv"), Buffer.from("id,name\n1,M\xfcller\n", "latin1"));
+  // Invalid UTF-8: replaced, and said so, naming the request; never silent, never fatal.
+  const bad = makeCli(() => rawResponse(Buffer.concat([Buffer.from("id,name\n1,M"), Buffer.from([0xfc]), Buffer.from("ller\n")]), "text/csv"));
+  assert.equal(await run(["request", "list", "--csv"], bad.deps), 0);
+  assert.equal(bad.out.join(""), "id,name\n1,M�ller\n");
+  assert.match(untimed(bad.err.join("\n")), /^WARN  \[fragdenstaat\.api\] GET https:\/\/fragdenstaat\.de\/api\/v1\/request\/\?format=csv: 1 character of the answer was not valid text \(invalid bytes or a lone surrogate\) and replaced with U\+FFFD\.$/m);
+});
+
+test("an answer with a lone surrogate or invalid bytes prints well-formed, with a WARN record of fragdenstaat.api (D2)", async () => {
+  const cli = makeCli(() => rawResponse('{"id":1,"title":"a\\ud800b"}', "application/json"));
+  assert.equal(await run(["--compact", "request", "get", "1"], cli.deps), 0);
+  assert.equal(cli.out.join(""), '{"id":1,"title":"a�b"}');
+  assert.match(untimed(cli.err.join("\n")), /^WARN  \[fragdenstaat\.api\] GET https:\/\/fragdenstaat\.de\/api\/v1\/request\/1\/: 1 character of the answer was not valid text/);
+});

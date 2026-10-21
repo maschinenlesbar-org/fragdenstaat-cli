@@ -110,3 +110,7 @@ leeren Namensfilter und einer vollen CSV-Seite), `http` (die Verbindung, je Wied
 Klartext-Warnung) und `output` (die Hinweise `Wrote N bytes`, ein Fehler beim Schreiben der
 `-o`-Datei oder nach stdout). Ein Eintrag ist immer eine Zeile; Steuerzeichen darin werden
 maskiert.
+
+**Ersetzter Text.** Bytes einer Antwort, die in ihrem Zeichensatz ungültig sind, und halbe
+Zeichen (einzelne Surrogate) werden durch U+FFFD ersetzt und in einem `WARN`-Eintrag von
+`fragdenstaat.api` mit Anzahl und Anfrage gemeldet; der Lauf gelingt trotzdem.
