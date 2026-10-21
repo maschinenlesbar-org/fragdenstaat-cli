@@ -465,6 +465,11 @@ follow-up round 2026-10-06 P20 the stderr warning for a plain-`http:` base URL (
 API-key cases skipped: no variable, no key) and P21 README links (a relative link must point at
 a file `files` ships, since npmjs.com shows the README; anything else is an absolute GitHub URL),
 and P23 the log on stderr (records with timestamp, level and topic; `--log-format text|jsonl`).
+From the kit rollout 2026-10-21: P24 the input corpus (every text filter goes out trimmed and in
+NFC or is refused, every `get` id is refused unless it is digits; `kitParity` in
+`apps/cli/test/helpers.ts` maps this repo's `parity` to the kit's shape), P25 the response
+corpus (a number a double can't carry is a parse error; an empty answer too) and P26 `-o`
+integrity (the built bin under `ulimit -f`: a cut write leaves the old file and nothing else).
 Tests must keep passing on Node 22/24 (`engines`: `>=22.12`, the floor of the pinned commander 15).
 
 ## CI / release
