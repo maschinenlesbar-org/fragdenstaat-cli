@@ -108,7 +108,8 @@ Antworten der API: ein Fehlerstatus und eine fehlerhafte Antwort – ungültiges
 falsche Form, eine HTML-Seite, ein unbekannter Zeichensatz – sowie die Hinweise zu einem
 leeren Namensfilter und einer vollen CSV-Seite), `http` (die Verbindung, je Wiederholung eine WARN-Zeile vor dem Warten, die
 Klartext-Warnung) und `output` (die Hinweise `Wrote N bytes`, ein Fehler beim Schreiben der
-`-o`-Datei oder nach stdout). Ein Eintrag ist immer eine Zeile; Steuerzeichen darin werden
+`-o`-Datei oder nach stdout, eine Antwort, die zu tief verschachtelt oder zu groß zum Ausgeben
+ist). Ein Eintrag ist immer eine Zeile; Steuerzeichen darin werden
 maskiert.
 
 **Ersetzter Text.** Bytes einer Antwort, die in ihrem Zeichensatz ungültig sind, und halbe

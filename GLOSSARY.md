@@ -106,7 +106,7 @@ commander's messages, unexpected errors), `api` (the API's answers: an error sta
 malformed answer — bad JSON, the wrong shape, an HTML page, an unknown charset — plus the
 notes on an empty name filter and a full CSV page), `http` (the connection, one WARN per retry before it waits, the cleartext
 warning) and `output` (the `Wrote N bytes` notes, a failure to write the `-o` file or
-stdout). A record is always one line; control characters in it are escaped.
+stdout, an answer too deeply nested or too large to print). A record is always one line; control characters in it are escaped.
 
 **Replaced text.** Bytes of an answer that are not valid in its charset, and half characters
 (lone surrogates), are replaced with U+FFFD and reported in one `WARN` record of

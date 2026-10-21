@@ -497,7 +497,8 @@ NFC or is refused, every `get` id is refused unless it is digits; `kitParity` in
 corpus (a number a double can't carry is a parse error; an empty answer too) and P26 `-o`
 integrity (the built bin under `ulimit -f`: a cut write leaves the old file and nothing else).
 From the fix round 2026-10-21: P27 big and odd answers (a lone surrogate or invalid bytes are
-replaced with U+FFFD and reported with a WARN, never silent or fatal).
+replaced with U+FFFD and reported with a WARN, never silent or fatal; a large flat answer prints
+with `--compact` within a small heap).
 Tests must keep passing on Node 22/24/26 (`engines`: `>=22.12`, the floor of the pinned commander 15).
 
 ## CI / release
@@ -559,7 +560,10 @@ after one, unexpected errors), `api` (the API's answers: an error status, and a 
 answer, an `FdsParseError`: bad JSON, the wrong shape, a number it can't carry exactly, an HTML
 page answered with 200, an unknown charset; a WARN about text replaced with U+FFFD; and the notes on an empty name-filtered `request list` and on a full CSV
 page), `http` (the connection, the cleartext warning) and
-`output` (`Wrote N bytes to …` — for stdout only once the write has succeeded:
+`output` (an answer nested too deeply or too large to print: `The answer is nested too deeply
+to pretty-print[; try --compact].`, `The answer is too large (more than 536870888 characters of
+JSON) to pretty-print[; try --compact].`, the hint only when `--compact` prints this very answer
+on this runtime, probed; `Wrote N bytes to …` — for stdout only once the write has succeeded:
 `CliIO.outBinary` may return a promise that settles then, `false` after a failed write,
 which leaves the note and the CSV page note out — and any failure to write the output: an `OutputError` for
 the `-o` file, refusing to overwrite included, a stdout write error). Code logs through `logOf(deps)` and never writes

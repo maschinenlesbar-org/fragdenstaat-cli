@@ -98,7 +98,7 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
 | `--user-agent <ua>` | override the `User-Agent` |
 | `--max-retries <n>` | retries for transient 429/503 and connection resets (0..10). Each retry backs off linearly (200 ms, 400 ms, …), or waits the server's `Retry-After` when that is longer (up to 30 s; a longer one is not retried, and the error says so). Timeouts and refused connections are not retried. Each retry logs one WARN record of `fragdenstaat.http` before it waits (`HTTP 503 from host: retry 1 of 3 in 2 s`) |
 | `--max-response-bytes <n>` | cap the response body size (0 = unlimited) |
-| `--compact` | single-line JSON |
+| `--compact` | single-line JSON (an answer too deeply nested to pretty-print is an error that suggests `--compact` where it would print) |
 | `--log-format <format>` | how errors, warnings and notes are written to stderr: `text` (default; log4j style, `2026-10-09T14:03:12.481Z WARN  [fragdenstaat.http] …`) or `jsonl` (one JSON object per line: `ts`, `level`, `topic`, `msg`). stdout is not affected |
 | `-o, --output <file>` | write JSON (or CSV with `--csv`) to a file instead of stdout; an existing file (or a directory) is refused before any request; the write is atomic, so a failed one leaves the old file as it was; `-o -` means stdout (as in other Unix tools) |
 | `--force` | with `-o`, overwrite the output file if it already exists (its mode is kept; a symlink is written through); without `-o` a usage error |
