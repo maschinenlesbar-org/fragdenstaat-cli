@@ -47,3 +47,20 @@ test("the same record in jsonl, with the delay in ms under one second", async ()
   assert.equal(rec["topic"], "fragdenstaat.http");
   assert.match(String(rec["msg"]), /^HTTP 503 from [a-z0-9.-]+: retry 1 of 2 in 200 ms$/);
 });
+
+// Exploratory test 2026-10-21, bug 04-1: the last record after spent retries was a bare "socket hang up".
+test("a reset that persists through the retries ends in an ERROR that says it was retried", async () => {
+  const err: string[] = [];
+  const transport = async (): Promise<HttpResponse> => {
+    throw Object.assign(new Error("socket hang up"), { code: "ECONNRESET" });
+  };
+  const deps: CliDeps = {
+    io: { out: () => {}, err: (s) => err.push(s), writeFile: () => {}, outBinary: () => {} },
+    createClient: (opts) => new FragDenStaatClient({ ...opts, transport, sleep: async () => {} }),
+  };
+  assert.equal(await run(["--max-retries", "2", "jurisdiction", "list"], deps), 1);
+  const records = err.map(untimed);
+  assert.equal(records.length, 3, records.join("\n"));
+  assert.match(records[0] ?? "", /^WARN  \[fragdenstaat\.http\] connection reset from fragdenstaat\.de: retry 1 of 2/);
+  assert.equal(records[2], "ERROR [fragdenstaat.http] GET https://fragdenstaat.de/api/v1/jurisdiction/ failed: socket hang up (after 2 retries)");
+});

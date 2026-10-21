@@ -260,8 +260,20 @@ export class FdsApiError extends FdsError {
  */
 export class FdsValidationError extends FdsError {}
 
-/** A transport-level failure (DNS, connection reset, timeout, ...). */
-export class FdsNetworkError extends FdsError {}
+/**
+ * A transport-level failure (DNS, connection reset, timeout, ...). After a reset the engine
+ * retried, the message ends `(after N retries)` and `retries` holds the count, as on an
+ * FdsApiError, so a caller can tell a first-try failure from a spent retry budget.
+ */
+export class FdsNetworkError extends FdsError {
+  /** How many times the engine retried the request before giving up (0 when it did not). */
+  readonly retries: number;
+
+  constructor(message: string, options?: { cause?: unknown; retries?: number }) {
+    super(message, options?.cause === undefined ? undefined : { cause: options.cause });
+    this.retries = options?.retries ?? 0;
+  }
+}
 
 /** The response body could not be parsed as the expected JSON shape. */
 export class FdsParseError extends FdsError {}

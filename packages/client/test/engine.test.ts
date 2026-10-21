@@ -697,3 +697,27 @@ test("an answer longer than V8's longest string is an FdsParseError naming the r
   const failing = new RequestEngine({ maxResponseBytes: 0, transport: makeMockTransport(() => rawResponse(huge, "text/plain", 500)).transport });
   await assert.rejects(failing.getJson("/x"), (err: unknown) => err instanceof FdsApiError && err.status === 500 && err.body === "");
 });
+
+// Exploratory test 2026-10-21, bug 04-1: a reset after spent retries didn't say it was retried.
+test("a connection reset after spent retries says so, and the error carries retries, like a status does", async () => {
+  const reset = (): never => {
+    throw Object.assign(new Error("socket hang up"), { code: "ECONNRESET" });
+  };
+  const spent = new RequestEngine({ maxRetries: 2, retryDelayMs: 0, sleep: async () => {}, transport: async () => reset() });
+  await assert.rejects(spent.getJson("/api/v1/request/"), (err: unknown) => {
+    assert.ok(err instanceof FdsNetworkError, String(err));
+    assert.equal(err.message, "GET https://fragdenstaat.de/api/v1/request/ failed: socket hang up (after 2 retries)");
+    assert.equal(err.retries, 2);
+    return true;
+  });
+  const once = new RequestEngine({ maxRetries: 1, retryDelayMs: 0, sleep: async () => {}, transport: async () => reset() });
+  await assert.rejects(once.getJson("/x/"), (err: unknown) => err instanceof FdsNetworkError && err.message.endsWith("socket hang up (after 1 retry)") && err.retries === 1);
+  // No retry: no suffix, retries 0; a failure that is not retried (a refused connection) the same.
+  const none = new RequestEngine({ maxRetries: 0, transport: async () => reset() });
+  await assert.rejects(none.getJson("/x/"), (err: unknown) => err instanceof FdsNetworkError && err.message.endsWith("failed: socket hang up") && err.retries === 0);
+  const refused = new RequestEngine({ maxRetries: 2, transport: async () => { throw Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }); } });
+  await assert.rejects(refused.getJson("/x/"), (err: unknown) => err instanceof FdsNetworkError && err.retries === 0 && !/after/.test(err.message));
+  // The default transport's own FdsNetworkError (a reset it reports) gets the suffix too.
+  const own = new RequestEngine({ maxRetries: 1, retryDelayMs: 0, sleep: async () => {}, transport: async () => { throw new FdsNetworkError("socket hang up", { cause: Object.assign(new Error("x"), { code: "ECONNRESET" }) }); } });
+  await assert.rejects(own.getJson("/x/"), (err: unknown) => err instanceof FdsNetworkError && err.message === "GET https://fragdenstaat.de/x/ failed: socket hang up (after 1 retry)" && err.retries === 1);
+});

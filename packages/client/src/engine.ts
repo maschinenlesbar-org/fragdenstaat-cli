@@ -547,7 +547,7 @@ export class RequestEngine {
           await this.backOff(attempt, this.retryDelayMs * attempt, url);
           continue;
         }
-        throw this.toNetworkError(method, url, cause);
+        throw this.toNetworkError(method, url, cause, attempt);
       }
 
       // An injected transport may resolve with anything; a malformed HttpResponse would
@@ -604,8 +604,11 @@ export class RequestEngine {
    * the request (URL redacted), with the original as `cause`, so a caller (and the CLI)
    * can rely on every failure being a FdsError. Any other FdsError passes through.
    */
-  private toNetworkError(method: string, url: string, cause: unknown): FdsError {
+  private toNetworkError(method: string, url: string, cause: unknown, retries = 0): FdsError {
     if (cause instanceof FdsError && !(cause instanceof FdsNetworkError)) return cause;
+    // After spent retries (a reset each time) say so, as a status that persisted does, so a
+    // user knows whether raising --max-retries could help; `retries` holds the count.
+    const retried = retries > 0 ? ` (after ${retries} ${retries === 1 ? "retry" : "retries"})` : "";
     if (cause instanceof FdsNetworkError) {
       // The default transport's own errors (a timeout, the size cap, a refused connection, a
       // DNS failure) and the engine's deadline carry no URL: name the request, as for any
@@ -615,14 +618,15 @@ export class RequestEngine {
       const prefix = `${method} ${redactUrl(url)} failed: `;
       if (message.startsWith(prefix)) {
         const scrubbed = this.scrubCause(cause);
-        if (scrubbed === cause) return cause;
-        return new FdsNetworkError(message, { cause: this.scrubCause(cause.cause) });
+        if (scrubbed === cause && retries === 0) return cause;
+        return new FdsNetworkError(`${message}${retried}`, { cause: this.scrubCause(cause.cause), retries });
       }
-      return new FdsNetworkError(`${prefix}${message}`, { cause: this.scrubCause(cause) });
+      return new FdsNetworkError(`${prefix}${message}${retried}`, { cause: this.scrubCause(cause), retries });
     }
     const reason = cause instanceof Error ? cause.message : String(cause);
-    return new FdsNetworkError(`${method} ${redactUrl(url)} failed: ${sanitizeServerText(this.scrub(reason))}`, {
+    return new FdsNetworkError(`${method} ${redactUrl(url)} failed: ${sanitizeServerText(this.scrub(reason))}${retried}`, {
       cause: this.scrubCause(cause),
+      retries,
     });
   }
 

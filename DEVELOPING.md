@@ -446,7 +446,8 @@ When in doubt, trust the live API, not the schema.
   after that`). After spent retries the message ends `(after N retries)` and `retries`
   holds the count. A connection reset (`ECONNRESET`, `EPIPE`, `ECONNABORTED`,
   undici's `UND_ERR_SOCKET`, anywhere in the error's `cause` chain, from any transport)
-  is retried the same way, with the linear backoff; a timeout, a refused connection or
+  is retried the same way, with the linear backoff, and after spent retries its
+  `FdsNetworkError` ends `(after N retries)` too and carries `retries`; a timeout, a refused connection or
   a DNS failure is not. `maxRetries` is capped at `MAX_RETRIES` (10). Each retry is
   announced: the engine option `onRetry(event: RetryEvent)` (exported type: `{ retry`
   (1-based), `maxRetries`, `delayMs`, `status?` (absent for a reset), `url` (userinfo
