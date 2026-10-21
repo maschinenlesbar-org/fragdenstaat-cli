@@ -111,7 +111,9 @@ apps/cli/src/cli/
 - **Decoding.** A JSON body is decoded by the charset its `Content-Type` declares
   (UTF-8 when it names none) with `TextDecoder` (`decodeBody`), which also drops a
   leading byte order mark; an unknown charset label is an `FdsParseError`, and so is an empty
-  body (`empty response body.`). Every error about an answer names the request, as a network
+  body (`empty response body.`), and one too large to decode into a string (512 MB and more,
+  possible with `maxResponseBytes: 0`: `GET <url>: the answer is too large to read as text (N
+  bytes; the longest string is 536870888 characters).`, which was a plain Error). Every error about an answer names the request, as a network
   error does: `GET <url>: …`, the URL absolute (`describeUrl`, userinfo redacted, cut at 500
   characters): `GET <url>: the answer is not valid JSON (expected JSON, got Content-Type
   "text/html").`, `GET <url>: unsupported response charset "…".`. A body with a

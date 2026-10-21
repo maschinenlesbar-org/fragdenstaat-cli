@@ -497,21 +497,24 @@ export async function renderRaw(deps: CliDeps, global: GlobalOptions, response: 
 /**
  * Count the data rows of a CSV body: records outside quoted fields (a quoted cell
  * may hold line breaks), minus the header line. A trailing record separator does
- * not start a new record.
+ * not start a new record. Takes the text or the raw bytes (UTF-8 or another charset
+ * that keeps `"`, CR and LF as single bytes): a page too large for one string (512 MB
+ * and more, with the size cap lifted) is counted on its bytes, never decoded for it.
  */
-export function countCsvRows(text: string): number {
+export function countCsvRows(data: string | Uint8Array): number {
+  const at = typeof data === "string" ? (i: number): number => data.charCodeAt(i) : (i: number): number => data[i] ?? 0;
   let records = 0;
   let inQuotes = false;
   let pending = false; // characters seen since the last record separator
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (c === '"') {
+  for (let i = 0; i < data.length; i++) {
+    const c = at(i);
+    if (c === 0x22) {
       inQuotes = !inQuotes; // an escaped "" toggles twice
       pending = true;
-    } else if (c === "\n" && !inQuotes) {
+    } else if (c === 0x0a && !inQuotes) {
       records += 1;
       pending = false;
-    } else if (c !== "\r") {
+    } else if (c !== 0x0d) {
       pending = true;
     }
   }
@@ -535,7 +538,7 @@ export async function renderCsvPage(
   if (!(await renderRaw(deps, global, response))) return undefined;
   const limit = typeof params["limit"] === "number" ? params["limit"] : MAX_PAGE_SIZE;
   const offset = typeof params["offset"] === "number" ? params["offset"] : 0;
-  const rows = countCsvRows(response.data.toString("utf8"));
+  const rows = countCsvRows(response.data);
   if (rows > 0 && rows >= limit) {
     logOf(deps).info(
       "api",

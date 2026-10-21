@@ -549,6 +549,9 @@ test("countCsvRows counts records outside quotes, minus the header", () => {
   assert.equal(countCsvRows("a,b\r\n"), 0);
   assert.equal(countCsvRows('a,b\r\n1,"x\r\ny ""q"""\r\n2,z'), 2);
   assert.equal(countCsvRows("a,b\n1,2\n2,3\n"), 2);
+  // The bytes of a page count the same, without decoding it (a page too large for one string).
+  assert.equal(countCsvRows(Buffer.from('a,b\r\n1,"x\r\ny ""q"""\r\n2,z')), 2);
+  assert.equal(countCsvRows(Buffer.from("a,b\n1,M\xfcller\n2,3\n", "latin1")), 2);
 });
 
 // Exploratory test 2026-09-26, finding 2: the search endpoint ignores `category`.
