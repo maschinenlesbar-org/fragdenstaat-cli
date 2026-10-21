@@ -8,6 +8,10 @@ import type { HttpRequest, HttpResponse } from "@maschinenlesbar.org/fragdenstaa
 import { makeMockTransport, jsonResponse, rawResponse, untimed } from "./helpers.js";
 import { countCsvRows, renderJson } from "../src/cli/shared.js";
 import * as fx from "@maschinenlesbar.org/fragdenstaat-client/test/fixtures";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { defaultIO } from "../src/cli/io.js";
 
 function makeCli(responder: (req: HttpRequest) => HttpResponse) {
   const out: string[] = [];
@@ -242,6 +246,39 @@ test("-o is checked before any request: --force without -o, a directory, an exis
   // `-o -` is stdout, so --force with it is allowed.
   const dash = makeCli(() => jsonResponse(fx.requestList));
   assert.equal(await run(["-o", "-", "--force", "request", "list"], dash.deps), 0, dash.err.join("\n"));
+});
+
+test("a file that appears during the request is not overwritten: exit 1, an ERROR of the output area", async () => {
+  // The write-time refusal comes after the request was made: a write failure (an OutputError,
+  // exit 1), not a usage error. JSON and a CSV download, on real files.
+  const dir = mkdtempSync(join(tmpdir(), "fds-race-"));
+  try {
+    for (const [argv, answer] of [
+      [["request", "list"], () => jsonResponse(fx.requestList)],
+      [["request", "list", "--csv"], () => rawResponse(fx.csvBody, "text/csv")],
+    ] as const) {
+      const path = join(dir, "race.out");
+      const out: string[] = [];
+      const err: string[] = [];
+      const mt = makeMockTransport(() => {
+        writeFileSync(path, "theirs");
+        return answer();
+      });
+      const deps: CliDeps = {
+        io: { ...defaultIO, out: (s) => out.push(s), err: (s) => err.push(s) },
+        createClient: (opts) => new FragDenStaatClient({ ...opts, transport: mt.transport }),
+      };
+      assert.equal(await run(["-o", path, ...argv], deps), 1, argv.join(" "));
+      assert.equal(mt.calls.length, 1, argv.join(" "));
+      assert.equal(readFileSync(path, "utf8"), "theirs", argv.join(" "));
+      assert.deepEqual(err.map(untimed), [`ERROR [fragdenstaat.output] Refusing to overwrite existing file "${path}" (use --force).`], argv.join(" "));
+      assert.deepEqual(out, [], argv.join(" "));
+      assert.deepEqual(readdirSync(dir), ["race.out"], argv.join(" "));
+      rmSync(path);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("--output --force overwrites an existing file", async () => {

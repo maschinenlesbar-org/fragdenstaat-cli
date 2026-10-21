@@ -345,7 +345,8 @@ When in doubt, trust the live API, not the schema.
   too, `CliIO.outputState`) without `--force` are `OutputError`s ("Refusing to overwrite
   existing file "…" (use --force)."), all exit 1, so a refused target costs no request.
   The write itself (`defaultIO.writeFile`) is atomic: without `--force` it claims the name
-  with an exclusive create (so a file that appeared during the request is refused too),
+  with an exclusive create (so a file that appeared during the request is refused too,
+  after the request: an `OutputError` of `fragdenstaat.output`, exit 1, not a usage error),
   then writes a temporary file beside the target and renames it over it; on failure the
   temporary file and the claimed name are removed, so a full disk (`Could not write to
   "…": EFBIG`) leaves the old file as it was. `--force` keeps the old file's mode and
