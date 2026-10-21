@@ -123,7 +123,9 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
 - **Exit codes:** `0` success; `4` for a 404 (not found); `1` for any other API or
   runtime error. Errors print to stderr; stdout stays clean for piping. A reader that
   stops early (`| head`, `| jq` exiting) ends the run quietly with `0`; a failed run
-  keeps its exit code even when stderr's reader is gone (`2>&1 | true`).
+  keeps its exit code even when stderr's reader is gone (`2>&1 | true`). Output redirected
+  to a file that can't take all of it (a full disk, a file-size limit) is an error, exit 1,
+  never a cut file with exit 0.
 - **stderr is a log.** Each line on stderr is a **log record**: a timestamp (UTC), a
   level (`ERROR`, `WARN`, `INFO`) and a topic, the program and the area it comes from
   (`fragdenstaat.cli` for usage errors, `fragdenstaat.api` for the API's answers, a

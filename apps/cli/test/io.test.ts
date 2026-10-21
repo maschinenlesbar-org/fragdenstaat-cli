@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, mkdtempSync, readdirSync, rmSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, mkdtempSync, openSync, readdirSync, rmSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EventEmitter } from "node:events";
-import { defaultIO, handleOutputErrors, stderrAfterStdout } from "../src/cli/io.js";
+import { defaultIO, handleOutputErrors, stderrAfterStdout, stdoutWriter } from "../src/cli/io.js";
 import { createLogger } from "../src/cli/log.js";
 
 // Exploratory test 2026-09-26, finding 13: -o pointing at a directory.
@@ -179,4 +179,32 @@ test("stderr waits for stdout: a record is held while stdout has a backlog, and 
   err("fifth");
   stdout.emit("error", new Error("EPIPE"));
   assert.deepEqual(written, ["first", "second", "third", "fourth", "fifth"]);
+});
+
+test("stdout to a regular file gets every byte or an error: a short write is never exit 0 (D6)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "fragdenstaat-stdout-"));
+  const path = join(dir, "stdout.txt");
+  const fd = openSync(path, "w");
+  try {
+    const errors: Error[] = [];
+    const streamed: unknown[] = [];
+    const fake = { fd, write: (data: unknown) => streamed.push(data), emit: (_event: "error", err: Error) => errors.push(err) };
+    // The real writer: every byte reaches the file, none goes through the stream, text or bytes.
+    assert.equal(stdoutWriter(fake)("x".repeat(100_000)), true);
+    assert.equal(stdoutWriter(fake)(Buffer.from("ü")), true);
+    assert.equal(readFileSync(path, "utf8"), "x".repeat(100_000) + "ü");
+    assert.deepEqual(streamed, []);
+    // A write the file system cuts short: the error reaches stdout's "error" event (exit 1 there).
+    const efbig = Object.assign(new Error("EFBIG: file too large, write"), { code: "EFBIG" });
+    assert.equal(stdoutWriter(fake, () => { throw efbig; })("more"), false);
+    assert.deepEqual(errors, [efbig]);
+    // A pipe or a terminal goes through the stream as before.
+    const piped: unknown[] = [];
+    const pipe = { fd: undefined, write: (data: unknown) => piped.push(data), emit: () => true };
+    assert.equal(stdoutWriter(pipe)("piped"), true);
+    assert.deepEqual(piped, ["piped"]);
+  } finally {
+    closeSync(fd);
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

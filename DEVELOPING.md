@@ -149,7 +149,11 @@ apps/cli/src/cli/
   (`cli/index.ts`) installs `handleOutputErrors` before `run()`: an EPIPE on stdout
   (`| head`) exits 0 quietly instead of Node's unhandled-`error` stack trace and exit
   1; an EPIPE on stderr is ignored, so a failed run keeps its exit code; any other
-  stdout write error is an ERROR record of `fragdenstaat.output` and exits 1. `apps/cli/test/conformance-p7-pipes-exit-codes.test.ts` runs the built
+  stdout write error is an ERROR record of `fragdenstaat.output` and exits 1. When stdout is a
+  regular file (`> out.json`), every byte is written with `writeSync` in a loop (`stdoutWriter`,
+  from the kit, decision D6): Node's stream ignored a short count, so a file-size limit or a full
+  disk cut the output short with exit 0; now the failure (EFBIG, ENOSPC) is stdout's `error`, an
+  ERROR record and exit 1, and no `Wrote …` note follows. `apps/cli/test/conformance-p7-pipes-exit-codes.test.ts` runs the built
   bin through real pipes.
 
 Zero runtime HTTP dependencies (built on `node:http`/`https` — no axios/fetch).
