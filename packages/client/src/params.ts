@@ -58,8 +58,10 @@ export interface RequestListParams extends Pagination {
   costs_min?: number | undefined;
   /** Maximum charged costs in EUR: a finite non-negative number. */
   costs_max?: number | undefined;
-  created_at_after?: string | undefined;
-  created_at_before?: string | undefined;
+  /** Created on or after this day: `YYYY-MM-DD`, or a `Date` at midnight UTC (sent as its day). */
+  created_at_after?: string | Date | undefined;
+  /** Created on or before this day: `YYYY-MM-DD`, or a `Date` at midnight UTC (sent as its day). */
+  created_at_before?: string | Date | undefined;
   project?: Id | undefined;
   user?: Id | undefined;
   follower?: Id | undefined;
@@ -169,8 +171,10 @@ export interface DocumentListParams extends Pagination {
    * one bad element (`"26,abc"`, `"26;27"`) drops the whole filter.
    */
   ids?: IdList | undefined;
-  created_at_after?: string | undefined;
-  created_at_before?: string | undefined;
+  /** Created on or after this day: `YYYY-MM-DD`, or a `Date` at midnight UTC (sent as its day). */
+  created_at_after?: string | Date | undefined;
+  /** Created on or before this day: `YYYY-MM-DD`, or a `Date` at midnight UTC (sent as its day). */
+  created_at_before?: string | Date | undefined;
 }
 
 /** Filters for `GET /api/v1/georegion/` (geographic regions). */

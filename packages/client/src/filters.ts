@@ -67,11 +67,28 @@ export interface ParamKind {
 /** The parameters of one endpoint, by name. */
 export type ParamSpec = Readonly<Record<string, ParamKind>>;
 
-/** Rule: a date string (`YYYY-MM-DD`, the server checks the format; a token) or a valid `Date`. */
+/**
+ * Rule: a date string (`YYYY-MM-DD`, the server checks the format; a token) or a valid `Date` at
+ * midnight UTC. The API filters by calendar day and refuses a timestamp (HTTP 400, "Bitte ein
+ * gültiges Datum eingeben"), so a `Date` is sent as its day (`dateOf`); one at another time of day
+ * is refused, because which day was meant can't be told (`new Date(2024, 0, 1)` in Berlin is
+ * 2023-12-31T23:00Z).
+ */
 const dateProblem: Problem<unknown> = (value) => {
-  if (value instanceof Date) return Number.isNaN(value.getTime()) ? "Expected a valid date." : undefined;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return "Expected a valid date.";
+    const iso = value.toISOString();
+    return iso.endsWith("T00:00:00.000Z")
+      ? undefined
+      : `Expected a date at midnight UTC (the API filters by calendar day), got ${iso}; pass the day as "YYYY-MM-DD".`;
+  }
   return typeof value === "string" ? tokenProblem(value) : "Expected a date string or a Date.";
 };
+
+/** A checked date as it is sent: a string trimmed and in NFC, a `Date` as its `YYYY-MM-DD`. */
+function dateOf(value: unknown): string {
+  return value instanceof Date ? value.toISOString().slice(0, 10) : normalizeToken(value as string);
+}
 
 /** Rule: a non-negative integer (a tree depth, a hierarchy level), or its digit string. */
 const nonNegativeIntProblem: Problem<unknown> = (value) => {
@@ -130,7 +147,7 @@ const campaignProblem: Problem<unknown> = (value) => (value === "-" ? undefined 
 const TOKEN: ParamKind = { rule: tokenProblem, normalize: (v) => normalizeToken(v as string) };
 /** Free text the API matches (a search term, a name): sent trimmed and in NFC (`normalizeText`). */
 const TEXT: ParamKind = { rule: textProblem, normalize: (v) => normalizeText(v as string) };
-const DATE: ParamKind = { rule: dateProblem, normalize: (v) => (typeof v === "string" ? normalizeToken(v) : (v as Date)) };
+const DATE: ParamKind = { rule: dateProblem, normalize: dateOf };
 const BOOL: ParamKind = { rule: booleanProblem };
 const AMOUNT: ParamKind = { rule: amountProblem };
 const ID: ParamKind = { rule: idProblem, normalize: (v) => Number(v) };

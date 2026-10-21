@@ -245,7 +245,9 @@ What the library rejects with `FdsValidationError`, before any request:
     its digit string and are sent as numbers (`idFilterProblem`); `depth` and `level` a
     non-negative integer; enum filters the `enums.ts` arrays (`oneOfProblem`); boolean
     filters a real boolean (`booleanProblem`); text filters a non-blank string; dates a
-    string or a valid `Date`. Request `campaign` also takes `"-"`, Froide's "no campaign";
+    string (`YYYY-MM-DD`, a token) or a valid `Date` at midnight UTC, sent as its day
+    (`2024-01-01`: the API refuses a timestamp with HTTP 400, and a `Date` at another time of
+    day is refused, since which day was meant can't be told). Request `campaign` also takes `"-"`, Froide's "no campaign";
   - a **malformed id list** (`document ids`, georegion `id`, public-body `regions`;
     `idListProblem`): Froide converts each element with `int()` and drops the whole
     filter when one fails, so `ids=26,abc` or `ids=26;27` returned all 259 575

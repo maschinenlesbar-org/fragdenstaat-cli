@@ -263,3 +263,20 @@ test("a refused value is quoted visibly: format characters, DEL, C1 and U+2028 e
   await assert.rejects(c.requests.list({ ["sta\u200btus"]: "resolved" } as never), (err: Error) =>
     err.message.startsWith('Invalid parameter "sta\\u200btus": not a parameter of this endpoint'));
 });
+
+// Exploratory test 2026-10-21, bug 01-3: a Date went out as 2024-01-01T00:00:00.000Z, which the API refuses (400).
+test("a Date in a date filter is sent as its calendar day; one that is not midnight UTC is refused", async () => {
+  for (const [call, key] of [
+    [(c: FragDenStaatClient, d: Date) => c.requests.list({ created_at_after: d }), "created_at_after"],
+    [(c: FragDenStaatClient, d: Date) => c.documents.list({ created_at_before: d }), "created_at_before"],
+  ] as const) {
+    const { client: c, mt } = client(() => jsonResponse(fx.requestList));
+    await call(c, new Date("2024-01-01"));
+    assert.equal(new URL(mt.last().url).searchParams.get(key), "2024-01-01", key);
+    // 2024-01-01 in Berlin is 2023-12-31T23:00Z: which day was meant can't be told, so it is refused.
+    await assert.rejects(call(c, new Date("2023-12-31T23:00:00.000Z")), (err: unknown) =>
+      err instanceof FdsValidationError &&
+      (err as Error).message === `Invalid ${key}: Expected a date at midnight UTC (the API filters by calendar day), got 2023-12-31T23:00:00.000Z; pass the day as "YYYY-MM-DD".`);
+    assert.equal(mt.calls.length, 1, key);
+  }
+});
