@@ -1031,7 +1031,7 @@ test("terminal controls are escaped in chunks: the same text as one pass, across
   const text = ["a".repeat(65535), DEL, C1, "b".repeat(65534), RLO, DEL.repeat(70000), "ü😀", C1].join("");
   const { deps, out } = makeCli(() => jsonResponse({}));
   renderJson(deps, { compact: true }, { text });
-  const expected = JSON.stringify({ text }).replace(/[\u007f-\u009f؜‎‏‪-‮⁦-⁩]/g,
+  const expected = JSON.stringify({ text }).replace(/[\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g,
     (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, "0")}`);
   assert.equal(out[0], expected);
   assert.deepEqual(JSON.parse(out[0]!), { text });

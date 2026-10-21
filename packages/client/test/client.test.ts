@@ -238,13 +238,13 @@ test("a free-text filter goes out trimmed and in composed Unicode; ids, slugs an
 
 test("a refused value is quoted visibly: format characters, DEL, C1 and U+2028 escaped, cut at 500 (D10)", async () => {
   const { quoteValue } = await import("../src/errors.js");
-  assert.equal(quoteValue("a​b"), '"a\\u200bb"');
-  assert.equal(quoteValue("x­‮\u007f\u0085 ﻿"), '"x\\u00ad\\u202e\\u007f\\u0085\\u2028\\ufeff"');
+  assert.equal(quoteValue("a\u200bb"), '"a\\u200bb"');
+  assert.equal(quoteValue("x\u00ad\u202e\u007f\u0085\u2028\ufeff"), '"x\\u00ad\\u202e\\u007f\\u0085\\u2028\\ufeff"');
   assert.equal(quoteValue("\ud800"), '"\\ud800"');
   assert.equal(quoteValue("😀 ü"), '"😀 ü"');
   assert.equal(quoteValue("x".repeat(600)), `"${"x".repeat(500)}"…`);
   // An unknown filter name is shown that way too.
   const c = new FragDenStaatClient({ transport: async () => { throw new Error("no request expected"); } });
-  await assert.rejects(c.requests.list({ ["sta​tus"]: "resolved" } as never), (err: Error) =>
+  await assert.rejects(c.requests.list({ ["sta\u200btus"]: "resolved" } as never), (err: Error) =>
     err.message.startsWith('Invalid parameter "sta\\u200btus": not a parameter of this endpoint'));
 });
