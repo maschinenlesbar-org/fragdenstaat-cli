@@ -498,7 +498,8 @@ corpus (a number a double can't carry is a parse error; an empty answer too) and
 integrity (the built bin under `ulimit -f`: a cut write leaves the old file and nothing else).
 From the fix round 2026-10-21: P27 big and odd answers (a lone surrogate or invalid bytes are
 replaced with U+FFFD and reported with a WARN, never silent or fatal; a large flat answer prints
-with `--compact` within a small heap).
+with `--compact` within a small heap; an answer full of DEL characters prints escaped within a
+small heap, or, past V8's longest string, is an ERROR record of `output`).
 Tests must keep passing on Node 22/24/26 (`engines`: `>=22.12`, the floor of the pinned commander 15).
 
 ## CI / release
@@ -563,7 +564,10 @@ page), `http` (the connection, the cleartext warning) and
 `output` (an answer nested too deeply or too large to print: `The answer is nested too deeply
 to pretty-print[; try --compact].`, `The answer is too large (more than 536870888 characters of
 JSON) to pretty-print[; try --compact].`, the hint only when `--compact` prints this very answer
-on this runtime, probed; `Wrote N bytes to …` — for stdout only once the write has succeeded:
+on this runtime, probed; an answer whose escaped controls would pass V8's longest string,
+`The answer is too large to print (N characters once its control characters are escaped).`,
+measured before anything is built, and the escaping itself works in 64 Ki chunks;
+`Wrote N bytes to …` — for stdout only once the write has succeeded:
 `CliIO.outBinary` may return a promise that settles then, `false` after a failed write,
 which leaves the note and the CSV page note out — and any failure to write the output: an `OutputError` for
 the `-o` file, refusing to overwrite included, a stdout write error). Code logs through `logOf(deps)` and never writes
