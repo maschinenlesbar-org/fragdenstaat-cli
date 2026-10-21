@@ -44,7 +44,7 @@ export interface FilterOptions {
    * after they were written. Default `false`: an unknown key is rejected, because the
    * API ignores it and answers with the unfiltered result.
    */
-  allowUnknownFilters?: boolean;
+  allowUnknownFilters?: boolean | undefined;
 }
 
 /**

@@ -82,43 +82,43 @@ export interface EngineOptions {
    * Base URL of the API. Defaults to https://fragdenstaat.de. Whitespace or control
    * characters in it are an FdsValidationError at construction.
    */
-  baseUrl?: string;
+  baseUrl?: string | undefined;
   /** Swappable transport. Defaults to the built-in node http/https transport. */
-  transport?: Transport;
+  transport?: Transport | undefined;
   /**
    * Value of the User-Agent header (default `fragdenstaat-cli`): non-blank, Latin-1,
    * no control characters but tab, or the constructor throws an FdsValidationError.
    */
-  userAgent?: string;
+  userAgent?: string | undefined;
   /** Per-request timeout in milliseconds, 0..`MAX_TIMEOUT_MS` (2^31 - 1 ms); 0 disables. */
-  timeoutMs?: number;
+  timeoutMs?: number | undefined;
   /**
    * Number of automatic retries for transient (429/503) responses and connection
    * resets (isTransientNetworkError), 0..`MAX_RETRIES` (10). Each waits
    * `retryDelayMs * attempt`, or the response's `Retry-After` when that is longer (up to
    * `MAX_RETRY_AFTER_MS`; a longer one is not retried, and the FdsApiError says so).
    */
-  maxRetries?: number;
+  maxRetries?: number | undefined;
   /**
    * Base backoff between retries in milliseconds (grows linearly), 0..`MAX_RETRY_AFTER_MS`
    * (30 000). It is also the floor under a `Retry-After`: the header can lengthen a wait,
    * never shorten it.
    */
-  retryDelayMs?: number;
+  retryDelayMs?: number | undefined;
   /**
    * Hard cap on response body size in bytes (defends against memory exhaustion
    * from a hostile/buggy endpoint). Defaults to 100 MiB; set to 0 for no limit.
    * Every numeric option must be a non-negative safe integer within its range, or
    * the constructor throws a FdsError.
    */
-  maxResponseBytes?: number;
+  maxResponseBytes?: number | undefined;
   /** Injectable sleep, primarily for deterministic tests. */
-  sleep?: (ms: number) => Promise<void>;
+  sleep?: ((ms: number) => Promise<void>) | undefined;
   /**
    * Called once per retry, right before the backoff sleep, for each retried 429/503
    * and reset connection; never when there is no retry. A throw is swallowed.
    */
-  onRetry?: (event: RetryEvent) => void;
+  onRetry?: ((event: RetryEvent) => void) | undefined;
 }
 
 /** `onRetry` must be a function: an FdsValidationError at construction, not a TypeError mid-request. */

@@ -417,8 +417,12 @@ ids, `venue`, `feature`). They can be added later if a use case appears.
 ## Testing
 
 Node's built-in test runner (`node:test`), no jest/vitest. The client's tests are in
-`packages/client/test/` (`query`, `http`, `engine`, `client`), everything that drives the
-CLI is in `apps/cli/test/`. `packages/client/test/helpers.ts` builds canned responses and a
+`packages/client/test/` (`query`, `http`, `engine`, `client`, `types`), everything that drives the
+CLI is in `apps/cli/test/`. Every optional field of the exported option interfaces
+(`EngineOptions`, `FilterOptions`, the params in `params.ts`) is declared `?: T | undefined`, as
+the runtime treats `undefined` as omitted: `types.test.ts` compiles a consumer with
+`exactOptionalPropertyTypes` against the built declarations (it starts `tsc`, so it has 30 s),
+and checks that every option given as `undefined` means its default. `packages/client/test/helpers.ts` builds canned responses and a
 recording mock transport (`apps/cli/test/helpers.ts` re-exports it next to the CLI's own
 helpers); `packages/client/test/fixtures.ts` holds Tastypie sample bodies. `http.test.ts` exercises the real transport against a local
 `http.createServer`. `cli.test.ts` drives `run()` end-to-end with a mocked client.

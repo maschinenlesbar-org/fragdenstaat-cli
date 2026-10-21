@@ -18,9 +18,9 @@ export const MAX_PAGE_SIZE = 50;
 /** Offset/limit pagination shared by every list endpoint. */
 export interface Pagination {
   /** Position in the whole result set: a non-negative integer. */
-  offset?: number;
+  offset?: number | undefined;
   /** Page size: an integer from 1 to `MAX_PAGE_SIZE` (50); defaults server-side to 50. */
-  limit?: number;
+  limit?: number | undefined;
 }
 
 type Id = number | string;
@@ -29,40 +29,40 @@ type IdList = Id | Id[];
 
 /** Filters for `GET /api/v1/request/` (FOI requests). */
 export interface RequestListParams extends Pagination {
-  status?: RequestStatus;
-  resolution?: RequestResolution;
-  jurisdiction?: Id;
-  law?: Id;
+  status?: RequestStatus | undefined;
+  resolution?: RequestResolution | undefined;
+  jurisdiction?: Id | undefined;
+  law?: Id | undefined;
   /**
    * The exact **name** of a category, case-sensitive (`"Umwelt"`, as `categories.list`
    * shows it) — not its id or slug, which match nothing. Matches requests whose public
    * body is in that category.
    */
-  categories?: string;
+  categories?: string | undefined;
   /**
    * The exact **name** of a public-body classification, case-sensitive
    * (`"Ministerium"`) — not its id or slug, which match nothing.
    */
-  classification?: string;
+  classification?: string | undefined;
   /** A campaign id, or `"-"` for requests that belong to no campaign. */
-  campaign?: Id;
-  public_body?: Id;
+  campaign?: Id | undefined;
+  public_body?: Id | undefined;
   /** One tag name, exact and case-sensitive (as `requests.tagsAutocomplete` returns it). */
-  tags?: string;
-  reference?: string;
-  slug?: string;
-  is_foi?: boolean;
-  checked?: boolean;
-  has_same?: boolean;
+  tags?: string | undefined;
+  reference?: string | undefined;
+  slug?: string | undefined;
+  is_foi?: boolean | undefined;
+  checked?: boolean | undefined;
+  has_same?: boolean | undefined;
   /** Minimum charged costs in EUR: a finite non-negative number. */
-  costs_min?: number;
+  costs_min?: number | undefined;
   /** Maximum charged costs in EUR: a finite non-negative number. */
-  costs_max?: number;
-  created_at_after?: string;
-  created_at_before?: string;
-  project?: Id;
-  user?: Id;
-  follower?: Id;
+  costs_max?: number | undefined;
+  created_at_after?: string | undefined;
+  created_at_before?: string | undefined;
+  project?: Id | undefined;
+  user?: Id | undefined;
+  follower?: Id | undefined;
 }
 
 /**
@@ -73,31 +73,31 @@ export interface RequestListParams extends Pagination {
  * is unusable. Use `RequestListParams.status` on the plain list endpoint instead.
  */
 export interface RequestSearchParams extends Pagination {
-  q?: string;
-  jurisdiction?: string;
-  category?: string;
+  q?: string | undefined;
+  jurisdiction?: string | undefined;
+  category?: string | undefined;
 }
 
 /** Filters for `GET /api/v1/publicbody/` (public bodies). */
 export interface PublicBodyListParams extends Pagination {
-  q?: string;
-  jurisdiction?: Id;
-  classification?: Id;
-  classification_id?: Id;
+  q?: string | undefined;
+  jurisdiction?: Id | undefined;
+  classification?: Id | undefined;
+  classification_id?: Id | undefined;
   /** Category id(s): several are sent as repeated keys, which the API ORs. */
-  category?: Id | Id[];
+  category?: Id | Id[] | undefined;
   /**
    * One geo-region id (that region and its sub-regions) or a comma list `"1,2"` / `[1, 2]`
    * (exactly those regions). Upstream, a single id that doesn't exist filters nothing, so
    * the client looks each id up first and rejects an unknown one (FdsValidationError).
    */
-  regions?: IdList;
-  slug?: string;
+  regions?: IdList | undefined;
+  slug?: string | undefined;
   /**
    * `lng,lat` point: keeps bodies whose `regions` contain it. Results are not
    * sorted by distance, and a body matching through several regions repeats.
    */
-  lnglat?: string;
+  lnglat?: string | undefined;
 }
 
 /**
@@ -108,15 +108,15 @@ export interface PublicBodyListParams extends Pagination {
  * id 118, Ministerium, narrowed 10000 hits to 225).
  */
 export interface PublicBodySearchParams extends Pagination {
-  q?: string;
-  jurisdiction?: Id;
-  classification?: Id;
+  q?: string | undefined;
+  jurisdiction?: Id | undefined;
+  classification?: Id | undefined;
   /** Category id. */
-  categories?: Id;
+  categories?: Id | undefined;
   /** Geo-region id(s); several are sent as repeated keys. Each is looked up first; an unknown one rejects. */
-  regions?: Id | Id[];
+  regions?: Id | Id[] | undefined;
   /** Only bodies in regions of this kind. */
-  regions_kind?: GeoRegionKind;
+  regions_kind?: GeoRegionKind | undefined;
 }
 
 /**
@@ -125,23 +125,23 @@ export interface PublicBodySearchParams extends Pagination {
  * `7`); the API ignores a non-numeric value there and returns every law.
  */
 export interface LawListParams extends Pagination {
-  q?: string;
-  jurisdiction?: Id;
-  mediator?: Id;
-  meta?: boolean;
-  id?: Id;
+  q?: string | undefined;
+  jurisdiction?: Id | undefined;
+  mediator?: Id | undefined;
+  meta?: boolean | undefined;
+  id?: Id | undefined;
 }
 
 /** Filters for `GET /api/v1/category/` and `/api/v1/classification/` (taxonomy trees). */
 export interface TreeListParams extends Pagination {
-  q?: string;
-  name?: string;
-  parent?: Id;
-  ancestor?: Id;
+  q?: string | undefined;
+  name?: string | undefined;
+  parent?: Id | undefined;
+  ancestor?: Id | undefined;
   /** Tree depth: a non-negative integer. */
-  depth?: number;
+  depth?: number | undefined;
   /** Categories only: `classifications.list` rejects it (the endpoint ignores it). */
-  is_topic?: boolean;
+  is_topic?: boolean | undefined;
 }
 
 /** Filters for `GET /api/v1/classification/`: like categories, without `is_topic`. */
@@ -149,42 +149,42 @@ export type ClassificationListParams = Omit<TreeListParams, "is_topic">;
 
 /** Filters for `GET /api/v1/message/` (correspondence). */
 export interface MessageListParams extends Pagination {
-  request?: Id;
-  kind?: MessageKind;
-  is_response?: boolean;
-  is_draft?: boolean;
+  request?: Id | undefined;
+  kind?: MessageKind | undefined;
+  is_response?: boolean | undefined;
+  is_draft?: boolean | undefined;
 }
 
 /** Filters for `GET /api/v1/document/` (published documents). */
 export interface DocumentListParams extends Pagination {
-  publicbody?: Id;
-  foirequest?: Id;
-  collection?: Id;
-  portal?: Id;
-  directory?: Id;
+  publicbody?: Id | undefined;
+  foirequest?: Id | undefined;
+  collection?: Id | undefined;
+  portal?: Id | undefined;
+  directory?: Id | undefined;
   /** A tag **slug** (the API matches the tag's slug; an unknown one matches nothing). */
-  tag?: string;
+  tag?: string | undefined;
   /**
    * Document ids: `"26,27"` or `[26, 27]`. Every element must be an integer — upstream,
    * one bad element (`"26,abc"`, `"26;27"`) drops the whole filter.
    */
-  ids?: IdList;
-  created_at_after?: string;
-  created_at_before?: string;
+  ids?: IdList | undefined;
+  created_at_after?: string | undefined;
+  created_at_before?: string | undefined;
 }
 
 /** Filters for `GET /api/v1/georegion/` (geographic regions). */
 export interface GeoRegionListParams extends Pagination {
-  q?: string;
-  name?: string;
-  kind?: GeoRegionKind;
-  kind_detail?: string;
-  level?: number;
-  region_identifier?: string;
-  slug?: string;
-  ancestor?: Id;
+  q?: string | undefined;
+  name?: string | undefined;
+  kind?: GeoRegionKind | undefined;
+  kind_detail?: string | undefined;
+  level?: number | undefined;
+  region_identifier?: string | undefined;
+  slug?: string | undefined;
+  ancestor?: Id | undefined;
   /** Region id(s): `5`, `"5,6"` or `[5, 6]`; one non-numeric element dropped the filter upstream. */
-  id?: IdList;
+  id?: IdList | undefined;
   /** `lat,lng` pair for point-in-region lookup. */
-  latlng?: string;
+  latlng?: string | undefined;
 }
