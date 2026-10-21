@@ -154,6 +154,14 @@ What the library rejects with `FdsValidationError`, before any request:
   `undefined` and `null` still mean "omitted". The CLI's `parseNonEmpty` uses the same
   `nonBlankProblem`. An invalid `Date` (`new Date("nope")`) is refused the same way
   (`Expected a valid date.`) instead of throwing a raw `RangeError` from `toISOString`.
+- **Free text goes out canonical.** A text filter the API matches — every `q` (search,
+  list and autocomplete), request `categories`, `classification` and `tags`, category and
+  classification `name`, georegion `name` and `kind_detail` — is sent trimmed and in
+  composed Unicode (`normalizeText`, NFC: a decomposed "Müller" as pasted from a macOS file
+  name, or `" Umwelt "`, matched nothing, with exit 0); the filter tables' `TEXT` kind
+  applies it, and `autocompleteQuery` for `q`. A blank one is refused before any request,
+  as above. Ids, slugs (`slug`, document `tag`, request search `jurisdiction`/`category`),
+  `reference`, `region_identifier` and dates are not text and go out as given.
 - **An autocomplete without a query.** Every `autocomplete(q)` (and
   `requests.tagsAutocomplete`) needs `q` as a non-blank string (`queryTextProblem`);
   `undefined` or `null` used to send no `q` at all, which the API answers with every

@@ -27,6 +27,10 @@ Each filter and paging option, and each global option that takes a value (`--bas
 as `--compact` may repeat).
 Id filters take integers only and id lists comma-separated integers; anything else is
 a usage error before any request, since the server would ignore the filter.
+Text — `--q`, `--name`, `--kind-detail`, request `--categories`/`--classification`/`--tags`
+and an autocomplete query — is sent without surrounding whitespace and in composed Unicode
+(NFC), so a pasted `" Umwelt "` or a decomposed `Müller` still matches; slugs and ids are
+sent as typed.
 IDs are numeric — resolve names via `autocomplete`/`list --q` first
 (`category autocomplete` returns names only; use `category list --q` for category ids).
 

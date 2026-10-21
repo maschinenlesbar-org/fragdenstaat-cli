@@ -63,6 +63,17 @@ const queryScalarProblem: Problem<unknown> = (value) => {
 };
 
 /**
+ * A free-text value as the API matches it (a search term, a name filter): without
+ * surrounding whitespace (a value pasted with a trailing space matched nothing) and in
+ * composed Unicode, NFC (a decomposed "Müller", u plus U+0308 as pasted from a macOS file
+ * name, matched nothing). Inner whitespace is kept. Never for ids, slugs, references,
+ * codes or dates, which go out as given.
+ */
+export function normalizeText(value: string): string {
+  return value.trim().normalize("NFC");
+}
+
+/**
  * Rule for an autocomplete query `q`: a non-blank string. `undefined` or `null` would
  * send no `q` at all, which the API answers with every suggestion.
  */

@@ -24,6 +24,7 @@ import {
   isBlank,
   limitProblem,
   nonBlankProblem,
+  normalizeText,
   offsetProblem,
   oneOfProblem,
   pointProblem,
@@ -128,6 +129,8 @@ export function normalizeIdList(value: unknown): string {
 const campaignProblem: Problem<unknown> = (value) => (value === "-" ? undefined : idProblem(value));
 
 const STRING: ParamKind = { rule: stringProblem };
+/** Free text the API matches (a search term, a name): sent trimmed and in NFC (`normalizeText`). */
+const TEXT: ParamKind = { rule: stringProblem, normalize: (v) => normalizeText(v as string) };
 const DATE: ParamKind = { rule: dateProblem };
 const BOOL: ParamKind = { rule: booleanProblem };
 const AMOUNT: ParamKind = { rule: amountProblem };
@@ -151,13 +154,13 @@ export const REQUEST_LIST_PARAMS: ParamSpec = {
   jurisdiction: ID,
   law: ID,
   /** The exact category **name** (`Umwelt`), not an id or slug: `public_body__categories__name`. */
-  categories: STRING,
+  categories: TEXT,
   /** The exact classification **name** (`Ministerium`): `public_body__classification__name`. */
-  classification: STRING,
+  classification: TEXT,
   campaign: { rule: campaignProblem, normalize: (v) => (v === "-" ? "-" : Number(v)) },
   public_body: ID,
   /** The exact tag name, case-sensitive (`tags__name`). */
-  tags: STRING,
+  tags: TEXT,
   reference: STRING,
   slug: STRING,
   is_foi: BOOL,
@@ -175,7 +178,7 @@ export const REQUEST_LIST_PARAMS: ParamSpec = {
 /** `requests.search` — GET /api/v1/request/search/ (jurisdiction and category are slugs). */
 export const REQUEST_SEARCH_PARAMS: ParamSpec = {
   ...PAGINATION_PARAMS,
-  q: STRING,
+  q: TEXT,
   jurisdiction: STRING,
   category: STRING,
 };
@@ -183,7 +186,7 @@ export const REQUEST_SEARCH_PARAMS: ParamSpec = {
 /** `publicBodies.list` — GET /api/v1/publicbody/ (Froide's PublicBodyFilter). */
 export const PUBLICBODY_LIST_PARAMS: ParamSpec = {
   ...PAGINATION_PARAMS,
-  q: STRING,
+  q: TEXT,
   jurisdiction: ID,
   classification: ID,
   classification_id: ID,
@@ -201,7 +204,7 @@ export const PUBLICBODY_LIST_PARAMS: ParamSpec = {
  */
 export const PUBLICBODY_SEARCH_PARAMS: ParamSpec = {
   ...PAGINATION_PARAMS,
-  q: STRING,
+  q: TEXT,
   jurisdiction: ID,
   classification: ID,
   categories: ID,
@@ -212,7 +215,7 @@ export const PUBLICBODY_SEARCH_PARAMS: ParamSpec = {
 /** `laws.list` — GET /api/v1/law/. */
 export const LAW_LIST_PARAMS: ParamSpec = {
   ...PAGINATION_PARAMS,
-  q: STRING,
+  q: TEXT,
   jurisdiction: ID,
   mediator: ID,
   meta: BOOL,
@@ -222,8 +225,8 @@ export const LAW_LIST_PARAMS: ParamSpec = {
 /** `classifications.list` — GET /api/v1/classification/ (no `is_topic`). */
 export const CLASSIFICATION_LIST_PARAMS: ParamSpec = {
   ...PAGINATION_PARAMS,
-  q: STRING,
-  name: STRING,
+  q: TEXT,
+  name: TEXT,
   parent: ID,
   ancestor: ID,
   depth: INT,
@@ -262,10 +265,10 @@ export const DOCUMENT_LIST_PARAMS: ParamSpec = {
 /** `georegions.list` — GET /api/v1/georegion/. */
 export const GEOREGION_LIST_PARAMS: ParamSpec = {
   ...PAGINATION_PARAMS,
-  q: STRING,
-  name: STRING,
+  q: TEXT,
+  name: TEXT,
   kind: oneOf(GeoRegionKindValues),
-  kind_detail: STRING,
+  kind_detail: TEXT,
   level: INT,
   region_identifier: STRING,
   slug: STRING,

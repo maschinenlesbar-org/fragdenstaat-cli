@@ -194,3 +194,44 @@ test("autocomplete without a usable q rejects before any request", async () => {
     assert.equal(mt.calls.length, 0);
   }
 });
+
+test("a free-text filter goes out trimmed and in composed Unicode; ids, slugs and codes as given (kit K6)", async () => {
+  // " Umwelt " and a decomposed "Müller" (as pasted from a macOS file name) matched nothing.
+  const decomposed = "Müller";
+  const composed = "Müller";
+  const cases: Array<[string, (c: FragDenStaatClient, v: string) => Promise<unknown>, string]> = [
+    ["request list categories", (c, v) => c.requests.list({ categories: v }), "categories"],
+    ["request list classification", (c, v) => c.requests.list({ classification: v }), "classification"],
+    ["request list tags", (c, v) => c.requests.list({ tags: v }), "tags"],
+    ["request search q", (c, v) => c.requests.search({ q: v }), "q"],
+    ["request tags autocomplete", (c, v) => c.requests.tagsAutocomplete(v), "q"],
+    ["publicbody list q", (c, v) => c.publicBodies.list({ q: v }), "q"],
+    ["publicbody search q", (c, v) => c.publicBodies.search({ q: v }), "q"],
+    ["publicbody autocomplete", (c, v) => c.publicBodies.autocomplete(v), "q"],
+    ["law list q", (c, v) => c.laws.list({ q: v }), "q"],
+    ["law autocomplete", (c, v) => c.laws.autocomplete(v), "q"],
+    ["category list q", (c, v) => c.categories.list({ q: v }), "q"],
+    ["category list name", (c, v) => c.categories.list({ name: v }), "name"],
+    ["category autocomplete", (c, v) => c.categories.autocomplete(v), "q"],
+    ["classification list name", (c, v) => c.classifications.list({ name: v }), "name"],
+    ["georegion list q", (c, v) => c.georegions.list({ q: v }), "q"],
+    ["georegion list name", (c, v) => c.georegions.list({ name: v }), "name"],
+    ["georegion autocomplete", (c, v) => c.georegions.autocomplete(v), "q"],
+  ];
+  for (const [name, call, key] of cases) {
+    for (const [value, sent] of [[` ${decomposed}\t`, composed], ["a  b", "a  b"], [" 　 ", undefined]] as const) {
+      const { client: c, mt } = client(() => jsonResponse(fx.requestList));
+      if (sent === undefined) {
+        await assert.rejects(call(c, value), FdsValidationError, `${name}: a blank value`);
+        assert.equal(mt.calls.length, 0, name);
+        continue;
+      }
+      await call(c, value);
+      assert.equal(new URL(mt.last().url).searchParams.get(key), sent, `${name} ${JSON.stringify(value)}`);
+    }
+  }
+  // Slugs, references and codes are not text: they go out as given.
+  const { client: c, mt } = client(() => jsonResponse(fx.requestList));
+  await c.documents.list({ tag: "Müller" });
+  assert.equal(new URL(mt.last().url).searchParams.get("tag"), "Müller");
+});

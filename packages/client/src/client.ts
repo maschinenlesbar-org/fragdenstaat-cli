@@ -12,7 +12,7 @@
 import { RequestEngine, type EngineOptions, type RawResponse } from "./engine.js";
 import type { QueryParams, QueryValue } from "./query.js";
 import { FdsApiError, FdsValidationError, cutForMessage } from "./errors.js";
-import { assertValid, normalizeResourceId, queryTextProblem } from "./validate.js";
+import { assertValid, normalizeResourceId, normalizeText, queryTextProblem } from "./validate.js";
 import {
   CATEGORY_LIST_PARAMS,
   CLASSIFICATION_LIST_PARAMS,
@@ -87,7 +87,7 @@ function checkedQuery(params: unknown, spec: ParamSpec, options?: FilterOptions)
  * plus the checked pagination.
  */
 function autocompleteQuery(q: string, page: Pagination | null | undefined): QueryParams {
-  return { ...checkedQuery(page, PAGINATION_PARAMS), q: assertValid("q", q, queryTextProblem) };
+  return { ...checkedQuery(page, PAGINATION_PARAMS), q: normalizeText(assertValid("q", q, queryTextProblem)) };
 }
 
 /**

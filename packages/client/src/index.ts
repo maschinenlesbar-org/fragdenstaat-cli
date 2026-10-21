@@ -46,6 +46,7 @@ export {
   nonBlankProblem,
   normalizeIdFilter,
   normalizeResourceId,
+  normalizeText,
   oneOfProblem,
   pointProblem,
   queryTextProblem,
