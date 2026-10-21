@@ -124,7 +124,10 @@ apps/cli/src/cli/
   double a server printed in its shortest form) print as the same number and pass, as do
   `5e-324` and `1e-310`. Below 2^53 and above the subnormal range a decimal fraction keeps a
   double's usual precision. No field of
-  this API carries a number that large (ids, counts and coordinates are far below it). CSV
+  this API carries a number that large (ids, counts and coordinates are far below it), so the
+  client declares no `bigIntegerKeys` (the engine option, from the kit: a declared member's
+  number is delivered as its exact literal, as a string). The check is one linear pass that skips
+  strings (`scanNumbers`), never a reviver. CSV
   downloads stay raw bytes.
 - **`CliDeps`** (`io.ts`) — a client factory + I/O object (`out`/`err`/`writeFile`/
   `outBinary`). `run.ts` returns an exit code instead of calling `process.exit`, so
