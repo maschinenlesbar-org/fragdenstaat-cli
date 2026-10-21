@@ -451,6 +451,24 @@ function holdsHugeString(value: unknown): boolean {
   return false;
 }
 
+/**
+ * commander value-parser for `-o, --output <file>`: a blank path is a usage error, and so is any
+ * value that starts with a dash other than `-` (stdout): commander hands a value option the next
+ * argument whatever it looks like, so `request list -o --compact` wrote a file named
+ * "--compact" with exit 0. `-o -x` and `--output=-x` reach the parser alike, so a file whose
+ * name starts with a dash is written as `./-x`.
+ */
+export function parseOutputPath(value: string): string {
+  parseNonEmpty(value);
+  if (value !== STDOUT_PATH && value.startsWith("-")) {
+    throw new InvalidArgumentError(
+      `looks like a missing value — ${JSON.stringify(cutForMessage(value))} is the next option, consumed because ` +
+        "this one was left without a value. For a file whose name starts with a dash, write ./-name.",
+    );
+  }
+  return value;
+}
+
 /** The `-o` value that means stdout, as in other Unix tools (`-o -`). */
 export const STDOUT_PATH = "-";
 

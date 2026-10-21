@@ -10,7 +10,7 @@ import { defaultIO } from "./io.js";
 import { FragDenStaatClient } from "@maschinenlesbar.org/fragdenstaat-client/internal/client";
 import { MAX_TIMEOUT_MS } from "@maschinenlesbar.org/fragdenstaat-client/internal/http";
 import { MAX_RETRIES } from "@maschinenlesbar.org/fragdenstaat-client/internal/engine";
-import { forbidRepeatedOptions, parseBaseUrl, parseBoundedInt, parseHeaderValue, parseIntArg, parseNonEmpty } from "./shared.js";
+import { forbidRepeatedOptions, parseBaseUrl, parseBoundedInt, parseHeaderValue, parseIntArg, parseOutputPath } from "./shared.js";
 import { registerRequestCommands } from "./commands/requests.js";
 import { registerPublicBodyCommands } from "./commands/publicbodies.js";
 import { registerLawCommands } from "./commands/laws.js";
@@ -85,8 +85,8 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     .option("--compact", "print JSON on a single line instead of pretty-printed")
     .option(
       "-o, --output <file>",
-      'write output (JSON, or CSV with --csv) to this file ("-" = stdout)',
-      parseNonEmpty,
+      'write output (JSON, or CSV with --csv) to this file ("-" = stdout; a name that starts with a dash as ./-name)',
+      parseOutputPath,
     )
     .option("--force", "with -o, overwrite the output file if it already exists")
     .showHelpAfterError();

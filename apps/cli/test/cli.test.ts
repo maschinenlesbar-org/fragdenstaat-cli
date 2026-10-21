@@ -888,12 +888,15 @@ test("a repeated --log-format is a usage error, logged in the last one (L6, kit 
 });
 
 test("an option's value that looks like --log-format sets no format, in a parse error too (B03-1, L6)", async () => {
-  // commander takes "--log-format" as the User-Agent (or the -o path) and then fails on the command "jsonl".
-  for (const argv of [["--user-agent", "--log-format", "jsonl", "request", "get", "1"], ["-o", "--log-format", "jsonl", "request", "get", "1"]]) {
-    const cli = makeCli(() => jsonResponse({}));
-    assert.equal(await run(argv, cli.deps), 1, JSON.stringify(argv));
-    assert.match(untimed(cli.err[0] ?? ""), /^ERROR \[fragdenstaat\.cli\] unknown command 'jsonl'/, cli.err.join("\n"));
-  }
+  // commander takes "--log-format" as the User-Agent and then fails on the command "jsonl".
+  const agent = makeCli(() => jsonResponse({}));
+  assert.equal(await run(["--user-agent", "--log-format", "jsonl", "request", "get", "1"], agent.deps), 1);
+  assert.match(untimed(agent.err[0] ?? ""), /^ERROR \[fragdenstaat\.cli\] unknown command 'jsonl'/, agent.err.join("\n"));
+  // -o refuses it as the next option (T13): a usage error, in text.
+  const output = makeCli(() => jsonResponse({}));
+  assert.equal(await run(["-o", "--log-format", "jsonl", "request", "get", "1"], output.deps), 1);
+  assert.match(untimed(output.err[0] ?? ""), /^ERROR \[fragdenstaat\.cli\] .*looks like a missing value/, output.err.join("\n"));
+  assert.equal(output.files.size, 0);
   // commander takes "--log-format=jsonl" as the User-Agent and sends it: the log stays text.
   const ua = makeCli(() => jsonResponse({ detail: "Nicht gefunden." }, 404));
   assert.equal(await run(["--user-agent", "--log-format=jsonl", "request", "get", "1"], ua.deps), 4);
@@ -1032,4 +1035,20 @@ test("terminal controls are escaped in chunks: the same text as one pass, across
     (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, "0")}`);
   assert.equal(out[0], expected);
   assert.deepEqual(JSON.parse(out[0]!), { text });
+});
+
+// T13 (bundeswahlleiterin-cli 6d3ebbe): `-o --compact` wrote a file named "--compact" with exit 0.
+test("-o refuses the next option as its file name, before any request; ./-name writes a dash-leading file (T13)", async () => {
+  for (const argv of [["request", "list", "-o", "--compact"], ["--output=-v", "request", "list"], ["-o", "--force", "request", "list"]]) {
+    const cli = makeCli(() => jsonResponse(fx.requestList));
+    assert.equal(await run(argv, cli.deps), 1, argv.join(" "));
+    assert.equal(cli.mt.calls.length, 0, argv.join(" "));
+    assert.equal(cli.files.size, 0, argv.join(" "));
+    const err = untimed(cli.err.join("\n"));
+    assert.match(err, /^ERROR \[fragdenstaat\.cli\] .*looks like a missing value — "-[-a-z]+" is the next option/, argv.join(" "));
+    assert.match(err, /\.\/-name/, argv.join(" "));
+  }
+  const cli = makeCli(() => jsonResponse(fx.requestList));
+  assert.equal(await run(["-o", "./-v.json", "request", "list"], cli.deps), 0);
+  assert.deepEqual([...cli.files.keys()], ["./-v.json"]);
 });

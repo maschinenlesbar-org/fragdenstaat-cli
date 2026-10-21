@@ -11,7 +11,9 @@ object per line (`ts`, `level`, `topic`, `msg`); stdout is not affected. A `--ba
 `WARN  [fragdenstaat.http] requests to <host> are sent unencrypted (http:, not https:)` (or "the base URL's
 credentials are sent unencrypted …" with a `user:password@`, never printed); stdout and the
 exit code are unchanged. `-o -` means stdout,
-like no `-o` at all. `-o` never overwrites an
+like no `-o` at all; any other value that starts with a dash is refused as the next option
+(`-o --compact` is a usage error, not a file named "--compact"), so write a file named `-x`
+as `./-x`. `-o` never overwrites an
 existing file (`Refusing to overwrite existing file "…" (use --force).`, exit 1); add
 `--force` to overwrite it. The path is checked before any request: an existing file (a
 dangling link too) without `--force`, a directory, a file whose directory is missing, not a
