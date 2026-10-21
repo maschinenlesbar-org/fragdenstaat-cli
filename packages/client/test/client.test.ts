@@ -195,7 +195,7 @@ test("autocomplete without a usable q rejects before any request", async () => {
   }
 });
 
-test("a free-text filter goes out trimmed and in composed Unicode; ids, slugs and codes as given (kit K6)", async () => {
+test("a free-text filter and a token go out trimmed and in composed Unicode (kit K6, D8)", async () => {
   // " Umwelt " and a decomposed "Müller" (as pasted from a macOS file name) matched nothing.
   const decomposed = "Müller";
   const composed = "Müller";
@@ -230,10 +230,25 @@ test("a free-text filter goes out trimmed and in composed Unicode; ids, slugs an
       assert.equal(new URL(mt.last().url).searchParams.get(key), sent, `${name} ${JSON.stringify(value)}`);
     }
   }
-  // Slugs, references and codes are not text: they go out as given.
-  const { client: c, mt } = client(() => jsonResponse(fx.requestList));
-  await c.documents.list({ tag: "Müller" });
-  assert.equal(new URL(mt.last().url).searchParams.get("tag"), "Müller");
+  // Slugs, references, codes and dates are tokens (D8): trimmed and in NFC too, and refused
+  // when they hold an invisible or control character, which only ever matched nothing.
+  const tokens: Array<[string, (c: FragDenStaatClient, v: string) => Promise<unknown>, string]> = [
+    ["document list tag", (c, v) => c.documents.list({ tag: v }), "tag"],
+    ["request list slug", (c, v) => c.requests.list({ slug: v }), "slug"],
+    ["request list reference", (c, v) => c.requests.list({ reference: v }), "reference"],
+    ["request search jurisdiction", (c, v) => c.requests.search({ jurisdiction: v }), "jurisdiction"],
+    ["georegion list region_identifier", (c, v) => c.georegions.list({ region_identifier: v }), "region_identifier"],
+    ["request list created_at_after", (c, v) => c.requests.list({ created_at_after: v }), "created_at_after"],
+  ];
+  for (const [name, call, key] of tokens) {
+    const { client: c, mt } = client(() => jsonResponse(fx.requestList));
+    await call(c, ` ${decomposed} `);
+    assert.equal(new URL(mt.last().url).searchParams.get(key), composed, name);
+    for (const bad of ["bu\u200bnd", "bund\u00ad", "\u200b"]) {
+      await assert.rejects(call(c, bad), (err: unknown) => err instanceof FdsValidationError && /\\u200b|\\u00ad|non-empty/.test((err as Error).message), `${name} ${JSON.stringify(bad)}`);
+    }
+    assert.equal(mt.calls.length, 1, name);
+  }
 });
 
 test("a refused value is quoted visibly: format characters, DEL, C1 and U+2028 escaped, cut at 500 (D10)", async () => {

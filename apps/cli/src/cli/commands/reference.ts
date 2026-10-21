@@ -11,7 +11,8 @@ import {
   parseIdFilter,
   parseIdList,
   parseIntArg,
-  parseNonEmpty,
+  parseText,
+  parseToken,
   parsePoint,
   pruneUndefined,
 } from "../shared.js";
@@ -73,8 +74,8 @@ export function registerReferenceCommands(program: Command, deps: CliDeps): void
     description: "List/filter categories",
     addFilters: (cmd) =>
       cmd
-        .option("--q <text>", "full-text query", once(parseNonEmpty))
-        .option("--name <name>", "filter by exact name", once(parseNonEmpty))
+        .option("--q <text>", "full-text query", once(parseText))
+        .option("--name <name>", "filter by exact name", once(parseText))
         .option("--parent <id>", "filter to direct children of this category id", once(parseIdFilter))
         .option("--ancestor <id>", "filter to all descendants of this category id", once(parseIdFilter))
         .option("--depth <n>", "filter by tree depth (a non-negative integer)", once(parseIntArg))
@@ -96,8 +97,8 @@ export function registerReferenceCommands(program: Command, deps: CliDeps): void
     description: "List/filter classifications",
     addFilters: (cmd) =>
       cmd
-        .option("--q <text>", "full-text query", once(parseNonEmpty))
-        .option("--name <name>", "filter by exact name", once(parseNonEmpty))
+        .option("--q <text>", "full-text query", once(parseText))
+        .option("--name <name>", "filter by exact name", once(parseText))
         .option("--parent <id>", "filter to direct children of this classification id", once(parseIdFilter))
         .option("--ancestor <id>", "filter to all descendants of this classification id", once(parseIdFilter))
         .option("--depth <n>", "filter by tree depth (a non-negative integer)", once(parseIntArg)),
@@ -128,13 +129,13 @@ export function registerReferenceCommands(program: Command, deps: CliDeps): void
     description: "List/filter geo-regions",
     addFilters: (cmd) =>
       cmd
-        .option("--q <text>", "full-text query", once(parseNonEmpty))
-        .option("--name <name>", "filter by exact name", once(parseNonEmpty))
+        .option("--q <text>", "full-text query", once(parseText))
+        .option("--name <name>", "filter by exact name", once(parseText))
         .addOption(choiceOption("--kind <kind>", "filter by region kind", GeoRegionKindValues))
-        .option("--kind-detail <text>", "filter by kind detail label", once(parseNonEmpty))
+        .option("--kind-detail <text>", "filter by kind detail label", once(parseText))
         .option("--level <n>", "filter by hierarchy level (a non-negative integer)", once(parseIntArg))
-        .option("--region-identifier <id>", "filter by region identifier", once(parseNonEmpty))
-        .option("--slug <slug>", "filter by exact slug", once(parseNonEmpty))
+        .option("--region-identifier <id>", "filter by region identifier", once(parseToken))
+        .option("--slug <slug>", "filter by exact slug", once(parseToken))
         .option("--ancestor <id>", "filter to descendants of this region id", once(parseIdFilter))
         .option("--id <ids>", "filter by region id, or a comma list of ids (e.g. 5,6)", once(parseIdList))
         .option("--latlng <lat,lng>", "point-in-region lookup for a lat,lng point", once(parsePoint("lat,lng"))),

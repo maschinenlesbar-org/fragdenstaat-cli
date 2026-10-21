@@ -21,6 +21,11 @@ import {
   nonBlankProblem,
   normalizeResourceId,
   resourceIdProblem,
+  textProblem,
+  tokenProblem,
+  normalizeToken,
+  splitList,
+  listProblem,
   type Problem,
 } from "@maschinenlesbar.org/fragdenstaat-client/internal/validate";
 import { FdsError, FdsValidationError } from "@maschinenlesbar.org/fragdenstaat-client/internal/errors";
@@ -28,8 +33,8 @@ import * as library from "../src/index.js";
 import { MAX_PAGE_SIZE } from "@maschinenlesbar.org/fragdenstaat-client/internal/params";
 import { run } from "../src/cli/run.js";
 import type { CliDeps } from "../src/cli/io.js";
-import type { FragDenStaatClient } from "@maschinenlesbar.org/fragdenstaat-client/internal/client";
-import { untimed } from "./helpers.js";
+import { FragDenStaatClient } from "@maschinenlesbar.org/fragdenstaat-client/internal/client";
+import { parity, untimed } from "./helpers.js";
 
 const notBlank: Problem<string> = (value) =>
   value.trim() === "" ? "Expected a non-empty value." : undefined;
@@ -304,4 +309,43 @@ test("amountProblem accepts a finite non-negative number", () => {
 test("resourceIdProblem refuses an id beyond the safe-integer range", () => {
   assert.equal(resourceIdProblem(String(Number.MAX_SAFE_INTEGER)), undefined);
   assert.equal(resourceIdProblem("99999999999999999999"), "Expected a numeric id up to 9007199254740991.");
+});
+
+test("D8: text, tokens and lists: blank includes only-invisible values; control, format and half characters are refused visibly", async () => {
+  // Blank: whitespace, controls, format characters and combining marks only.
+  for (const v of ["", " ", "\u00a0", "\u200b", "\u00ad", "\u0301\u0308", " \u200b "]) {
+    assert.equal(isBlank(v), true, JSON.stringify(v));
+    assert.equal(textProblem(v), "Expected a non-empty value.", JSON.stringify(v));
+    assert.equal(tokenProblem(v), "Expected a non-empty value.", JSON.stringify(v));
+  }
+  assert.equal(isBlank(5), false);
+  // Text keeps ZWJ/ZWNJ and inner TAB/LF; refuses other format characters, controls and lone surrogates.
+  assert.equal(textProblem("a\u200db"), undefined);
+  assert.equal(textProblem("a\tb"), undefined);
+  assert.equal(textProblem("a\u200bb"), '"a\\u200bb" contains an invisible character (U+200B).');
+  assert.equal(textProblem("a\u001bb"), '"a\\u001bb" contains a control character (U+001B).');
+  assert.equal(textProblem("a\ud800"), '"a\\ud800" contains half of a character (a lone surrogate).');
+  // A token refuses every control and format character, ZWJ included, but is trimmed first.
+  assert.equal(tokenProblem("a\u200db"), '"a\\u200db" contains an invisible or control character (U+200D).');
+  assert.equal(tokenProblem(" bund\n"), undefined);
+  assert.equal(normalizeToken(" Mu\u0308ller\t"), "M\u00fcller");
+  // Lists: an empty or invisible item refuses the whole list, naming it.
+  assert.deepEqual(splitList("a, b,,c"), ["a", " b", "", "c"]);
+  assert.equal(listProblem(splitList("a,b")), undefined);
+  assert.equal(listProblem([]), "Expected at least one value.");
+  assert.equal(listProblem(splitList("a,,b")), "item 2 of 3: Expected a non-empty value.");
+  assert.equal(listProblem(splitList("a,b\u200bc")), 'item 2 of 2: "b\\u200bc" contains an invisible or control character (U+200B).');
+  // An id names an invisible character too, before "digits only".
+  assert.equal(resourceIdProblem("1\u200b"), '"1\\u200b" contains an invisible or control character (U+200B).');
+  assert.equal(idFilterProblem("1\u00ad"), '"1\\u00ad" contains an invisible or control character (U+00AD).');
+});
+
+test("D8: the numeric id lists refuse an empty or invisible item, on the CLI and in the library (P24's LIST_REFUSED)", async () => {
+  for (const value of ["", ",", " , ", "1,,2", "1,", ",1", "1,\u200b", "1,a\u200bb", "\ud800,1"]) {
+    const o = await parity(["document", "list", "--ids", value], (t) => new FragDenStaatClient({ transport: t }).documents.list({ ids: value }));
+    assert.equal(o.cli.code, 1, JSON.stringify(value));
+    assert.deepEqual(o.cli.requests, [], JSON.stringify(value));
+    assert.equal(o.lib.ok, false, JSON.stringify(value));
+    assert.deepEqual(o.lib.requests, [], JSON.stringify(value));
+  }
 });

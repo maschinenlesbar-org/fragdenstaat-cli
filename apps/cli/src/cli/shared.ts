@@ -28,6 +28,8 @@ import {
   offsetProblem,
   pointProblem,
   resourceIdProblem,
+  textProblem,
+  tokenProblem,
   type Problem,
 } from "@maschinenlesbar.org/fragdenstaat-client/internal/validate";
 import { MAX_PAGE_SIZE } from "@maschinenlesbar.org/fragdenstaat-client/internal/params";
@@ -87,6 +89,25 @@ export function usageCheck<T>(value: T, problem: Problem<T>): T {
 /** commander value-parser: a non-empty (after trimming) string (`nonBlankProblem`). */
 export function parseNonEmpty(value: string): string {
   return usageCheck(value, nonBlankProblem);
+}
+
+/**
+ * commander value-parser for a text filter (`--q`, `--name`, `--tags`, an autocomplete query):
+ * the library's `textProblem` rule (not blank once trimmed, nor only invisible characters; no
+ * control or format character, no half of one), as a usage error before any request. The
+ * library trims and composes the value it sends (`normalizeText`), so it is passed on as typed.
+ */
+export function parseText(value: string): string {
+  return usageCheck(value, textProblem);
+}
+
+/**
+ * commander value-parser for a token (a slug, `--reference`, `--region-identifier`, a date):
+ * the library's `tokenProblem` rule, as a usage error before any request. The library sends it
+ * trimmed and in NFC (`normalizeToken`).
+ */
+export function parseToken(value: string): string {
+  return usageCheck(value, tokenProblem);
 }
 
 /**

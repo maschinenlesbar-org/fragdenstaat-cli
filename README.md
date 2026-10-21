@@ -118,7 +118,10 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
   classification name (`Umwelt`, `Ministerium`), `--tags` a tag name, and
   `document list --tag` a tag slug. `category autocomplete` returns names, not ids; use
   `category list --q` for categories. `get <id>` accepts digits only; anything else is
-  a usage error before any request.
+  a usage error before any request. Names, search text and slugs are sent trimmed and in
+  composed Unicode (NFC); a value with an invisible or control character in it (a
+  zero-width space, a soft hyphen, a bidi control), or only such characters, is refused
+  before any request, the character shown escaped (`"a\u200bb"`).
 - **Anonymous = public only.** `resolution` is empty until a request is `resolved`.
 - **Exit codes:** `0` success; `4` for a 404 (not found); `1` for any other API or
   runtime error. Errors print to stderr; stdout stays clean for piping. A reader that

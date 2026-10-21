@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import type { CliDeps } from "../io.js";
-import { commaList, once, parseIdFilter, parseIdList, parseNonEmpty, pruneUndefined } from "../shared.js";
+import { commaList, once, parseIdFilter, parseIdList, parseToken, pruneUndefined } from "../shared.js";
 import { addList, addGet } from "./common.js";
 import type { QueryParams } from "@maschinenlesbar.org/fragdenstaat-client/internal/query";
 
@@ -11,10 +11,10 @@ function addDocumentFilters(cmd: Command): Command {
     .option("--collection <id>", "filter by document-collection id", once(parseIdFilter))
     .option("--portal <id>", "filter by document-portal id", once(parseIdFilter))
     .option("--directory <id>", "filter by directory id", once(parseIdFilter))
-    .option("--tag <slug>", "filter by tag slug", once(parseNonEmpty))
+    .option("--tag <slug>", "filter by tag slug", once(parseToken))
     .option("--ids <ids>", "filter by a comma-separated list of numeric document ids (repeatable)", commaList(parseIdList))
-    .option("--created-after <date>", "created on/after this date (YYYY-MM-DD)", once(parseNonEmpty))
-    .option("--created-before <date>", "created on/before this date (YYYY-MM-DD)", once(parseNonEmpty));
+    .option("--created-after <date>", "created on/after this date (YYYY-MM-DD)", once(parseToken))
+    .option("--created-before <date>", "created on/before this date (YYYY-MM-DD)", once(parseToken));
 }
 
 function buildDocumentParams(opts: Record<string, unknown>): QueryParams {

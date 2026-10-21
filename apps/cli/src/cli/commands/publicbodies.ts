@@ -7,7 +7,8 @@ import {
   paginationParams,
   parseIdFilter,
   parseIdList,
-  parseNonEmpty,
+  parseText,
+  parseToken,
   parsePoint,
   pruneUndefined,
   renderCsvPage,
@@ -18,7 +19,7 @@ import type { QueryParams } from "@maschinenlesbar.org/fragdenstaat-client/inter
 
 function addPublicBodyFilters(cmd: Command): Command {
   return cmd
-    .option("--q <text>", "full-text query over name/description", once(parseNonEmpty))
+    .option("--q <text>", "full-text query over name/description", once(parseText))
     .option("--jurisdiction <id>", "filter by jurisdiction id", once(parseIdFilter))
     .option("--classification <id>", "filter by classification id (subtree match)", once(parseIdFilter))
     .option("--classification-id <id>", "filter by exact classification id", once(parseIdFilter))
@@ -28,7 +29,7 @@ function addPublicBodyFilters(cmd: Command): Command {
       "filter by geo-region id (with its sub-regions), or a comma list of ids (exactly those)",
       once(parseIdList),
     )
-    .option("--slug <slug>", "filter by exact slug", once(parseNonEmpty))
+    .option("--slug <slug>", "filter by exact slug", once(parseToken))
     .option(
       "--lnglat <lng,lat>",
       "filter to bodies whose regions contain a lng,lat point (not sorted by distance)",
@@ -82,7 +83,7 @@ export function registerPublicBodyCommands(program: Command, deps: CliDeps): voi
     pb
       .command("search")
       .description("Full-text search over public bodies")
-      .option("--q <text>", "full-text query", once(parseNonEmpty))
+      .option("--q <text>", "full-text query", once(parseText))
       .option("--jurisdiction <id>", "restrict to a jurisdiction id", once(parseIdFilter))
       .option("--classification <id>", "restrict to a classification id", once(parseIdFilter))
       .option("--category <id>", "restrict to a category id", once(parseIdFilter)),

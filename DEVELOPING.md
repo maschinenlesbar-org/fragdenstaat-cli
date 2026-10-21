@@ -175,8 +175,9 @@ the library on one recording mock transport and returns both outcomes.
 
 What the library rejects with `FdsValidationError`, before any request:
 
-- **Blank values.** A query value (or array element) that is `""` or only whitespace,
-  and a blank parameter name, on every request (`assertNonBlankParams`, run by
+- **Blank values.** A query value (or array element) that is `""`, only whitespace, or only
+  invisible characters (controls, format characters such as a zero-width space or a soft
+  hyphen, combining marks: `isBlank`), and a blank parameter name, on every request (`assertNonBlankParams`, run by
   `RequestEngine.request`). The API treats an empty parameter as no filter and answers
   with the whole unfiltered dataset, or every autocomplete suggestion for a blank `q`.
   `undefined` and `null` still mean "omitted". The CLI's `parseNonEmpty` uses the same
@@ -188,8 +189,16 @@ What the library rejects with `FdsValidationError`, before any request:
   composed Unicode (`normalizeText`, NFC: a decomposed "Müller" as pasted from a macOS file
   name, or `" Umwelt "`, matched nothing, with exit 0); the filter tables' `TEXT` kind
   applies it, and `autocompleteQuery` for `q`. A blank one is refused before any request,
-  as above. Ids, slugs (`slug`, document `tag`, request search `jurisdiction`/`category`),
-  `reference`, `region_identifier` and dates are not text and go out as given.
+  as above, and so is one with half a character (a lone surrogate), a control character
+  other than TAB, LF and CR, or a format character other than ZWJ/ZWNJ (`textProblem`, the
+  kit's decision D8): pasted along, it made the search find nothing. Slugs (`slug`, document
+  `tag`, request search `jurisdiction`/`category`), `reference`, `region_identifier` and date
+  strings are tokens (the `TOKEN` kind, `tokenProblem` + `normalizeToken`): sent trimmed and in
+  NFC, and refused with any control or format character (ZWJ too) or half a character. Every
+  refusal quotes the value visibly (`quoteValue`). The CLI's `parseText` and `parseToken` use
+  the same rules. Ids (`get`, the id filters and lists) are digits only, as below; an invisible
+  character in one is named the same way. Only a key sent with `allowUnknownFilters` goes out
+  as given.
 - **An autocomplete without a query.** Every `autocomplete(q)` (and
   `requests.tagsAutocomplete`) needs `q` as a non-blank string (`queryTextProblem`);
   `undefined` or `null` used to send no `q` at all, which the API answers with every
@@ -510,8 +519,10 @@ follow-up round 2026-10-06 P20 the stderr warning for a plain-`http:` base URL (
 API-key cases skipped: no variable, no key) and P21 README links (a relative link must point at
 a file `files` ships, since npmjs.com shows the README; anything else is an absolute GitHub URL),
 and P23 the log on stderr (records with timestamp, level and topic; `--log-format text|jsonl`).
-From the kit rollout 2026-10-21: P24 the input corpus (every text filter goes out trimmed and in
-NFC or is refused, every `get` id is refused unless it is digits; `kitParity` in
+From the kit rollout 2026-10-21: P24 the input corpus (every text filter and token goes out
+trimmed and in NFC or is refused; a blank, invisible, control or half character is refused on
+both sides, shown escaped; every `get` id is refused unless it is digits; the list test has no
+input here, as every list is numeric ids, checked in `validate.test.ts`; `kitParity` in
 `apps/cli/test/helpers.ts` maps this repo's `parity` to the kit's shape), P25 the response
 corpus (a number a double can't carry is a parse error; an empty answer too) and P26 `-o`
 integrity (the built bin under `ulimit -f`: a cut write leaves the old file and nothing else; a

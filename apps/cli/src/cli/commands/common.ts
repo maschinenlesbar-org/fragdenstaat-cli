@@ -13,7 +13,7 @@ import {
   addPagination,
   paginationParams,
   parseId,
-  parseNonEmpty,
+  parseText,
   renderCsvPage,
   renderJson,
 } from "../shared.js";
@@ -127,7 +127,7 @@ export function addAutocomplete(
   return addPagination(
     parent
       .command("autocomplete")
-      .argument("<query>", "text to autocomplete (must be non-empty)", parseNonEmpty)
+      .argument("<query>", "text to autocomplete (must be non-empty)", parseText)
       .description(description),
   ).action(
     action(deps, async ({ client, global, opts }, [q]) => {

@@ -23,11 +23,13 @@ import {
   idFilterProblem,
   isBlank,
   limitProblem,
-  nonBlankProblem,
   normalizeText,
+  normalizeToken,
   offsetProblem,
   oneOfProblem,
   pointProblem,
+  textProblem,
+  tokenProblem,
   type Problem,
 } from "./validate.js";
 import {
@@ -65,14 +67,10 @@ export interface ParamKind {
 /** The parameters of one endpoint, by name. */
 export type ParamSpec = Readonly<Record<string, ParamKind>>;
 
-/** Rule: a non-blank string (a slug, a name, free text). */
-const stringProblem: Problem<unknown> = (value) =>
-  typeof value === "string" ? nonBlankProblem(value) : "Expected a string.";
-
-/** Rule: a date string (`YYYY-MM-DD`, the server checks the format) or a valid `Date`. */
+/** Rule: a date string (`YYYY-MM-DD`, the server checks the format; a token) or a valid `Date`. */
 const dateProblem: Problem<unknown> = (value) => {
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? "Expected a valid date." : undefined;
-  return typeof value === "string" ? nonBlankProblem(value) : "Expected a date string or a Date.";
+  return typeof value === "string" ? tokenProblem(value) : "Expected a date string or a Date.";
 };
 
 /** Rule: a non-negative integer (a tree depth, a hierarchy level), or its digit string. */
@@ -128,10 +126,11 @@ export function normalizeIdList(value: unknown): string {
  */
 const campaignProblem: Problem<unknown> = (value) => (value === "-" ? undefined : idProblem(value));
 
-const STRING: ParamKind = { rule: stringProblem };
+/** A value the API compares exactly (a slug, a reference, a code): sent trimmed and in NFC (`normalizeToken`). */
+const TOKEN: ParamKind = { rule: tokenProblem, normalize: (v) => normalizeToken(v as string) };
 /** Free text the API matches (a search term, a name): sent trimmed and in NFC (`normalizeText`). */
-const TEXT: ParamKind = { rule: stringProblem, normalize: (v) => normalizeText(v as string) };
-const DATE: ParamKind = { rule: dateProblem };
+const TEXT: ParamKind = { rule: textProblem, normalize: (v) => normalizeText(v as string) };
+const DATE: ParamKind = { rule: dateProblem, normalize: (v) => (typeof v === "string" ? normalizeToken(v) : (v as Date)) };
 const BOOL: ParamKind = { rule: booleanProblem };
 const AMOUNT: ParamKind = { rule: amountProblem };
 const ID: ParamKind = { rule: idProblem, normalize: (v) => Number(v) };
@@ -161,8 +160,8 @@ export const REQUEST_LIST_PARAMS: ParamSpec = {
   public_body: ID,
   /** The exact tag name, case-sensitive (`tags__name`). */
   tags: TEXT,
-  reference: STRING,
-  slug: STRING,
+  reference: TOKEN,
+  slug: TOKEN,
   is_foi: BOOL,
   checked: BOOL,
   has_same: BOOL,
@@ -179,8 +178,8 @@ export const REQUEST_LIST_PARAMS: ParamSpec = {
 export const REQUEST_SEARCH_PARAMS: ParamSpec = {
   ...PAGINATION_PARAMS,
   q: TEXT,
-  jurisdiction: STRING,
-  category: STRING,
+  jurisdiction: TOKEN,
+  category: TOKEN,
 };
 
 /** `publicBodies.list` — GET /api/v1/publicbody/ (Froide's PublicBodyFilter). */
@@ -194,7 +193,7 @@ export const PUBLICBODY_LIST_PARAMS: ParamSpec = {
   category: IDS_REPEATED,
   /** One id (that region and its sub-regions) or a comma list (exactly those regions). */
   regions: ID_LIST,
-  slug: STRING,
+  slug: TOKEN,
   lnglat: { rule: pointProblem("lng,lat") },
 };
 
@@ -256,7 +255,7 @@ export const DOCUMENT_LIST_PARAMS: ParamSpec = {
   portal: ID,
   directory: ID,
   /** A tag **slug** (`to_field_name="slug"`). */
-  tag: STRING,
+  tag: TOKEN,
   ids: ID_LIST,
   created_at_after: DATE,
   created_at_before: DATE,
@@ -270,8 +269,8 @@ export const GEOREGION_LIST_PARAMS: ParamSpec = {
   kind: oneOf(GeoRegionKindValues),
   kind_detail: TEXT,
   level: INT,
-  region_identifier: STRING,
-  slug: STRING,
+  region_identifier: TOKEN,
+  slug: TOKEN,
   ancestor: ID,
   /** A comma list of region ids. */
   id: ID_LIST,

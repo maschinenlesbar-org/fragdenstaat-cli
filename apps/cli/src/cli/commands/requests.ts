@@ -10,7 +10,8 @@ import {
   paginationParams,
   parseCampaign,
   parseIdFilter,
-  parseNonEmpty,
+  parseText,
+  parseToken,
   parseNonNegativeNumber,
   pruneUndefined,
   renderCsvPage,
@@ -31,25 +32,25 @@ function addRequestFilters(cmd: Command): Command {
     .option(
       "--categories <name>",
       'filter by the exact category name, case-sensitive (e.g. "Umwelt"; not an id or slug)',
-      once(parseNonEmpty),
+      once(parseText),
     )
     .option(
       "--classification <name>",
       'filter by the exact public-body classification name, case-sensitive (e.g. "Ministerium")',
-      once(parseNonEmpty),
+      once(parseText),
     )
     .option("--campaign <id>", 'filter by campaign id ("-" = requests in no campaign)', once(parseCampaign))
     .option("--public-body <id>", "filter by addressed public-body id", once(parseIdFilter))
-    .option("--tags <tag>", "filter by one tag name, exact and case-sensitive", once(parseNonEmpty))
-    .option("--reference <prefix>", "filter by reference (prefix match)", once(parseNonEmpty))
-    .option("--slug <slug>", "filter by exact slug", once(parseNonEmpty))
+    .option("--tags <tag>", "filter by one tag name, exact and case-sensitive", once(parseText))
+    .option("--reference <prefix>", "filter by reference (prefix match)", once(parseToken))
+    .option("--slug <slug>", "filter by exact slug", once(parseToken))
     .option("--is-foi [bool]", "only genuine FOI requests (true/false)", onceValue)
     .option("--checked [bool]", "only moderator-checked requests (true/false)", onceValue)
     .option("--has-same [bool]", "only requests with identical copies (true/false)", onceValue)
     .option("--costs-min <eur>", "minimum charged costs in EUR", once(parseNonNegativeNumber))
     .option("--costs-max <eur>", "maximum charged costs in EUR", once(parseNonNegativeNumber))
-    .option("--created-after <date>", "created on/after this date (YYYY-MM-DD)", once(parseNonEmpty))
-    .option("--created-before <date>", "created on/before this date (YYYY-MM-DD)", once(parseNonEmpty))
+    .option("--created-after <date>", "created on/after this date (YYYY-MM-DD)", once(parseToken))
+    .option("--created-before <date>", "created on/before this date (YYYY-MM-DD)", once(parseToken))
     .option("--project <id>", "filter by project id", once(parseIdFilter))
     .option("--user <id>", "filter by requesting user id", once(parseIdFilter))
     .option("--follower <id>", "filter by follower user id", once(parseIdFilter));
@@ -132,9 +133,9 @@ export function registerRequestCommands(program: Command, deps: CliDeps): void {
     requests
       .command("search")
       .description("Full-text search over public requests")
-      .option("--q <text>", "full-text query", once(parseNonEmpty))
-      .option("--jurisdiction <slug>", "restrict to a jurisdiction", once(parseNonEmpty))
-      .option("--category <slug>", "restrict to a category", once(parseNonEmpty)),
+      .option("--q <text>", "full-text query", once(parseText))
+      .option("--jurisdiction <slug>", "restrict to a jurisdiction", once(parseToken))
+      .option("--category <slug>", "restrict to a category", once(parseToken)),
   ).option("--csv", CSV_HELP);
   search.action(
     action(deps, async ({ client, global, opts }) => {
@@ -150,7 +151,7 @@ export function registerRequestCommands(program: Command, deps: CliDeps): void {
   addPagination(
     requests
       .command("tags")
-      .argument("<query>", "tag name fragment to autocomplete (must be non-empty)", parseNonEmpty)
+      .argument("<query>", "tag name fragment to autocomplete (must be non-empty)", parseText)
       .description("Autocomplete request tag names"),
   ).action(
     action(deps, async ({ client, global, opts }, [q]) => {

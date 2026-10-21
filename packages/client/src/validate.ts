@@ -27,9 +27,105 @@ export function assertValid<T>(name: string, value: T, problem: Problem<T>): T {
   return value;
 }
 
-/** True for a string that is empty or only whitespace. */
+/** Characters that never make a value non-blank: whitespace, controls, format characters, combining marks. */
+const INVISIBLE = /[\s\p{Cc}\p{Cf}\p{M}]/gu;
+
+/** A lone surrogate: half of a character, which URLSearchParams would send as U+FFFD. */
+const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
+
+/**
+ * True for a string in which nothing would match anything: empty, or only whitespace, control
+ * and format characters (a zero-width space, a soft hyphen) and combining marks. Such a value
+ * reads as "no filter" upstream, or matches nothing, so it is refused as blank.
+ */
 export function isBlank(value: unknown): boolean {
-  return typeof value === "string" && value.trim() === "";
+  return typeof value === "string" && value.replace(INVISIBLE, "") === "";
+}
+
+/** `U+200B` for the first character of `text` that `pattern` matches. */
+function codePointOf(text: string, pattern: RegExp): string {
+  const ch = pattern.exec(text)?.[0] ?? "";
+  return `U+${(ch.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0")}`;
+}
+
+/** A control character inside a text filter: C0 and C1, but not TAB, LF or CR (whitespace in a pasted phrase). */
+const TEXT_CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/;
+
+/** A format character inside a text filter, but not ZWNJ/ZWJ (U+200C/U+200D), which some scripts and emoji need. */
+const TEXT_FORMAT = /(?![\u200c\u200d])\p{Cf}/u;
+
+/**
+ * Why `value` cannot be sent as a text filter (a search term, a name the API matches), or
+ * undefined when it can. Refused, before any request, as the API would match nothing or
+ * everything:
+ * - a value that is blank once trimmed, or that holds only invisible characters and combining
+ *   marks (`isBlank`): an empty filter reads as "no filter" upstream, which answers with the
+ *   whole unfiltered list;
+ * - a lone surrogate (half of a character, sent as U+FFFD);
+ * - a control character (but TAB, LF and CR) or a format character (a zero-width space, a soft
+ *   hyphen, a bidi control; ZWNJ and ZWJ are allowed): pasted along, it makes the search find
+ *   nothing.
+ * The reason quotes the value with every invisible character escaped (`quoteValue`).
+ */
+export function textProblem(value: unknown): string | undefined {
+  if (typeof value !== "string") return "Expected a string.";
+  if (isBlank(value)) return "Expected a non-empty value.";
+  if (LONE_SURROGATE.test(value)) return `${quoteValue(value)} contains half of a character (a lone surrogate).`;
+  if (TEXT_CONTROL.test(value)) return `${quoteValue(value)} contains a control character (${codePointOf(value, TEXT_CONTROL)}).`;
+  if (TEXT_FORMAT.test(value)) return `${quoteValue(value)} contains an invisible character (${codePointOf(value, TEXT_FORMAT)}).`;
+  return undefined;
+}
+
+/** A control or format character in a token (after trimming): every Cc and every Cf. */
+const TOKEN_INVISIBLE = /[\p{Cc}\p{Cf}]/u;
+
+/**
+ * Why `value` cannot be sent as a token, or undefined when it can. A token is a slug, a code, a
+ * reference, a date or an id: a value the API compares exactly. The rules apply to the value
+ * with surrounding whitespace trimmed, as it is sent ({@link normalizeToken}): not blank (and
+ * not only invisible characters or combining marks), no lone surrogate, and no control or
+ * format character at all (a zero-width space, ZWJ, a soft hyphen, a bidi control), since an
+ * invisible character in a slug or an id only ever makes it match nothing. The reason quotes
+ * the value visibly.
+ */
+export function tokenProblem(value: unknown): string | undefined {
+  if (typeof value !== "string") return "Expected a string.";
+  if (isBlank(value)) return "Expected a non-empty value.";
+  const token = value.trim();
+  if (LONE_SURROGATE.test(token)) return `${quoteValue(value)} contains half of a character (a lone surrogate).`;
+  if (TOKEN_INVISIBLE.test(token)) {
+    return `${quoteValue(value)} contains an invisible or control character (${codePointOf(token, TOKEN_INVISIBLE)}).`;
+  }
+  return undefined;
+}
+
+/** A token as it is sent: trimmed and in composed Unicode (NFC). Check it with {@link tokenProblem} first. */
+export function normalizeToken(value: string): string {
+  return value.trim().normalize("NFC");
+}
+
+/**
+ * The items of a comma-separated list value (`--ids 26,27`), as typed: each item is then checked
+ * (`listProblem`) and canonicalised on its own, so `"26, 27"` sends `27`, and `"26,,27"`, `"26,"`
+ * and `","` are refused rather than sent as an empty item (which an API may read as "no filter").
+ */
+export function splitList(value: string): string[] {
+  return value.split(",");
+}
+
+/**
+ * Why `items` cannot be sent as a list, or undefined when it can: not an array, no item at all
+ * (an empty list reads as "no filter"), or an item that `itemProblem` refuses (by default
+ * {@link tokenProblem}: a blank item is refused, never dropped). The reason names the item.
+ */
+export function listProblem(items: readonly unknown[], itemProblem: Problem<unknown> = tokenProblem): string | undefined {
+  if (!Array.isArray(items)) return "Expected a list.";
+  if (items.length === 0) return "Expected at least one value.";
+  for (let i = 0; i < items.length; i++) {
+    const problem = itemProblem(items[i]);
+    if (problem !== undefined) return items.length === 1 ? problem : `item ${i + 1} of ${items.length}: ${problem}`;
+  }
+  return undefined;
 }
 
 /**
@@ -66,8 +162,9 @@ const queryScalarProblem: Problem<unknown> = (value) => {
  * A free-text value as the API matches it (a search term, a name filter): without
  * surrounding whitespace (a value pasted with a trailing space matched nothing) and in
  * composed Unicode, NFC (a decomposed "Müller", u plus U+0308 as pasted from a macOS file
- * name, matched nothing). Inner whitespace is kept. Never for ids, slugs, references,
- * codes or dates, which go out as given.
+ * name, matched nothing). Inner whitespace is kept. Check it with {@link textProblem} first.
+ * Slugs, references, codes and dates are tokens ({@link normalizeToken}), trimmed and in NFC
+ * too.
  */
 export function normalizeText(value: string): string {
   return value.trim().normalize("NFC");
@@ -78,7 +175,7 @@ export function normalizeText(value: string): string {
  * send no `q` at all, which the API answers with every suggestion.
  */
 export const queryTextProblem: Problem<unknown> = (value) =>
-  typeof value === "string" && !isBlank(value) ? undefined : "Expected a non-empty value.";
+  typeof value === "string" ? textProblem(value) : "Expected a non-empty value.";
 
 /**
  * Rule for a resource id in a detail path (`get(id)`): every wrapped detail
@@ -89,6 +186,9 @@ export const queryTextProblem: Problem<unknown> = (value) =>
  */
 export const resourceIdProblem: Problem<unknown> = (id) => {
   if (isBlank(id)) return "Expected a non-empty value.";
+  // An invisible or control character, or half of one, is named and shown escaped (D10).
+  const token = typeof id === "string" ? tokenProblem(id) : undefined;
+  if (token !== undefined) return token;
   const ok =
     typeof id === "number"
       ? Number.isSafeInteger(id) && id >= 0
@@ -282,6 +382,8 @@ export function validateBaseUrl(value: string): string {
  */
 export const idFilterProblem: Problem<unknown> = (value) => {
   if (isBlank(value)) return "Expected a non-empty value.";
+  const token = typeof value === "string" ? tokenProblem(value) : undefined;
+  if (token !== undefined) return token;
   const ok =
     typeof value === "number"
       ? Number.isSafeInteger(value) && value >= 0

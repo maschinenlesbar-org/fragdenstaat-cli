@@ -40,8 +40,12 @@ Id filters take integers only and id lists comma-separated integers; anything el
 a usage error before any request, since the server would ignore the filter.
 Text — `--q`, `--name`, `--kind-detail`, request `--categories`/`--classification`/`--tags`
 and an autocomplete query — is sent without surrounding whitespace and in composed Unicode
-(NFC), so a pasted `" Umwelt "` or a decomposed `Müller` still matches; slugs and ids are
-sent as typed.
+(NFC), so a pasted `" Umwelt "` or a decomposed `Müller` still matches. Slugs, `--reference`,
+`--region-identifier` and the dates are tokens, sent trimmed and in NFC too. A value that holds
+only invisible characters (a zero-width space, a soft hyphen) is blank, and one with a control
+or format character inside (a zero-width space, a bidi control; text keeps the joiners
+ZWJ/ZWNJ) or half a character is refused before any request, the character shown escaped:
+`"a\u200bb" contains an invisible character (U+200B).` Ids are digits only.
 IDs are numeric — resolve names via `autocomplete`/`list --q` first
 (`category autocomplete` returns names only; use `category list --q` for category ids).
 
