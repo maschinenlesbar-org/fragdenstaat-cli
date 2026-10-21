@@ -665,6 +665,31 @@ for (const argv of repeated) {
   });
 }
 
+test("repeating a global value option is a usage error, before any request (kit K5)", async () => {
+  // commander keeps the last value silently: `--timeout 1000 --timeout 0` switched the timeout
+  // off, `--base-url a --base-url b` asked b, with exit 0.
+  for (const argv of [
+    ["--timeout", "1000", "--timeout", "0", "request", "list"],
+    ["--timeout=1000", "request", "list", "--timeout", "1000"],
+    ["--base-url", "https://fragdenstaat.de", "--base-url", "https://fragdenstaat.de", "request", "list"],
+    ["--log-format", "jsonl", "--log-format", "text", "request", "list"],
+    ["--user-agent", "a", "--user-agent", "b", "request", "list"],
+    ["--max-retries", "1", "--max-retries", "2", "request", "list"],
+    ["--max-response-bytes", "10", "--max-response-bytes", "0", "request", "list"],
+    ["-o", "-", "--output", "-", "request", "list"],
+  ]) {
+    const cli = makeCli(() => jsonResponse(fx.requestList));
+    assert.equal(await run(argv, cli.deps), 1, argv.join(" "));
+    assert.equal(cli.mt.calls.length, 0, `${argv.join(" ")} sent a request`);
+    assert.match(cli.err.join("\n"), /Given more than once; this option takes a single value\./, argv.join(" "));
+  }
+  // Given once, the default --base-url counts as not given; flags may repeat.
+  const once = makeCli(() => jsonResponse(fx.requestList));
+  assert.equal(await run(["--base-url", "https://fragdenstaat.de", "request", "list"], once.deps), 0, once.err.join("\n"));
+  const flags = makeCli(() => jsonResponse(fx.requestList));
+  assert.equal(await run(["--compact", "--compact", "request", "list"], flags.deps), 0, flags.err.join("\n"));
+});
+
 test("repeated --ids accumulate into one comma-separated value", async () => {
   const cli = makeCli(() => jsonResponse(fx.requestList));
   assert.equal(await run(["document", "list", "--ids", "1,2", "--ids", "3"], cli.deps), 0);
@@ -761,16 +786,17 @@ test("an unknown option's (Did you mean …?) hint is part of its ERROR record (
   assert.equal(untimed(cli.err[0] ?? ""), "ERROR [fragdenstaat.cli] unknown option '--categories' (Did you mean --category?)");
 });
 
-test("a repeated --log-format logs in the last one, as commander keeps it (L6)", async () => {
+test("a repeated --log-format is a usage error, logged in the last one (L6, kit K5)", async () => {
   for (const [argv, jsonl] of [
     [["--log-format", "jsonl", "--log-format", "text", "request", "get", "1"], false],
     [["--log-format", "text", "--log-format", "jsonl", "request", "get", "1"], true],
   ] as const) {
     const cli = makeCli(() => jsonResponse({ detail: "Nicht gefunden." }, 404));
-    assert.equal(await run([...argv], cli.deps), 4, JSON.stringify(argv));
+    assert.equal(await run([...argv], cli.deps), 1, JSON.stringify(argv));
+    assert.equal(cli.mt.calls.length, 0);
     const first = cli.err[0] ?? "";
-    if (jsonl) assert.equal((JSON.parse(first) as Record<string, unknown>)["topic"], "fragdenstaat.api", first);
-    else assert.match(untimed(first), /^ERROR \[fragdenstaat\.api\] /);
+    if (jsonl) assert.equal((JSON.parse(first) as Record<string, unknown>)["topic"], "fragdenstaat.cli", first);
+    else assert.match(untimed(first), /^ERROR \[fragdenstaat\.cli\] .*Given more than once/);
   }
 });
 

@@ -10,7 +10,7 @@ import { defaultIO } from "./io.js";
 import { FragDenStaatClient } from "@maschinenlesbar.org/fragdenstaat-client/internal/client";
 import { MAX_TIMEOUT_MS } from "@maschinenlesbar.org/fragdenstaat-client/internal/http";
 import { MAX_RETRIES } from "@maschinenlesbar.org/fragdenstaat-client/internal/engine";
-import { parseBaseUrl, parseBoundedInt, parseHeaderValue, parseIntArg, parseNonEmpty } from "./shared.js";
+import { forbidRepeatedOptions, parseBaseUrl, parseBoundedInt, parseHeaderValue, parseIntArg, parseNonEmpty } from "./shared.js";
 import { registerRequestCommands } from "./commands/requests.js";
 import { registerPublicBodyCommands } from "./commands/publicbodies.js";
 import { registerLawCommands } from "./commands/laws.js";
@@ -90,6 +90,8 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     )
     .option("--force", "with -o, overwrite the output file if it already exists")
     .showHelpAfterError();
+  // The global value options; every command's own are wrapped in `once`.
+  forbidRepeatedOptions(program);
 
   registerRequestCommands(program, deps);
   registerPublicBodyCommands(program, deps);

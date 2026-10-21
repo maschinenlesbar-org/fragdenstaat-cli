@@ -21,8 +21,10 @@ Conventions: `list`/`search` (and `autocomplete`/`request tags`) accept `--offse
 and `--limit <1..50>`; where the
 server supports it they also accept `--csv` (streams the flattened CSV export of
 that one page — at most 50 rows, no `total_count`; a full page prints a stderr note).
-Each filter and paging option takes one value: giving it twice is a usage error
-(only `document list --ids` accumulates repeats into one comma-separated list).
+Each filter and paging option, and each global option that takes a value (`--base-url`,
+`--timeout`, `--log-format`, `-o`, …), takes one value: giving it twice is a usage error
+(only `document list --ids` accumulates repeats into one comma-separated list; flags such
+as `--compact` may repeat).
 Id filters take integers only and id lists comma-separated integers; anything else is
 a usage error before any request, since the server would ignore the filter.
 IDs are numeric — resolve names via `autocomplete`/`list --q` first

@@ -204,8 +204,9 @@ What the library rejects with `FdsValidationError`, before any request:
 
   The CLI's parsers use the same rules (`parseIdFilter`, `parseIdList`, `parseIntArg`,
   `choiceOption`, `asBool`), so a bad value is a usage error before any request, and a
-  repeated single-value option is a usage error (`once`); only `document list --ids`
-  collects repeats into one list.
+  repeated single-value option is a usage error (`once`; for the program's global options,
+  some of which have a default, `forbidRepeatedOptions`, with the same message); only
+  `document list --ids` collects repeats into one list.
 - **Out-of-range paging.** Every list, search and autocomplete method checks `limit`
   (an integer in `1..MAX_PAGE_SIZE`, `limitProblem`) and `offset` (a non-negative safe
   integer, `offsetProblem`). The server silently clamps a larger `limit` and `limit=0`
@@ -513,7 +514,7 @@ which leaves the note and the CSV page note out — and any failure to write the
 the `-o` file, refusing to overwrite included, a stdout write error). Code logs through `logOf(deps)` and never writes
 diagnostics with `io.err` directly. `run()` builds the logger from argv before commander
 parses it (`logFormatFromArgv`, used only for the records of a parse error: the last
-`--log-format` counts, as in commander, and the value of one of the program's own value options is
+`--log-format` counts, so the usage error a repeated one is comes in that format, and the value of one of the program's own value options is
 skipped, as commander reads it; a `preAction` hook then sets the format commander parsed,
 so `--user-agent --log-format=jsonl` logs text), so commander's own usage errors are
 records too: its `error: …` an ERROR of

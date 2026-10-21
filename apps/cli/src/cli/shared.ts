@@ -185,11 +185,34 @@ export function assertEnum<T extends string>(
  */
 export function once<T>(parse: (value: string) => T): (value: string, previous: T | undefined) => T {
   return (value, previous) => {
-    if (previous !== undefined) {
-      throw new InvalidArgumentError("Given more than once; this option takes a single value.");
-    }
+    if (previous !== undefined) throw new InvalidArgumentError(GIVEN_TWICE);
     return parse(value);
   };
+}
+
+/** The reason commander shows for a single-value option given twice. */
+const GIVEN_TWICE = "Given more than once; this option takes a single value.";
+
+/**
+ * Make giving one of `command`'s own value options twice a usage error, with the same reason
+ * as `once`: commander keeps the last value silently, so `--timeout 1000 --timeout 0` switched
+ * the timeout off. For the program's global options, which `once` can't guard because some
+ * have a default (commander passes it as `previous` on the first occurrence): this counts per
+ * Option object, so call it once on a freshly built program. Flags without a value are left
+ * alone, and so is an option declared repeatable with an array default.
+ */
+export function forbidRepeatedOptions(command: Command): void {
+  for (const option of command.options) {
+    if ((!option.required && !option.optional) || option.variadic || Array.isArray(option.defaultValue)) continue;
+    const parse = option.parseArg;
+    let given = false;
+    const guarded = (value: string, previous: unknown): unknown => {
+      if (given) throw new InvalidArgumentError(GIVEN_TWICE);
+      given = true;
+      return parse === undefined ? value : parse(value, previous);
+    };
+    option.parseArg = guarded as typeof option.parseArg;
+  }
 }
 
 /**
