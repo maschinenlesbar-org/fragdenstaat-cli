@@ -365,16 +365,27 @@ When in doubt, trust the live API, not the schema.
   parsing would otherwise resolve to the list or the API root.
 - **`-o/--output` never silently overwrites, and never loses a file.** Before any
   request `action()` runs `checkOutputTarget` (`shared.ts`): `--force` without `-o` is a
-  usage error (`FdsValidationError`), a directory and an existing path (a dangling link
-  too, `CliIO.outputState`) without `--force` are `OutputError`s ("Refusing to overwrite
-  existing file "…" (use --force)."), all exit 1, so a refused target costs no request.
+  usage error (`FdsValidationError`), a directory, an existing path (a dangling link
+  too, `CliIO.outputState`) without `--force`, and a file whose directory is missing, not a
+  directory or not writable, or whose link chain loops (`CliIO.outputParentProblem`: `Cannot
+  write to "…": the directory "…" does not exist.`) are `OutputError`s ("Refusing to overwrite
+  existing file "…" (use --force)."), all exit 1, so a refused target costs no request. A
+  stream — a character device, a FIFO, a socket, or a descriptor path (`/dev/stdout`,
+  `/dev/fd/N`, `/proc/self/fd/N`) — is written in place (opened with `"a"`, every byte with
+  `writeAll`), with no claim, no temporary file and no `--force` needed: nothing in it can be
+  lost, and a rename over it would replace a FIFO with a file or fail in `/dev`.
   The write itself (`defaultIO.writeFile`) is atomic: without `--force` it claims the name
   with an exclusive create (so a file that appeared during the request is refused too,
   after the request: an `OutputError` of `fragdenstaat.output`, exit 1, not a usage error),
   then writes a temporary file beside the target and renames it over it; on failure the
   temporary file and the claimed name are removed, so a full disk (`Could not write to
-  "…": EFBIG`) leaves the old file as it was. `--force` keeps the old file's mode and
-  writes through a symlink. Deliberately not kept: the owner and hard links of a replaced
+  "…": EFBIG`, the reason without Node's `, open '<temporary file>'` tail) leaves the old file
+  as it was. SIGINT, SIGTERM and SIGHUP during a file write remove the claim and the temporary
+  file, then exit 130, 143 or 129 (the handlers are installed at the first file write, never
+  for a stream, so a blocked FIFO `open()` stays interruptible). The temporary name stays
+  within 255 bytes (the base name is shortened, the random part kept). `--force` keeps the old
+  file's mode and writes through a symlink, or a chain of them, to the file it names, which is
+  created when the link dangles (the link stays; the kit's decision D1). Deliberately not kept: the owner and hard links of a replaced
   file, and a directory that isn't writable refuses `-o` even when the file in it is.
   This holds for both the JSON and `--csv` output paths (`writeOutput` in `shared.ts`;
   the `CliIO.writeFile` seam takes an `exclusive` flag so tests can drive both
@@ -499,7 +510,10 @@ From the kit rollout 2026-10-21: P24 the input corpus (every text filter goes ou
 NFC or is refused, every `get` id is refused unless it is digits; `kitParity` in
 `apps/cli/test/helpers.ts` maps this repo's `parity` to the kit's shape), P25 the response
 corpus (a number a double can't carry is a parse error; an empty answer too) and P26 `-o`
-integrity (the built bin under `ulimit -f`: a cut write leaves the old file and nothing else).
+integrity (the built bin under `ulimit -f`: a cut write leaves the old file and nothing else; a
+missing directory is refused before any request; `/dev/null`, a FIFO and `/dev/stdout` are
+written in place; `--force` through a dangling link creates its target; a signal leaves no claim
+and no temporary file; stdout redirected to a file and cut short exits 1).
 From the fix round 2026-10-21: P27 big and odd answers (a lone surrogate or invalid bytes are
 replaced with U+FFFD and reported with a WARN, never silent or fatal; a large flat answer prints
 with `--compact` within a small heap; an answer full of DEL characters prints escaped within a

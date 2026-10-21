@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, closeSync, mkdtempSync, openSync, readdirSync, rmSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
-import { execFile } from "node:child_process";
+import { chmodSync, closeSync, lstatSync, mkdtempSync, openSync, readdirSync, rmSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { execFile, execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -205,6 +205,61 @@ test("stdout to a regular file gets every byte or an error: a short write is nev
     assert.deepEqual(piped, ["piped"]);
   } finally {
     closeSync(fd);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("-o targets: a device, a FIFO and a descriptor path are a stream; --force through a dangling link creates its target (D1, D5)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "fds-io-"));
+  try {
+    assert.equal(defaultIO.outputState?.("/dev/null"), "stream");
+    assert.equal(defaultIO.outputState?.("/dev/stdout"), "stream");
+    assert.equal(defaultIO.outputState?.("/dev/fd/1"), "stream");
+    const fifo = join(dir, "fifo");
+    execFileSync("mkfifo", [fifo]);
+    assert.equal(defaultIO.outputState?.(fifo), "stream");
+    // /dev/null is written in place, with or without --force: no temporary file in /dev.
+    defaultIO.writeFile("/dev/null", Buffer.from("x"), true);
+    defaultIO.writeFile("/dev/null", Buffer.from("x"), false);
+    assert.ok(statSync("/dev/null").isCharacterDevice());
+    // --force through a dangling link (and a chain of links) creates the file it names; the links stay.
+    symlinkSync("target.json", join(dir, "latest.json"));
+    symlinkSync("latest.json", join(dir, "chain.json"));
+    defaultIO.writeFile(join(dir, "chain.json"), Buffer.from("new"), false);
+    assert.equal(readFileSync(join(dir, "target.json"), "utf8"), "new");
+    assert.ok(lstatSync(join(dir, "latest.json")).isSymbolicLink() && lstatSync(join(dir, "chain.json")).isSymbolicLink());
+    // A name of 255 bytes is written: the temporary name is shortened to fit NAME_MAX.
+    const long = join(dir, `${"ü".repeat(125)}.json`);
+    defaultIO.writeFile(long, Buffer.from("long"), true);
+    assert.equal(readFileSync(long, "utf8"), "long");
+    assert.deepEqual(readdirSync(dir).filter((name) => name.endsWith(".tmp")), []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("-o: a file whose directory is missing, not a directory or not writable is named before any request (D5)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "fds-io-"));
+  try {
+    const problem = (path: string, overwrite = false): string | undefined => defaultIO.outputParentProblem?.(path, overwrite);
+    assert.equal(problem(join(dir, "x.json")), undefined);
+    assert.equal(problem(join(dir, "missing", "x.json")), `Cannot write to "${join(dir, "missing", "x.json")}": the directory "${join(dir, "missing")}" does not exist.`);
+    writeFileSync(join(dir, "file"), "x");
+    assert.equal(problem(join(dir, "file", "x.json")), `Cannot write to "${join(dir, "file", "x.json")}": "${join(dir, "file")}" is not a directory.`);
+    // With --force the directory is the one the link's target goes into.
+    symlinkSync(join(dir, "gone", "t.json"), join(dir, "away.json"));
+    assert.match(problem(join(dir, "away.json"), true) ?? "", /the directory ".*gone" does not exist\.$/);
+    symlinkSync("loop-b", join(dir, "loop-a"));
+    symlinkSync("loop-a", join(dir, "loop-b"));
+    assert.match(problem(join(dir, "loop-a"), true) ?? "", /too many levels of symbolic links/);
+    if (process.getuid?.() !== 0) {
+      const locked = join(dir, "locked");
+      execFileSync("mkdir", [locked]);
+      chmodSync(locked, 0o500);
+      assert.equal(problem(join(locked, "x.json")), `Cannot write to "${join(locked, "x.json")}": no permission to create files in "${locked}".`);
+      chmodSync(locked, 0o700);
+    }
+  } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });

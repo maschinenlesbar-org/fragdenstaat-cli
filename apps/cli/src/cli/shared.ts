@@ -3,7 +3,7 @@
 
 import { constants } from "node:buffer";
 import { Command, InvalidArgumentError, Option } from "commander";
-import { OutputError, isDirectoryMessage, logOf, type CliDeps } from "./io.js";
+import { OutputError, isDirectoryMessage, logOf, reasonOf, type CliDeps } from "./io.js";
 import { FdsError, FdsValidationError, cutForMessage } from "@maschinenlesbar.org/fragdenstaat-client/internal/errors";
 import {
   DEFAULT_BASE_URL,
@@ -269,10 +269,12 @@ function refuseOverwrite(path: string): string {
 
 /**
  * Check `-o` before any request, so a refused target costs none: `--force` without `-o`
- * (an FdsValidationError, a usage error), a directory, and an existing path (a dangling
- * link too) without `--force` (OutputErrors, as the write would raise them). `-o -` is
- * stdout. The write checks again: a file that appears during the request is not
- * overwritten either.
+ * (an FdsValidationError, a usage error), a directory, an existing path (a dangling
+ * link too) without `--force`, and a file whose directory is missing, not a directory or not
+ * writable (`CliIO.outputParentProblem`): OutputErrors, as the write would raise them, exit 1.
+ * A stream (`/dev/null`, a FIFO, `/dev/stdout`, `>(…)`) needs no `--force`: it is written in
+ * place, and nothing in it can be lost. `-o -` is stdout. The write checks again: a file that
+ * appears during the request is not overwritten either.
  */
 export function checkOutputTarget(deps: CliDeps, global: GlobalOptions): void {
   if (global.force === true && global.output === undefined) {
@@ -282,7 +284,10 @@ export function checkOutputTarget(deps: CliDeps, global: GlobalOptions): void {
   if (file === undefined || deps.io.outputState === undefined) return;
   const state = deps.io.outputState(file);
   if (state === "directory") throw new OutputError(isDirectoryMessage(file));
+  if (state === "stream") return;
   if (state === "exists" && global.force !== true) throw new OutputError(refuseOverwrite(file));
+  const problem = deps.io.outputParentProblem?.(file, global.force === true);
+  if (problem !== undefined) throw new OutputError(problem);
 }
 
 function writeOutput(deps: CliDeps, global: GlobalOptions, path: string, data: Buffer): void {
@@ -295,8 +300,7 @@ function writeOutput(deps: CliDeps, global: GlobalOptions, path: string, data: B
     if ((err as NodeJS.ErrnoException | undefined)?.code === "EEXIST") {
       throw new OutputError(refuseOverwrite(path), { cause: err });
     }
-    const reason = err instanceof Error ? err.message : String(err);
-    throw new OutputError(`Could not write to "${path}": ${reason}`, { cause: err });
+    throw new OutputError(`Could not write to "${cutForMessage(path)}": ${reasonOf(err)}`, { cause: err });
   }
 }
 

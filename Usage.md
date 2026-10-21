@@ -14,11 +14,15 @@ exit code are unchanged. `-o -` means stdout,
 like no `-o` at all. `-o` never overwrites an
 existing file (`Refusing to overwrite existing file "…" (use --force).`, exit 1); add
 `--force` to overwrite it. The path is checked before any request: an existing file (a
-dangling link too) without `--force`, a directory, and `--force` without `-o` are refused
-at once (exit 1). The file is written atomically (a temporary file beside it, renamed over
-it), so a write that fails part-way (`Could not write to "…": …`, exit 1) leaves the old
-file as it was and no half-written one; `--force` keeps the old file's mode and writes
-through a symlink to the file it points at. An answer that isn't the data asked for fails with exit 1
+dangling link too) without `--force`, a directory, a file whose directory is missing, not a
+directory or not writable (`Cannot write to "x/y.json": the directory "x" does not exist.`),
+and `--force` without `-o` are refused at once (exit 1). The file is written atomically (a
+temporary file beside it, renamed over it), so a write that fails part-way (`Could not write
+to "…": …`, exit 1) or is interrupted (Ctrl-C, `SIGTERM`, `SIGHUP`: exit 130, 143, 129)
+leaves the old file as it was and no half-written or temporary one; `--force` keeps the old
+file's mode and writes through a symlink to the file it points at, creating it when the link
+dangles (the link stays). A device, a FIFO or the shell's own descriptor (`/dev/null`,
+`/dev/stdout`, `>(gzip > x.gz)`) is written in place, without `--force`. An answer that isn't the data asked for fails with exit 1
 and writes nothing: a JSON body without the `{ meta, objects }` envelope (or, for
 `get`, without an object), or an HTML or JSON page answered to `--csv`.
 
