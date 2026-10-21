@@ -335,11 +335,21 @@ When in doubt, trust the live API, not the schema.
   [Input validation](#input-validation)) and the CLI's `parseId` uses the same rule. As
   a backstop the engine's `buildUrl` still rejects a `.`/`..` path segment, which URL
   parsing would otherwise resolve to the list or the API root.
-- **`-o/--output` never silently overwrites.** The write opens exclusively (`wx`), so
-  an existing file is refused with a clear "refusing to overwrite … (use --force)"
-  error; pass `--force` to overwrite deliberately. This holds for both the JSON and
-  `--csv` output paths. Applied via `writeOutput` in `shared.ts`; the `CliIO.writeFile`
-  seam takes an `exclusive` flag so tests can drive both branches. `-o -` (and
+- **`-o/--output` never silently overwrites, and never loses a file.** Before any
+  request `action()` runs `checkOutputTarget` (`shared.ts`): `--force` without `-o` is a
+  usage error (`FdsValidationError`), a directory and an existing path (a dangling link
+  too, `CliIO.outputState`) without `--force` are `OutputError`s ("Refusing to overwrite
+  existing file "…" (use --force)."), all exit 1, so a refused target costs no request.
+  The write itself (`defaultIO.writeFile`) is atomic: without `--force` it claims the name
+  with an exclusive create (so a file that appeared during the request is refused too),
+  then writes a temporary file beside the target and renames it over it; on failure the
+  temporary file and the claimed name are removed, so a full disk (`Could not write to
+  "…": EFBIG`) leaves the old file as it was. `--force` keeps the old file's mode and
+  writes through a symlink. Deliberately not kept: the owner and hard links of a replaced
+  file, and a directory that isn't writable refuses `-o` even when the file in it is.
+  This holds for both the JSON and `--csv` output paths (`writeOutput` in `shared.ts`;
+  the `CliIO.writeFile` seam takes an `exclusive` flag so tests can drive both
+  branches). Conformance test P26 checks it with the built bin under `ulimit -f`. `-o -` (and
   `--output=-`) means stdout, exactly like no `-o` (`outputFile` in `shared.ts`); it
   used to write a file literally named `-`.
 - **CSV is a first-class server feature.** `?format=csv` (with `Accept: text/csv`)

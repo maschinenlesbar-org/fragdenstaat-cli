@@ -2,8 +2,8 @@
 // option resolver, and the two result-rendering paths (JSON and raw download).
 
 import { Command, InvalidArgumentError, Option } from "commander";
-import { OutputError, logOf, type CliDeps } from "./io.js";
-import { FdsError, cutForMessage } from "@maschinenlesbar.org/fragdenstaat-client/internal/errors";
+import { OutputError, isDirectoryMessage, logOf, type CliDeps } from "./io.js";
+import { FdsError, FdsValidationError, cutForMessage } from "@maschinenlesbar.org/fragdenstaat-client/internal/errors";
 import {
   DEFAULT_BASE_URL,
   cleartextProblem,
@@ -259,6 +259,29 @@ export interface GlobalOptions {
  * logged as an ERROR record of `fragdenstaat.output`, rather than the generic
  * "Unexpected error" handler. The EEXIST case gets a dedicated hint pointing at --force.
  */
+/** The message for an existing `-o` file without `--force`. */
+function refuseOverwrite(path: string): string {
+  return `Refusing to overwrite existing file "${path}" (use --force).`;
+}
+
+/**
+ * Check `-o` before any request, so a refused target costs none: `--force` without `-o`
+ * (an FdsValidationError, a usage error), a directory, and an existing path (a dangling
+ * link too) without `--force` (OutputErrors, as the write would raise them). `-o -` is
+ * stdout. The write checks again: a file that appears during the request is not
+ * overwritten either.
+ */
+export function checkOutputTarget(deps: CliDeps, global: GlobalOptions): void {
+  if (global.force === true && global.output === undefined) {
+    throw new FdsValidationError("--force needs --output (it only allows overwriting the -o file).");
+  }
+  const file = outputFile(global);
+  if (file === undefined || deps.io.outputState === undefined) return;
+  const state = deps.io.outputState(file);
+  if (state === "directory") throw new OutputError(isDirectoryMessage(file));
+  if (state === "exists" && global.force !== true) throw new OutputError(refuseOverwrite(file));
+}
+
 function writeOutput(deps: CliDeps, global: GlobalOptions, path: string, data: Buffer): void {
   try {
     deps.io.writeFile(path, data, !global.force);
@@ -267,12 +290,10 @@ function writeOutput(deps: CliDeps, global: GlobalOptions, path: string, data: B
     // Already a clean message (a directory): kept as it is.
     if (err instanceof FdsError) throw new OutputError(err.message, { cause: err });
     if ((err as NodeJS.ErrnoException | undefined)?.code === "EEXIST") {
-      throw new OutputError(`refusing to overwrite existing file ${path} (use --force)`, {
-        cause: err,
-      });
+      throw new OutputError(refuseOverwrite(path), { cause: err });
     }
     const reason = err instanceof Error ? err.message : String(err);
-    throw new OutputError(`could not write ${path}: ${reason}`, { cause: err });
+    throw new OutputError(`Could not write to "${path}": ${reason}`, { cause: err });
   }
 }
 
@@ -555,6 +576,7 @@ export function action(
     const command = args[args.length - 1] as Command;
     const positionals = args.slice(0, Math.max(0, args.length - 2)) as string[];
     const global = command.optsWithGlobals() as GlobalOptions;
+    checkOutputTarget(deps, global);
     const options = toEngineOptions(global);
     options.onRetry = (event) => logOf(deps).warn("http", retryMessage(event));
     const client = deps.createClient(options);

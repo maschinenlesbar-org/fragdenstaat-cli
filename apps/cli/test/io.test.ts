@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readdirSync, rmSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { execFile } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EventEmitter } from "node:events";
@@ -22,6 +24,75 @@ test("writeFile names a directory instead of suggesting --force", () => {
     assert.throws(() => defaultIO.writeFile(file, Buffer.from("b"), true), { code: "EEXIST" });
     defaultIO.writeFile(file, Buffer.from("c"), false);
     assert.equal(readFileSync(file, "utf8"), "c");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("outputState tells a missing path, an existing one (a dangling link too) and a directory (kit K7)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "fds-io-"));
+  try {
+    const file = join(dir, "out.json");
+    assert.equal(defaultIO.outputState?.(file), "missing");
+    writeFileSync(file, "x");
+    assert.equal(defaultIO.outputState?.(file), "exists");
+    assert.equal(defaultIO.outputState?.(dir), "directory");
+    symlinkSync(join(dir, "nowhere.json"), join(dir, "dangling.json"));
+    assert.equal(defaultIO.outputState?.(join(dir, "dangling.json")), "exists");
+    symlinkSync(dir, join(dir, "dirlink"));
+    assert.equal(defaultIO.outputState?.(join(dir, "dirlink")), "directory");
+    // An exclusive write never follows the dangling link either.
+    assert.throws(() => defaultIO.writeFile(join(dir, "dangling.json"), Buffer.from("x"), true), { code: "EEXIST" });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Runs node under a file-size limit.
+const STARTS_A_PROCESS = { timeout: 30_000 };
+const IO_MODULE = fileURLToPath(new URL("../src/cli/io.js", import.meta.url));
+
+/** `defaultIO.writeFile(path, 100 KB, exclusive)` in a node whose files may grow to 1–2 blocks only. */
+function writeUnderSizeLimit(path: string, exclusive: boolean): Promise<string> {
+  const script = `import { defaultIO } from ${JSON.stringify(IO_MODULE)};
+try { defaultIO.writeFile(${JSON.stringify(path)}, Buffer.alloc(100_000, 120), ${exclusive}); console.log("written"); }
+catch (err) { console.log(err.code ?? err.message); }`;
+  // SIGXFSZ ignored (inherited through exec), so the write fails with EFBIG instead of killing
+  // node; NODE_V8_COVERAGE dropped, so the child's coverage file isn't cut short.
+  const sh = `trap '' XFSZ; ulimit -f 2; unset NODE_V8_COVERAGE; exec "$0" --input-type=module -e "$1"`;
+  return new Promise((resolve) => execFile("/bin/sh", ["-c", sh, process.execPath, script], (_err, stdout, stderr) => resolve(stdout + stderr)));
+}
+
+test("an -o write that fails part-way leaves the old file as it was, and no cut or temporary file (kit K7)", STARTS_A_PROCESS, async () => {
+  // writeFileSync truncated the file first: `-o keep.json --force` under a full disk left cut
+  // JSON, the previous result gone; without --force a cut new file blocked the next run.
+  const dir = mkdtempSync(join(tmpdir(), "fds-io-"));
+  try {
+    const keep = join(dir, "keep.json");
+    writeFileSync(keep, '{"good":"previous result"}\n');
+    assert.match(await writeUnderSizeLimit(keep, false), /^EFBIG/);
+    assert.equal(readFileSync(keep, "utf8"), '{"good":"previous result"}\n');
+    assert.match(await writeUnderSizeLimit(join(dir, "new.json"), true), /^EFBIG/);
+    assert.deepEqual(readdirSync(dir), ["keep.json"], "no cut file and no temporary file is left");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("writeFile with --force keeps the old file's mode and writes through a symlink (kit K7)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "fds-io-"));
+  try {
+    const path = join(dir, "out.json");
+    writeFileSync(path, "original");
+    chmodSync(path, 0o600);
+    defaultIO.writeFile(path, Buffer.from("new"), false);
+    assert.equal(readFileSync(path, "utf8"), "new");
+    assert.equal(statSync(path).mode & 0o777, 0o600);
+    const link = join(dir, "latest.json");
+    symlinkSync(path, link);
+    defaultIO.writeFile(link, Buffer.from("newer"), false);
+    assert.equal(readFileSync(path, "utf8"), "newer");
+    assert.deepEqual(readdirSync(dir).sort(), ["latest.json", "out.json"]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -1,7 +1,9 @@
 // I/O seam for the CLI. Everything the CLI writes goes through a CliIO object so
 // tests can capture output instead of hitting the real stdout/stderr/filesystem.
 
-import { statSync, writeFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { chmodSync, closeSync, lstatSync, openSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import type { FragDenStaatClient } from "@maschinenlesbar.org/fragdenstaat-client/internal/client";
 import type { EngineOptions } from "@maschinenlesbar.org/fragdenstaat-client/internal/engine";
 import { FdsError } from "@maschinenlesbar.org/fragdenstaat-client/internal/errors";
@@ -14,6 +16,9 @@ import { createLogger, type Logger } from "./log.js";
  */
 export class OutputError extends FdsError {}
 
+/** What an `-o` path is before the write (`CliIO.outputState`). */
+export type OutputState = "missing" | "exists" | "directory";
+
 export interface CliIO {
   out(text: string): void;
   err(text: string): void;
@@ -23,6 +28,12 @@ export interface CliIO {
    * never silently clobbered; the caller surfaces that as a clear error.
    */
   writeFile(path: string, data: Buffer, exclusive?: boolean): void;
+  /**
+   * What the `-o` path is now, checked before any request: `"missing"`, `"exists"` (a file,
+   * a link to one, or a dangling link) or `"directory"` (one, or a link to one). A CliIO
+   * without it skips the early check; the write still refuses an existing file.
+   */
+  outputState?(path: string): OutputState;
   /**
    * Write raw bytes to stdout (binary-safe). It may return a promise that settles once
    * the write is done: `true` when it succeeded, `false` when it failed (the failure
@@ -55,6 +66,61 @@ function isDirectory(path: string): boolean {
     return statSync(path).isDirectory();
   } catch {
     return false;
+  }
+}
+
+/** The message for an `-o` path that is a directory (`--force` can't help there). */
+export function isDirectoryMessage(path: string): string {
+  return `"${path}" is a directory; give a file path to --output.`;
+}
+
+/** What `path` is now: missing, a directory (or a link to one), or anything else that exists (a dangling link too). */
+export function nodeOutputState(path: string): OutputState {
+  try {
+    lstatSync(path);
+  } catch {
+    return "missing";
+  }
+  return isDirectory(path) ? "directory" : "exists";
+}
+
+/**
+ * Replace `target` with `data` atomically: a temporary file beside it, created
+ * exclusively, renamed over it. A write cut short (a full disk, a quota, a killed
+ * process) leaves the old file as it was, never half of the new one. An existing
+ * file's mode is kept, as the in-place write kept it.
+ */
+function replaceFile(target: string, data: Buffer): void {
+  const temporary = join(dirname(target), `.${basename(target)}.${process.pid}-${randomBytes(4).toString("hex")}.tmp`);
+  try {
+    writeFileSync(temporary, data, { flag: "wx" });
+    const mode = existingMode(target);
+    if (mode !== undefined) chmodSync(temporary, mode);
+    renameSync(temporary, target);
+  } catch (err) {
+    rmSync(temporary, { force: true });
+    throw err;
+  }
+}
+
+function existingMode(path: string): number | undefined {
+  try {
+    return statSync(path).mode & 0o7777;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The file a path names, through any symlinks, so `--force` replaces the file a link
+ * points at (as the in-place write did) rather than the link. A dangling link is
+ * replaced itself.
+ */
+function throughLinks(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
   }
 }
 
@@ -148,20 +214,26 @@ export const defaultIO: CliIO = {
   out: (text) => process.stdout.write(text + "\n"),
   // A record never lands inside the data when both streams share a pipe.
   err: stderrLine,
-  // `wx` opens exclusively: the write fails with EEXIST if the path already
-  // exists, so we never silently overwrite unless the caller opted out.
+  // Atomic: the data goes to a temporary file beside the target, renamed over it when
+  // complete, so a write cut short (a full disk) never leaves half a file. Exclusive (no
+  // --force): the name is claimed first with an exclusive create, which fails with EEXIST if
+  // the path exists (a dangling link included: it never follows one), and is removed again
+  // if the write fails, so the next run isn't refused for a file holding half a result.
   writeFile: (path, data, exclusive) => {
+    if (isDirectory(path)) throw new FdsError(isDirectoryMessage(path));
+    let claimed = false;
     try {
-      writeFileSync(path, data, exclusive ? { flag: "wx" } : undefined);
-    } catch (cause) {
-      const code = (cause as NodeJS.ErrnoException | undefined)?.code;
-      // `wx` answers EEXIST and `w` EISDIR for a directory; --force cannot help there.
-      if ((code === "EEXIST" || code === "EISDIR") && isDirectory(path)) {
-        throw new FdsError(`"${path}" is a directory; give a file path to --output.`, { cause });
+      if (exclusive === true) {
+        closeSync(openSync(path, "wx"));
+        claimed = true;
       }
+      replaceFile(exclusive === true ? path : throughLinks(path), data);
+    } catch (cause) {
+      if (claimed) rmSync(path, { force: true });
       throw cause;
     }
   },
+  outputState: nodeOutputState,
   // Settles when the write callback fires: after the bytes are handed to the OS, or with
   // the error (EBADF, EPIPE) that the stream then also emits to handleOutputErrors.
   outBinary: (data) => new Promise<boolean>((resolve) => process.stdout.write(data, (err) => resolve(err == null))),

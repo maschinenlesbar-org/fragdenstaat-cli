@@ -29,6 +29,7 @@ function makeCli(responder: (req: HttpRequest) => HttpResponse) {
         }
         files.set(p, d);
       },
+      outputState: (p) => (p.endsWith("/") ? "directory" : files.has(p) ? "exists" : "missing"),
       outBinary: (d) => void out.push(d.toString("utf8")),
     },
     createClient: (opts) => new FragDenStaatClient({ ...opts, transport: mt.transport }),
@@ -220,9 +221,27 @@ test("--output refuses to overwrite an existing file without --force", async () 
   assert.notEqual(code, 0);
   // The existing file is untouched, and the message points at --force.
   assert.equal(cli.files.get("/tmp/exists.json")?.toString("utf8"), "keep me");
-  assert.match(untimed(cli.err.join("\n")), /^ERROR \[fragdenstaat\.output\] refusing to overwrite/);
-  assert.match(cli.err.join("\n"), /--force/);
-  assert.doesNotMatch(cli.err.join("\n"), /Unexpected error/);
+  assert.equal(untimed(cli.err.join("\n")), 'ERROR [fragdenstaat.output] Refusing to overwrite existing file "/tmp/exists.json" (use --force).');
+  // Refused before any request (kit K7): it used to be refused only after the download.
+  assert.equal(cli.mt.calls.length, 0);
+});
+
+test("-o is checked before any request: --force without -o, a directory, an existing file (kit K7)", async () => {
+  for (const [argv, message] of [
+    [["--force", "request", "list"], "ERROR [fragdenstaat.cli] --force needs --output (it only allows overwriting the -o file)."],
+    [["-o", "/tmp/dir/", "request", "list"], 'ERROR [fragdenstaat.output] "/tmp/dir/" is a directory; give a file path to --output.'],
+    [["-o", "/tmp/dir/", "--force", "request", "list", "--csv"], 'ERROR [fragdenstaat.output] "/tmp/dir/" is a directory; give a file path to --output.'],
+    [["-o", "/tmp/exists.json", "request", "search", "--q", "x"], 'ERROR [fragdenstaat.output] Refusing to overwrite existing file "/tmp/exists.json" (use --force).'],
+  ] as const) {
+    const cli = makeCli(() => jsonResponse(fx.requestList));
+    cli.files.set("/tmp/exists.json", Buffer.from("keep me"));
+    assert.equal(await run([...argv], cli.deps), 1, argv.join(" "));
+    assert.equal(cli.mt.calls.length, 0, `${argv.join(" ")} sent a request`);
+    assert.equal(untimed(cli.err.join("\n")), message, argv.join(" "));
+  }
+  // `-o -` is stdout, so --force with it is allowed.
+  const dash = makeCli(() => jsonResponse(fx.requestList));
+  assert.equal(await run(["-o", "-", "--force", "request", "list"], dash.deps), 0, dash.err.join("\n"));
 });
 
 test("--output --force overwrites an existing file", async () => {

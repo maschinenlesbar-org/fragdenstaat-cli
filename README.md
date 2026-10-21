@@ -100,8 +100,8 @@ Run `fragdenstaat <group> <sub> --help` for the full filter set, or see
 | `--max-response-bytes <n>` | cap the response body size (0 = unlimited) |
 | `--compact` | single-line JSON |
 | `--log-format <format>` | how errors, warnings and notes are written to stderr: `text` (default; log4j style, `2026-10-09T14:03:12.481Z WARN  [fragdenstaat.http] …`) or `jsonl` (one JSON object per line: `ts`, `level`, `topic`, `msg`). stdout is not affected |
-| `-o, --output <file>` | write JSON (or CSV with `--csv`) to a file instead of stdout; an existing file is refused; `-o -` means stdout (as in other Unix tools) |
-| `--force` | with `-o`, overwrite the output file if it already exists |
+| `-o, --output <file>` | write JSON (or CSV with `--csv`) to a file instead of stdout; an existing file (or a directory) is refused before any request; the write is atomic, so a failed one leaves the old file as it was; `-o -` means stdout (as in other Unix tools) |
+| `--force` | with `-o`, overwrite the output file if it already exists (its mode is kept; a symlink is written through); without `-o` a usage error |
 
 ### Good to know
 
