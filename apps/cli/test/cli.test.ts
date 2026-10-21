@@ -1020,14 +1020,14 @@ test("--csv on stdout is decoded by its declared charset; bytes that don't fit b
   // Invalid UTF-8: replaced, and said so, naming the request; never silent, never fatal.
   const bad = makeCli(() => rawResponse(Buffer.concat([Buffer.from("id,name\n1,M"), Buffer.from([0xfc]), Buffer.from("ller\n")]), "text/csv"));
   assert.equal(await run(["request", "list", "--csv"], bad.deps), 0);
-  assert.equal(bad.out.join(""), "id,name\n1,M�ller\n");
+  assert.equal(bad.out.join(""), "id,name\n1,M\ufffdller\n");
   assert.match(untimed(bad.err.join("\n")), /^WARN  \[fragdenstaat\.api\] GET https:\/\/fragdenstaat\.de\/api\/v1\/request\/\?format=csv: 1 character of the answer was not valid text \(invalid bytes or a lone surrogate\) and replaced with U\+FFFD\.$/m);
 });
 
 test("an answer with a lone surrogate or invalid bytes prints well-formed, with a WARN record of fragdenstaat.api (D2)", async () => {
   const cli = makeCli(() => rawResponse('{"id":1,"title":"a\\ud800b"}', "application/json"));
   assert.equal(await run(["--compact", "request", "get", "1"], cli.deps), 0);
-  assert.equal(cli.out.join(""), '{"id":1,"title":"a�b"}');
+  assert.equal(cli.out.join(""), '{"id":1,"title":"a\ufffdb"}');
   assert.match(untimed(cli.err.join("\n")), /^WARN  \[fragdenstaat\.api\] GET https:\/\/fragdenstaat\.de\/api\/v1\/request\/1\/: 1 character of the answer was not valid text/);
 });
 
