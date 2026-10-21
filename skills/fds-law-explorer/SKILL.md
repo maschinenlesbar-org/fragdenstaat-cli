@@ -128,7 +128,10 @@ A `law get` adds the boilerplate: `legal_text` (the statute text, **usually empt
 >   pages of 50 has one; `law get 1` (IFG Bund) has 11,863 characters, while laws 51,
 >   120 and 170 have none. Don't report an empty `legal_text` as "no statute"; point
 >   to `site_url` instead. When it is present it can be long: summarise it, and only
->   dump the full text on request, written out with `-o law.txt`.
+>   dump the full text on request, written out with `-o law.txt`. If `law.txt`
+>   exists, the CLI refuses it (`Refusing to overwrite existing file "…" (use --force).`,
+>   exit 1, before any request): ask the user whether to replace it, then add `--force`,
+>   or pick another name.
 > - **Always state the response-time unit.** "1" means nothing without knowing it's
 >   `month_de` (a calendar month) vs `working_day` — the semantics differ. Report
 >   `max_response_time` and `max_response_time_unit` together, in plain words.
