@@ -114,13 +114,16 @@ apps/cli/src/cli/
   number JSON.parse cannot carry exactly — one out of a double's range (`1e400`, which
   printed as `null`), one past 2^53 that it rounds, in any form (`12345678901234567890`,
   `12345678901234567890.0`, `9007199254740993e0`, `9007199254740992.5`), or a non-zero one
-  too small for a double (`1e-400`, which became `0`) — is an `FdsParseError` too
+  too small for a double (`1e-400`, which became `0`), or a subnormal one (below
+  `2.2250738585072014e-308`) that doesn't print as written (`3e-324`, which became `5e-324`) — is
+  an `FdsParseError` too
   (`Unexpected response from <path>: the number … cannot be represented exactly.`), never a
   changed value. Past 2^53 the number as written is compared with the number as printed
   (`String(value)`), not with the double's exact binary value: `12345678901234567890` prints
   as `12345678901234567000` and is refused, while `1E23` or `1.7976931348623157E308` (a
-  double a server printed in its shortest form) print as the same number and pass. Below
-  2^53 a decimal fraction keeps a double's usual precision. No field of
+  double a server printed in its shortest form) print as the same number and pass, as do
+  `5e-324` and `1e-310`. Below 2^53 and above the subnormal range a decimal fraction keeps a
+  double's usual precision. No field of
   this API carries a number that large (ids, counts and coordinates are far below it). CSV
   downloads stay raw bytes.
 - **`CliDeps`** (`io.ts`) — a client factory + I/O object (`out`/`err`/`writeFile`/
