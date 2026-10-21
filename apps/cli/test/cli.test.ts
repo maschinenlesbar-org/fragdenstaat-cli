@@ -742,6 +742,14 @@ const repeated: string[][] = [
   ["message", "list", "--kind", "email", "--kind", "post"],
   ["georegion", "list", "--latlng", "51,12", "--latlng", "52,13"],
   ["document", "list", "--offset", "0", "--offset", "50"],
+  // Bug 01-1 of the 2026-10-21 sweep (T11): a bare repeat after a value turned `false` into `true`.
+  ["request", "list", "--is-foi", "false", "--is-foi"],
+  ["request", "list", "--is-foi", "--is-foi"],
+  ["request", "list", "--checked", "false", "--checked"],
+  ["request", "list", "--has-same", "false", "--has-same"],
+  ["message", "list", "--is-response", "false", "--is-response"],
+  ["category", "list", "--is-topic", "false", "--is-topic"],
+  ["law", "list", "--meta", "false", "--meta"],
 ];
 for (const argv of repeated) {
   test(`repeating a single-valued option is a usage error: ${argv.slice(2).join(" ")}`, async () => {

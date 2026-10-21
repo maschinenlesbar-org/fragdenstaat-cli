@@ -254,8 +254,11 @@ What the library rejects with `FdsValidationError`, before any request:
   The CLI's parsers use the same rules (`parseIdFilter`, `parseIdList`, `parseIntArg`,
   `choiceOption`, `asBool`), so a bad value is a usage error before any request, and a
   repeated single-value option is a usage error (`once`; for the program's global options,
-  some of which have a default, `forbidRepeatedOptions`, with the same message); only
-  `document list --ids` collects repeats into one list.
+  some of which have a default, `forbidRepeatedOptions`, with the same message; for the
+  optional-value booleans such as `--is-foi [bool]`, which commander passes no parser when
+  given bare, `forbidRepeatedSwitches`, which counts every occurrence through commander's
+  `option:<name>` events, so `--is-foi false --is-foi` is refused instead of sending `true`);
+  only `document list --ids` collects repeats into one list.
 - **Out-of-range paging.** Every list, search and autocomplete method checks `limit`
   (an integer in `1..MAX_PAGE_SIZE`, `limitProblem`) and `offset` (a non-negative safe
   integer, `offsetProblem`). The server silently clamps a larger `limit` and `limit=0`

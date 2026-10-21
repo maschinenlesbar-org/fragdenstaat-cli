@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import type { CliDeps } from "../io.js";
-import { once, onceValue, parseIdFilter, parseText, pruneUndefined } from "../shared.js";
+import { once, parseIdFilter, parseText, pruneUndefined } from "../shared.js";
 import { addList, addGet, addAutocomplete, asBool } from "./common.js";
 import type { QueryParams } from "@maschinenlesbar.org/fragdenstaat-client/internal/query";
 
@@ -9,7 +9,7 @@ function addLawFilters(cmd: Command): Command {
     .option("--q <text>", "full-text query over name/description", once(parseText))
     .option("--jurisdiction <id>", "filter by jurisdiction id", once(parseIdFilter))
     .option("--mediator <id>", "filter by mediator public-body id", once(parseIdFilter))
-    .option("--meta [bool]", "only meta-laws (combinations) — true/false", onceValue)
+    .option("--meta [bool]", "only meta-laws (combinations) — true/false")
     .option("--id <id>", "filter by law id", once(parseIdFilter));
 }
 

@@ -240,10 +240,28 @@ export function forbidRepeatedOptions(command: Command): void {
 }
 
 /**
- * `once` for the optional-value boolean filters (`--is-foi [bool]`): a repeated
- * value is a usage error; the value itself is checked later by `asBool`.
+ * Make giving a boolean that can be switched both ways twice a usage error, on `command` and
+ * every subcommand: an optional-value option (`--is-foi [bool]`) or a negatable pair (`--x` /
+ * `--no-x`). commander calls no value parser for a bare `--is-foi`, so the guard `once` saw only
+ * the occurrences with a value, and `--is-foi false --is-foi` turned into `true` silently. Every
+ * occurrence fires commander's `option:<name>` event, so they are counted per attribute there,
+ * with the same reason as `once`. Call it once on the finished program: the count is per
+ * program. The value itself is checked later by `asBool`.
  */
-export const onceValue = once((value: string) => value);
+export function forbidRepeatedSwitches(command: Command): void {
+  const switches = command.options.filter((o) => o.negate || o.optional);
+  const seen = new Set<string>();
+  for (const option of switches) {
+    const attribute = option.attributeName();
+    command.on(`option:${option.name()}`, () => {
+      if (seen.has(attribute)) {
+        command.error(`error: option '${option.flags}' is invalid. ${GIVEN_TWICE}`, { code: "commander.optionRepeated" });
+      }
+      seen.add(attribute);
+    });
+  }
+  for (const child of command.commands) forbidRepeatedSwitches(child);
+}
 
 /**
  * Wrap a commander value-parser for an option whose API parameter takes a

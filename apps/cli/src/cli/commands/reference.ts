@@ -7,7 +7,6 @@ import type { CliDeps } from "../io.js";
 import {
   choiceOption,
   once,
-  onceValue,
   parseIdFilter,
   parseIdList,
   parseIntArg,
@@ -79,7 +78,7 @@ export function registerReferenceCommands(program: Command, deps: CliDeps): void
         .option("--parent <id>", "filter to direct children of this category id", once(parseIdFilter))
         .option("--ancestor <id>", "filter to all descendants of this category id", once(parseIdFilter))
         .option("--depth <n>", "filter by tree depth (a non-negative integer)", once(parseIntArg))
-        .option("--is-topic [bool]", "only topic categories (true/false)", onceValue),
+        .option("--is-topic [bool]", "only topic categories (true/false)"),
     buildParams: buildCategoryParams,
     doList: (client, params) => client.categories.list(params),
     doListCsv: (client, params) => client.categories.listCsv(params),

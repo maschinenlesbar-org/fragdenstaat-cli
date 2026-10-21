@@ -35,7 +35,9 @@ that one page — at most 50 rows, no `total_count`; a full page prints a stderr
 Each filter and paging option, and each global option that takes a value (`--base-url`,
 `--timeout`, `--log-format`, `-o`, …), takes one value: giving it twice is a usage error
 (only `document list --ids` accumulates repeats into one comma-separated list; flags such
-as `--compact` may repeat).
+as `--compact` may repeat). A boolean filter (`--is-foi [bool]`, `--checked`, `--has-same`,
+`--is-response`, `--is-topic`, `--meta`) counts too, bare or with a value: `--is-foi false
+--is-foi` is a usage error, not `true`.
 Id filters take integers only and id lists comma-separated integers; anything else is
 a usage error before any request, since the server would ignore the filter.
 Text — `--q`, `--name`, `--kind-detail`, request `--categories`/`--classification`/`--tags`

@@ -10,7 +10,7 @@ import { defaultIO } from "./io.js";
 import { FragDenStaatClient } from "@maschinenlesbar.org/fragdenstaat-client/internal/client";
 import { MAX_TIMEOUT_MS } from "@maschinenlesbar.org/fragdenstaat-client/internal/http";
 import { MAX_RETRIES } from "@maschinenlesbar.org/fragdenstaat-client/internal/engine";
-import { forbidRepeatedOptions, parseBaseUrl, parseBoundedInt, parseHeaderValue, parseIntArg, parseOutputPath } from "./shared.js";
+import { forbidRepeatedOptions, forbidRepeatedSwitches, parseBaseUrl, parseBoundedInt, parseHeaderValue, parseIntArg, parseOutputPath } from "./shared.js";
 import { registerRequestCommands } from "./commands/requests.js";
 import { registerPublicBodyCommands } from "./commands/publicbodies.js";
 import { registerLawCommands } from "./commands/laws.js";
@@ -99,6 +99,8 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
   registerReferenceCommands(program, deps);
   registerMessageCommands(program, deps);
   registerDocumentCommands(program, deps);
+  // A boolean that can be switched both ways (`--is-foi [bool]`) may be given once, bare or not.
+  forbidRepeatedSwitches(program);
 
   return program;
 }

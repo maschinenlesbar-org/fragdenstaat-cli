@@ -6,7 +6,6 @@ import {
   addPagination,
   choiceOption,
   once,
-  onceValue,
   paginationParams,
   parseCampaign,
   parseIdFilter,
@@ -44,9 +43,9 @@ function addRequestFilters(cmd: Command): Command {
     .option("--tags <tag>", "filter by one tag name, exact and case-sensitive", once(parseText))
     .option("--reference <prefix>", "filter by reference (prefix match)", once(parseToken))
     .option("--slug <slug>", "filter by exact slug", once(parseToken))
-    .option("--is-foi [bool]", "only genuine FOI requests (true/false)", onceValue)
-    .option("--checked [bool]", "only moderator-checked requests (true/false)", onceValue)
-    .option("--has-same [bool]", "only requests with identical copies (true/false)", onceValue)
+    .option("--is-foi [bool]", "only genuine FOI requests (true/false)")
+    .option("--checked [bool]", "only moderator-checked requests (true/false)")
+    .option("--has-same [bool]", "only requests with identical copies (true/false)")
     .option("--costs-min <eur>", "minimum charged costs in EUR", once(parseNonNegativeNumber))
     .option("--costs-max <eur>", "maximum charged costs in EUR", once(parseNonNegativeNumber))
     .option("--created-after <date>", "created on/after this date (YYYY-MM-DD)", once(parseToken))

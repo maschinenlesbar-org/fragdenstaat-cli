@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import type { CliDeps } from "../io.js";
-import { choiceOption, once, onceValue, parseIdFilter, pruneUndefined } from "../shared.js";
+import { choiceOption, once, parseIdFilter, pruneUndefined } from "../shared.js";
 import { addList, addGet, asBool } from "./common.js";
 import type { QueryParams } from "@maschinenlesbar.org/fragdenstaat-client/internal/query";
 import { MessageKindValues } from "@maschinenlesbar.org/fragdenstaat-client/internal/enums";
@@ -9,7 +9,7 @@ function addMessageFilters(cmd: Command): Command {
   return cmd
     .option("--request <id>", "filter to one request's correspondence", once(parseIdFilter))
     .addOption(choiceOption("--kind <kind>", "filter by transport (email, post, fax, ...)", MessageKindValues))
-    .option("--is-response [bool]", "only replies from the authority (true/false)", onceValue);
+    .option("--is-response [bool]", "only replies from the authority (true/false)");
 }
 
 function buildMessageParams(opts: Record<string, unknown>): QueryParams {
