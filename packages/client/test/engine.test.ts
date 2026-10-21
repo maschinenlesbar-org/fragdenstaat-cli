@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { RequestEngine, isBidiControl, parseRetryAfter, sanitizeServerText } from "../src/engine.js";
 import { FdsApiError, FdsError, FdsNetworkError, FdsParseError, FdsValidationError, cutForMessage, cutText, redactUrl, toWellFormed } from "../src/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
+import type { HttpResponse } from "../src/http.js";
 import * as fx from "./fixtures.js";
 
 function engine(transport: ReturnType<typeof makeMockTransport>["transport"], extra = {}) {
@@ -511,4 +512,40 @@ test("a number the answer's JSON cannot carry exactly is a parse error, never a 
   }
   const inString = engine(makeMockTransport(() => rawResponse('{"title":"12345678901234567890 \\" 1e400","n":1}', "application/json")).transport);
   assert.deepEqual(await inString.getJson("/x/"), { title: '12345678901234567890 " 1e400', n: 1 });
+});
+
+test("a timeout, the size cap, a refused connection and a DNS failure name the request (kit K3)", async () => {
+  // They said only "Request exceeded deadline of 20ms", "Response exceeded the size limit …",
+  // "connect ECONNREFUSED 127.0.0.1:9" or "getaddrinfo ENOTFOUND …", so a caller making
+  // several calls could not tell which one failed.
+  const url = "http://***@127.0.0.1:9/api/v1/law/5/";
+  const prefix = `GET ${url} failed: `;
+  const refused = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:9"), { code: "ECONNREFUSED" });
+  const cases: Array<[string, Partial<ConstructorParameters<typeof RequestEngine>[0]>, RegExp]> = [
+    ["engine deadline", { transport: () => new Promise<HttpResponse>(() => {}), timeoutMs: 20 }, /^Request exceeded deadline of 20ms$/],
+    ["size cap", { transport: async () => rawResponse("x".repeat(100), "application/json"), maxResponseBytes: 10 }, /^Response exceeded the size limit of 10 bytes/],
+    ["transport's own error", { transport: async () => { throw new FdsNetworkError("connect ECONNREFUSED 127.0.0.1:9", { cause: refused }); } }, /^connect ECONNREFUSED 127\.0\.0\.1:9$/],
+    ["DNS failure", { transport: async () => { throw new FdsNetworkError("getaddrinfo ENOTFOUND fds.invalid"); } }, /^getaddrinfo ENOTFOUND fds\.invalid$/],
+  ];
+  for (const [name, options, reason] of cases) {
+    const e = new RequestEngine({ baseUrl: "http://u:secret@127.0.0.1:9", maxRetries: 0, sleep: async () => {}, ...options });
+    await assert.rejects(e.getJson("/api/v1/law/5/"), (err) => {
+      assert.ok(err instanceof FdsNetworkError, name);
+      assert.ok(err.message.startsWith(prefix), `${name}: ${err.message}`);
+      assert.match(err.message.slice(prefix.length), reason, name);
+      assert.ok(!err.message.includes("secret"), name);
+      return true;
+    });
+  }
+  // The original stays the cause.
+  const e = new RequestEngine({ baseUrl: "http://127.0.0.1:9", maxRetries: 0, transport: async () => { throw new FdsNetworkError("connect ECONNREFUSED 127.0.0.1:9", { cause: refused }); } });
+  await assert.rejects(e.getJson("/api/v1/law/"), (err) => {
+    assert.ok(err instanceof FdsNetworkError);
+    assert.ok(err.cause instanceof FdsNetworkError);
+    assert.equal((err.cause as Error).cause, refused);
+    return true;
+  });
+  // A message that names the request already is not prefixed twice.
+  const named = new RequestEngine({ baseUrl: "http://127.0.0.1:9", transport: async () => { throw new FdsNetworkError("GET http://127.0.0.1:9/api/v1/law/ failed: x"); } });
+  await assert.rejects(named.getJson("/api/v1/law/"), { message: "GET http://127.0.0.1:9/api/v1/law/ failed: x" });
 });

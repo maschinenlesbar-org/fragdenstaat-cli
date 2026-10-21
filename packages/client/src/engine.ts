@@ -490,7 +490,7 @@ export class RequestEngine {
       // The size cap holds whatever the transport did: the default one aborts early, a
       // custom one may have read everything.
       if (this.maxResponseBytes > 0 && body.byteLength > this.maxResponseBytes) {
-        throw new FdsNetworkError(sizeLimitMessage(this.maxResponseBytes));
+        throw new FdsNetworkError(`${method} ${redactUrl(url)} failed: ${sizeLimitMessage(this.maxResponseBytes)}`);
       }
 
       const retryable = status === 429 || status === 503;
@@ -522,8 +522,9 @@ export class RequestEngine {
   }
 
   /**
-   * A transport failure as the library's error. The default transport rejects with
-   * FdsNetworkError only, which passes through; an injected one may throw anything — a
+   * A transport failure as the library's error, its message starting `<METHOD> <url> failed: `
+   * (userinfo redacted). The default transport rejects with FdsNetworkError only, which is
+   * re-raised naming the request; an injected one may throw anything — a
    * plain Error, fetch's TypeError, a string, null. That becomes a FdsNetworkError naming
    * the request (URL redacted), with the original as `cause`, so a caller (and the CLI)
    * can rely on every failure being a FdsError. Any other FdsError passes through.
@@ -531,10 +532,18 @@ export class RequestEngine {
   private toNetworkError(method: string, url: string, cause: unknown): FdsError {
     if (cause instanceof FdsError && !(cause instanceof FdsNetworkError)) return cause;
     if (cause instanceof FdsNetworkError) {
-      // The default transport's own errors carry no URL; scrub one that does anyway.
-      const scrubbed = this.scrubCause(cause);
-      if (scrubbed === cause) return cause;
-      return new FdsNetworkError(this.scrub(cause.message), { cause: this.scrubCause(cause.cause) });
+      // The default transport's own errors (a timeout, the size cap, a refused connection, a
+      // DNS failure) and the engine's deadline carry no URL: name the request, as for any
+      // other failure, with the original as the cause. Scrub anyway, in case a custom
+      // transport built one from a server's text.
+      const message = this.scrub(cause.message);
+      const prefix = `${method} ${redactUrl(url)} failed: `;
+      if (message.startsWith(prefix)) {
+        const scrubbed = this.scrubCause(cause);
+        if (scrubbed === cause) return cause;
+        return new FdsNetworkError(message, { cause: this.scrubCause(cause.cause) });
+      }
+      return new FdsNetworkError(`${prefix}${message}`, { cause: this.scrubCause(cause) });
     }
     const reason = cause instanceof Error ? cause.message : String(cause);
     return new FdsNetworkError(`${method} ${redactUrl(url)} failed: ${sanitizeServerText(this.scrub(reason))}`, {

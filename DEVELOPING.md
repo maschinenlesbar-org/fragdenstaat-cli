@@ -98,12 +98,16 @@ apps/cli/src/cli/
   the overall `timeoutMs` deadline (the request carries an `AbortSignal`,
   `HttpRequest.signal`, that fires then, and the call rejects at the deadline whether
   the transport stops or not); `maxResponseBytes` is checked on the body it returns
-  (`Response exceeded the size limit of N bytes (maxResponseBytes;
+  (`GET <url> failed: Response exceeded the size limit of N bytes (maxResponseBytes;
   --max-response-bytes on the CLI)`); headers may come as a plain record in any case,
   a `Headers` object or a `Map`; the body may be a `Buffer`, any `ArrayBuffer` view or
   an `ArrayBuffer` (from any realm). Whatever else a transport throws or returns — a
   plain `Error`, a string, `null`, a response without a valid status — becomes an
-  `FdsNetworkError` (URL redacted, the original as `cause`).
+  `FdsNetworkError` (URL redacted, the original as `cause`). Every network failure names
+  the request, `<METHOD> <url> failed: <reason>` (userinfo redacted), the default
+  transport's own errors and the engine's deadline included: `GET <url> failed: Request
+  exceeded deadline of 500ms`, `… failed: connect ECONNREFUSED …`, `… failed: getaddrinfo
+  ENOTFOUND …`, with the original error as the `cause`.
 - **Decoding.** A JSON body is decoded by the charset its `Content-Type` declares
   (UTF-8 when it names none) with `TextDecoder` (`decodeBody`), which also drops a
   leading byte order mark; an unknown charset label is an `FdsParseError`. A body with a
