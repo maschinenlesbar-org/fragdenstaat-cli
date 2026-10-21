@@ -483,3 +483,32 @@ test("onRetry is never called without a retry, and a throw in it is swallowed", 
 test("onRetry must be a function", () => {
   assert.throws(() => new RequestEngine({ onRetry: 5 as never }), FdsValidationError);
 });
+
+test("a number the answer's JSON cannot carry exactly is a parse error, never a changed value (kit K1)", async () => {
+  // JSON.parse turned these into Infinity (printed as null), a rounded integer or 0, with exit 0.
+  const body = (n: string) => `{"meta":{"total_count":${n},"limit":50,"offset":0},"objects":[]}`;
+  for (const n of [
+    "1e400", "-1e400", "12345678901234567890", "12345678901234567890.0", "9007199254740993e0",
+    "90071992547409930E-1", "9007199254740992.5", "-9007199254740992.5", "1e-400", "-0.0001e-399", "1e23",
+  ]) {
+    const e = engine(makeMockTransport(() => rawResponse(body(n), "application/json")).transport);
+    await assert.rejects(e.getJson("/api/v1/request/", undefined, "list"), (err) => {
+      assert.ok(err instanceof FdsParseError, n);
+      assert.equal(err.message, `Unexpected response from /api/v1/request/: the number ${n} cannot be represented exactly.`);
+      return true;
+    });
+  }
+  // The same values in other forms, zero in any form, a decimal fraction below 2^53 and
+  // numbers inside strings pass.
+  const ok: Array<[string, number]> = [
+    ["9007199254740992.0", 2 ** 53], ["9007199254740992e0", 2 ** 53], ["90071992547409920E-1", 2 ** 53], ["1.2e21", 1.2e21],
+    ["0", 0], ["-0", -0], ["0.0e-500", 0], ["0e5", 0], ["1.00000000000000001", 1], ["5e-324", 5e-324], ["1e2", 100],
+    ["52.520008", 52.520008],
+  ];
+  for (const [n, value] of ok) {
+    const e = engine(makeMockTransport(() => rawResponse(body(n), "application/json")).transport);
+    assert.equal((await e.getJson<{ meta: { total_count: number } }>("/x/")).meta.total_count, value, n);
+  }
+  const inString = engine(makeMockTransport(() => rawResponse('{"title":"12345678901234567890 \\" 1e400","n":1}', "application/json")).transport);
+  assert.deepEqual(await inString.getJson("/x/"), { title: '12345678901234567890 " 1e400', n: 1 });
+});

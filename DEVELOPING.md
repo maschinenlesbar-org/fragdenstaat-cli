@@ -106,7 +106,14 @@ apps/cli/src/cli/
   `FdsNetworkError` (URL redacted, the original as `cause`).
 - **Decoding.** A JSON body is decoded by the charset its `Content-Type` declares
   (UTF-8 when it names none) with `TextDecoder` (`decodeBody`), which also drops a
-  leading byte order mark; an unknown charset label is an `FdsParseError`. CSV
+  leading byte order mark; an unknown charset label is an `FdsParseError`. A body with a
+  number JSON.parse cannot carry exactly — one out of a double's range (`1e400`, which
+  printed as `null`), one past 2^53 that it rounds, in any form (`12345678901234567890`,
+  `12345678901234567890.0`, `9007199254740993e0`, `9007199254740992.5`), or a non-zero one
+  too small for a double (`1e-400`, which became `0`) — is an `FdsParseError` too
+  (`Unexpected response from <path>: the number … cannot be represented exactly.`), never a
+  changed value; below 2^53 a decimal fraction keeps a double's usual precision. No field of
+  this API carries a number that large (ids, counts and coordinates are far below it). CSV
   downloads stay raw bytes.
 - **`CliDeps`** (`io.ts`) — a client factory + I/O object (`out`/`err`/`writeFile`/
   `outBinary`). `run.ts` returns an exit code instead of calling `process.exit`, so
@@ -489,8 +496,8 @@ whole stream) becomes U+FFFD (`toWellFormed`), and a message longer than
 `MAX_RECORD_MESSAGE` (4000 characters, exported) is cut at a code point and ends in
 `… (N more characters)`. The areas are `cli` (usage errors, commander's messages and the help it shows
 after one, unexpected errors), `api` (the API's answers: an error status, and a malformed
-answer, an `FdsParseError`: bad JSON, the wrong shape, an HTML page answered with 200, an
-unknown charset; and the notes on an empty name-filtered `request list` and on a full CSV
+answer, an `FdsParseError`: bad JSON, the wrong shape, a number it can't carry exactly, an HTML
+page answered with 200, an unknown charset; and the notes on an empty name-filtered `request list` and on a full CSV
 page), `http` (the connection, the cleartext warning) and
 `output` (`Wrote N bytes to …` — for stdout only once the write has succeeded:
 `CliIO.outBinary` may return a promise that settles then, `false` after a failed write,
