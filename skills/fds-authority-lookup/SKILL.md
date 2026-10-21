@@ -62,9 +62,10 @@ Hamburg", "building permits in Munich"), you filter — but the filters take
 Then filter with `publicbody list` (faceted) or `publicbody search` (full text):
 
 ```bash
-# Behördentyp id, then all public bodies of that type in a jurisdiction
+# Behördentyp id (Ministerium → 118), then all public bodies of that type in a jurisdiction
+# (7 = Mecklenburg-Vorpommern, from `jurisdiction list`): 10 bodies on 2026-10-22
 fragdenstaat --compact classification list --q "Ministerium"
-fragdenstaat --compact publicbody list --classification 42 --jurisdiction 7 --limit 50
+fragdenstaat --compact publicbody list --classification 118 --jurisdiction 7 --limit 50
 
 # Full-text search restricted to a jurisdiction
 fragdenstaat --compact publicbody search --q "Umwelt" --jurisdiction 7 --limit 50
@@ -97,7 +98,7 @@ Once you have the body id, hand it to the **request-finder** to see what it has
 actually answered:
 
 ```bash
-fragdenstaat --compact request list --public-body 123 --status resolved
+fragdenstaat --compact request list --public-body 875 --status resolved   # the id from Step 1
 ```
 
 That surfaces this body's resolved requests (and with `--resolution successful`,
@@ -133,13 +134,16 @@ its wins) — a concrete read on responsiveness beyond `number_of_requests`.
 
 For a "who do I ask / what's their contact" request, lead with the actionable bits:
 
+The values below are `publicbody get 875` as of 2026-10-22; read them from the live answer
+each time, never from this card:
+
 ```
-Umweltbundesamt (id 123 · slug umweltbundesamt)
-  Typ:          Bundesoberbehörde        Zuständig: Bund
-  FOI-Kontakt:  info@uba.de
-  Adresse:      Wörlitzer Platz 1, 06844 Dessau-Roßlau
-  Hinweis:      <request_note verbatim — how they want to be contacted>
-  Aktivität:    412 Anfragen bisher       Seite: fragdenstaat.de/behoerde/umweltbundesamt
+Umweltbundesamt (id 875 · slug umweltbundesamt)
+  Typ:          Umweltamt                Zuständig: Bund
+  FOI-Kontakt:  buergerservice@uba.de
+  Adresse:      Wörlitzer Platz 1, 06844 Dessau
+  Hinweis:      (request_note is empty — say so; when set, quote it verbatim)
+  Aktivität:    456 Anfragen bisher       Seite: fragdenstaat.de/behoerde/875/umweltbundesamt/
 
 To file: FragDenStaat sends the request under the applicable IFG/UIG law on your
 behalf — open the "Seite" link above and use "Anfrage stellen".
