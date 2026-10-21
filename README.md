@@ -51,7 +51,7 @@ fragdenstaat request get 34126
 
 # Which authority handles a topic? (name -> id, then profile)
 fragdenstaat publicbody autocomplete "Umweltbundesamt"
-fragdenstaat publicbody get 1
+fragdenstaat publicbody get 875   # the "value" autocomplete gave
 
 # Which FOI law applies in a jurisdiction?
 fragdenstaat jurisdiction list
