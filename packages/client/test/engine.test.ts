@@ -554,3 +554,14 @@ test("a timeout, the size cap, a refused connection and a DNS failure name the r
   const named = new RequestEngine({ baseUrl: "http://127.0.0.1:9", transport: async () => { throw new FdsNetworkError("GET http://127.0.0.1:9/api/v1/law/ failed: x"); } });
   await assert.rejects(named.getJson("/api/v1/law/"), { message: "GET http://127.0.0.1:9/api/v1/law/ failed: x" });
 });
+
+test("a header named __proto__ is an ordinary header, never the prototype of the headers read (T12)", async () => {
+  // A JavaScript transport may return any object; JSON.parse makes "__proto__" an own key.
+  const headers = JSON.parse('{"__proto__":{"content-type":"text/html"}}') as Record<string, string>;
+  const e = new RequestEngine({ transport: async () => ({ status: 200, headers, body: Buffer.from("<html>") }) });
+  // With the prototype set, "text/html" was read as the Content-Type and named in the message.
+  await assert.rejects(e.getJson("/x"), (err: Error) => err instanceof FdsParseError && !/text\/html/.test(err.message));
+  const fetchLike = new Headers([["__proto__", "x"], ["content-type", "application/json"]]);
+  const f = new RequestEngine({ transport: async () => ({ status: 200, headers: fetchLike as unknown as Record<string, string>, body: Buffer.from('{"a":1}') }) });
+  assert.deepEqual(await f.getJson("/x"), { a: 1 });
+});
