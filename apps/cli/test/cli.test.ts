@@ -1052,3 +1052,19 @@ test("-o refuses the next option as its file name, before any request; ./-name w
   assert.equal(await run(["-o", "./-v.json", "request", "list"], cli.deps), 0);
   assert.deepEqual([...cli.files.keys()], ["./-v.json"]);
 });
+
+test("commander's echo of a refused value shows an invisible or format character escaped, never raw (D10)", async () => {
+  const zwsp = String.fromCharCode(0x200b);
+  const shy = String.fromCharCode(0x00ad);
+  for (const argv of [["request", "list", "--limit", `1${zwsp}`], ["request", "list", "--status", `re${shy}solved`], ["request", "get", `1${zwsp}`]]) {
+    const cli = makeCli(() => jsonResponse(fx.requestList));
+    assert.equal(await run(argv, cli.deps), 1, argv.join(" "));
+    const err = cli.err.join("\n");
+    assert.ok(!err.includes(zwsp) && !err.includes(shy), err);
+    assert.match(err, /\\u200b|\\u00ad/, err);
+  }
+  // A value of a CLI-only check is quoted the same way.
+  const bool = makeCli(() => jsonResponse(fx.requestList));
+  assert.equal(await run(["request", "list", "--is-foi", `tr${zwsp}ue`], bool.deps), 1);
+  assert.match(untimed(bool.err.join("\n")), /got "tr\\u200bue"/);
+});

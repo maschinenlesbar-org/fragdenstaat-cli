@@ -17,7 +17,7 @@ import {
   renderCsvPage,
   renderJson,
 } from "../shared.js";
-import { FdsError, cutForMessage } from "@maschinenlesbar.org/fragdenstaat-client/internal/errors";
+import { FdsError, quoteValue } from "@maschinenlesbar.org/fragdenstaat-client/internal/errors";
 
 type Client = FragDenStaatClient;
 
@@ -36,7 +36,7 @@ export function asBool(value: unknown): boolean | undefined {
   if (value === undefined) return undefined; // option not supplied
   if (value === true || value === "true") return true;
   if (value === false || value === "false") return false;
-  throw new FdsError(`Expected "true" or "false", got "${cutForMessage(String(value))}".`);
+  throw new FdsError(`Expected "true" or "false", got ${quoteValue(String(value))}.`);
 }
 
 export interface ListSpec {

@@ -200,7 +200,11 @@ What the library rejects with `FdsValidationError`, before any request:
   count as none. Every failure the library raises is an `FdsError` subclass; server
   text in a message (an error `detail`, a redirect target) is cut at 500 characters
   (`MAX_DETAIL_LENGTH`), and so is a URL or path (`cutForMessage`,
-  `MAX_MESSAGE_VALUE_LENGTH`; also a value quoted in a validation message, an unknown
+  `MAX_MESSAGE_VALUE_LENGTH`; also a value quoted in a validation message (`quoteValue`,
+  exported: JSON-quoted with DEL, C1, U+2028/2029 and every format character — a zero-width
+  space, a soft hyphen, a bidi control — escaped as `\uXXXX`, so a refused `a\u200bb` shows
+  why it was refused; commander's own echo of a rejected value is escaped the same way,
+  `escapeTerminalText` in `run.ts`), an unknown
   charset, the Content-Type in the CLI's `Wrote …` note and a name filter in the
   empty-result note), never inside a surrogate pair (`cutText`), so the message stays
   well-formed and bounded for a library caller too, while

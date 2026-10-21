@@ -30,6 +30,7 @@ export {
   FdsParseError,
   FdsValidationError,
   credentialsIn,
+  quoteValue,
   redactCredentials,
   redactUrl,
 } from "./errors.js";

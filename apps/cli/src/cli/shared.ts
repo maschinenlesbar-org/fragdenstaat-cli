@@ -4,7 +4,7 @@
 import { constants } from "node:buffer";
 import { Command, InvalidArgumentError, Option } from "commander";
 import { OutputError, isDirectoryMessage, logOf, reasonOf, type CliDeps } from "./io.js";
-import { FdsError, FdsValidationError, cutForMessage } from "@maschinenlesbar.org/fragdenstaat-client/internal/errors";
+import { FdsError, FdsValidationError, cutForMessage, quoteValue } from "@maschinenlesbar.org/fragdenstaat-client/internal/errors";
 import {
   DEFAULT_BASE_URL,
   cleartextProblem,
@@ -174,7 +174,7 @@ export function assertEnum<T extends string>(
   argName: string,
 ): T {
   if (!(allowed as readonly string[]).includes(value)) {
-    throw new FdsError(`Invalid ${argName} "${cutForMessage(value)}". Expected one of: ${allowed.join(", ")}.`);
+    throw new FdsError(`Invalid ${argName} ${quoteValue(value)}. Expected one of: ${allowed.join(", ")}.`);
   }
   return value as T;
 }
@@ -462,7 +462,7 @@ export function parseOutputPath(value: string): string {
   parseNonEmpty(value);
   if (value !== STDOUT_PATH && value.startsWith("-")) {
     throw new InvalidArgumentError(
-      `looks like a missing value — ${JSON.stringify(cutForMessage(value))} is the next option, consumed because ` +
+      `looks like a missing value — ${quoteValue(value)} is the next option, consumed because ` +
         "this one was left without a value. For a file whose name starts with a dash, write ./-name.",
     );
   }
