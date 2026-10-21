@@ -1076,3 +1076,17 @@ test("commander's echo of a refused value shows an invisible or format character
   assert.equal(await run(["request", "list", "--is-foi", `tr${zwsp}ue`], bool.deps), 1);
   assert.match(untimed(bool.err.join("\n")), /got "tr\\u200bue"/);
 });
+
+// Exploratory test 2026-10-21, bug 02-1: bidi controls in a CSV page reached the terminal raw.
+test("--csv on stdout writes bidi controls as visible escapes; the -o file keeps them (D10)", async () => {
+  const bidi = [0x202e, 0x202c, 0x2066, 0x2069, 0x061c, 0x200f].map((c) => String.fromCharCode(c));
+  const body = `id,title\n1,safe ${bidi.join("x")}.exe\n`;
+  const cli = makeCli(() => rawResponse(body, "text/csv"));
+  assert.equal(await run(["request", "list", "--csv"], cli.deps), 0);
+  const out = cli.out.join("");
+  for (const ch of bidi) assert.ok(!out.includes(ch), `U+${ch.charCodeAt(0).toString(16)} printed raw`);
+  assert.equal(out, "id,title\n1,safe \\u202ex\\u202cx\\u2066x\\u2069x\\u061cx\\u200f.exe\n");
+  const file = makeCli(() => rawResponse(body, "text/csv"));
+  assert.equal(await run(["-o", "/tmp/b.csv", "request", "list", "--csv"], file.deps), 0);
+  assert.equal(file.files.get("/tmp/b.csv")?.toString("utf8"), body);
+});

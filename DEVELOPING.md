@@ -142,7 +142,9 @@ apps/cli/src/cli/
   record of `fragdenstaat.api`. It is not an error: one bad character never sinks an answer.
   CSV downloads stay raw bytes in the library and in an `-o` file; on stdout a CSV page is
   decoded by the charset it declares, with the same replacement and WARN, before the
-  terminal controls are stripped.
+  terminal controls are stripped (`sanitizeTerminalText`: C0 but TAB/LF/CR, DEL and C1
+  dropped; the bidi controls written as visible `\uXXXX` escapes, as the JSON output and the
+  log write them; built in chunks).
 - **`CliDeps`** (`io.ts`) — a client factory + I/O object (`out`/`err`/`writeFile`/
   `outBinary`). `run.ts` returns an exit code instead of calling `process.exit`, so
   tests drive the whole CLI with a mocked client and captured output. The bin shim

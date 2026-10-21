@@ -554,29 +554,40 @@ export function renderJson(deps: CliDeps, global: GlobalOptions, value: unknown)
  * through to the generic "Unexpected error" handler.
  */
 /**
- * Strip terminal control/escape bytes from server-rendered text that is about to
- * be printed to the terminal (stdout). A hostile/MITM'd upstream can return a
- * "CSV" body laced with ANSI/OSC escape sequences (clipboard writes, title
- * spoofing, cursor tricks) that the user's terminal would execute on print. We
- * drop the C0 range (except the field/record separators CSV legitimately uses —
- * tab 0x09, LF 0x0a, CR 0x0d) plus DEL and the C1 range, without touching the CSV
- * structure. The JSON path escapes them instead (`JSON.stringify` the C0 range,
- * `escapeControlChars` DEL and C1), which keeps the JSON valid. The file (`-o`) path writes the bytes verbatim — only the
- * terminal is at risk — so this is applied on the stdout branch only.
+ * Make server-rendered text safe to print to the terminal (stdout). A hostile/MITM'd upstream
+ * can return a "CSV" body laced with ANSI/OSC escape sequences (clipboard writes, title
+ * spoofing, cursor tricks) that the user's terminal would execute on print, or with bidi
+ * controls that reorder what the user sees (`safe U+202E txt.exe`). The C0 range (except the
+ * field/record separators CSV legitimately uses — tab 0x09, LF 0x0a, CR 0x0d), DEL and the
+ * C1 range are dropped, and the bidi controls (`isBidiControl`) are written as visible
+ * `\uXXXX` escapes, as the JSON output and the log write them, without touching the CSV
+ * structure. The JSON path escapes all of them instead (`JSON.stringify` the C0 range,
+ * `escapeControlChars` DEL, C1 and bidi), which keeps the JSON valid. The file (`-o`) path
+ * writes the bytes verbatim — only the terminal is at risk — so this is applied on the stdout
+ * branch only. Built from slices joined once, never one `+=` per character, so a page of any
+ * size stays within memory.
  */
 function sanitizeTerminalText(text: string): string {
-  let out = "";
-  for (const ch of text) {
-    const n = ch.codePointAt(0) ?? 0;
-    // Keep tab (0x09), LF (0x0a), CR (0x0d); drop the rest of C0, DEL, and C1.
-    if (n === 0x09 || n === 0x0a || n === 0x0d) {
-      out += ch;
-      continue;
+  const chunks: string[] = [];
+  let changed = false;
+  for (let start = 0; start < text.length; start += ESCAPE_CHUNK) {
+    const end = Math.min(start + ESCAPE_CHUNK, text.length);
+    const parts: string[] = [];
+    let from = start;
+    for (let i = start; i < end; i++) {
+      const n = text.charCodeAt(i);
+      const control = (n <= 0x1f && n !== 0x09 && n !== 0x0a && n !== 0x0d) || (n >= 0x7f && n <= 0x9f);
+      const bidi = isBidiControl(n);
+      if (!control && !bidi) continue;
+      parts.push(text.slice(from, i));
+      if (bidi) parts.push("\\u" + n.toString(16).padStart(4, "0"));
+      from = i + 1;
     }
-    if (n <= 0x1f || (n >= 0x7f && n <= 0x9f)) continue;
-    out += ch;
+    if (from !== start) changed = true;
+    parts.push(text.slice(from, end));
+    chunks.push(parts.join(""));
   }
-  return out;
+  return changed ? chunks.join("") : text;
 }
 
 /**
