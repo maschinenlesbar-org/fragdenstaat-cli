@@ -128,10 +128,20 @@ A `law get` adds the boilerplate: `legal_text` (the statute text, **usually empt
 >   pages of 50 has one; `law get 1` (IFG Bund) has 11,863 characters, while laws 51,
 >   120 and 170 have none. Don't report an empty `legal_text` as "no statute"; point
 >   to `site_url` instead. When it is present it can be long: summarise it, and only
->   dump the full text on request, written out with `-o law.txt`. If `law.txt`
->   exists, the CLI refuses it (`Refusing to overwrite existing file "…" (use --force).`,
->   exit 1, before any request): ask the user whether to replace it, then add `--force`,
->   or pick another name.
+>   write the full text out on request. `-o law.txt` would write the **whole law as
+>   JSON** (the statute is one escaped string among `letter_start`, `refusal_reasons`
+>   and the rest), so take `legal_text` out of the answer instead; Node is on your PATH
+>   with the CLI, and the `wx` flag refuses an existing file rather than overwriting it:
+>
+>   ```bash
+>   fragdenstaat --compact law get 1 | node -e 'let s="";process.stdin.on("data",(d)=>(s+=d)).on("end",()=>{const t=JSON.parse(s).legal_text??"";require("fs").writeFileSync("law.txt",t,{flag:"wx"});console.log(t.length+" characters written to law.txt")})'
+>   ```
+>
+>   If `law.txt` exists, that fails with `EEXIST`: ask the user whether to replace it
+>   (then use `{flag:"w"}`), or pick another name. Report the character count it prints.
+>   For the whole record as JSON, `-o law.json` is right; the CLI refuses an existing
+>   file there (`Refusing to overwrite existing file "…" (use --force).`, exit 1, before
+>   any request).
 > - **Always state the response-time unit.** "1" means nothing without knowing it's
 >   `month_de` (a calendar month) vs `working_day` — the semantics differ. Report
 >   `max_response_time` and `max_response_time_unit` together, in plain words.
