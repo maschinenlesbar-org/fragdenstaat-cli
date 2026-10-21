@@ -209,7 +209,7 @@ test("own notes quote a server or user value at most 500 characters long (L3)", 
   const empty = makeCli(() => jsonResponse({ meta: { total_count: 0, limit: 50, offset: 0, next: null, previous: null }, objects: [] }));
   assert.equal(await run(["--compact", "request", "list", "--tags", "t".repeat(10_000)], empty.deps), 0);
   const hint = empty.err.join("\n");
-  assert.match(hint, /--tags "t+…" takes one exact tag name/);
+  assert.match(hint, /--tags "t+"… takes one exact tag name/);
   assert.ok(hint.length < 800, `${hint.length}`);
 
   const bool = makeCli(() => jsonResponse(fx.requestList));
@@ -1089,4 +1089,15 @@ test("--csv on stdout writes bidi controls as visible escapes; the -o file keeps
   const file = makeCli(() => rawResponse(body, "text/csv"));
   assert.equal(await run(["-o", "/tmp/b.csv", "request", "list", "--csv"], file.deps), 0);
   assert.equal(file.files.get("/tmp/b.csv")?.toString("utf8"), body);
+});
+
+// Exploratory test 2026-10-21, bug 01-2: the note quoted " Mu\u0308ller " as typed, not the name sent.
+test("the empty-result note quotes a name filter as it was sent: trimmed and in NFC", async () => {
+  const empty = { meta: { limit: 50, next: null, offset: 0, previous: null, total_count: 0 }, objects: [] };
+  const cli = makeCli(() => jsonResponse(empty));
+  assert.equal(await run(["--compact", "request", "list", "--tags", " Mu\u0308ller "], cli.deps), 0);
+  assert.equal(new URL(cli.mt.last().url).searchParams.get("tags"), "M\u00fcller");
+  const note = untimed(cli.err.join("\n"));
+  assert.match(note, /--tags "M\u00fcller" takes one exact tag name/);
+  assert.ok(!note.includes("\u0308") && !note.includes(" Mu"), note);
 });
