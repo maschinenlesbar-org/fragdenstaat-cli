@@ -470,11 +470,11 @@ NFC or is refused, every `get` id is refused unless it is digits; `kitParity` in
 `apps/cli/test/helpers.ts` maps this repo's `parity` to the kit's shape), P25 the response
 corpus (a number a double can't carry is a parse error; an empty answer too) and P26 `-o`
 integrity (the built bin under `ulimit -f`: a cut write leaves the old file and nothing else).
-Tests must keep passing on Node 22/24 (`engines`: `>=22.12`, the floor of the pinned commander 15).
+Tests must keep passing on Node 22/24/26 (`engines`: `>=22.12`, the floor of the pinned commander 15).
 
 ## CI / release
 
-`.github/workflows/`: `ci.yml` (typecheck + build + test on Node 22/24, then pack the real
+`.github/workflows/`: `ci.yml` (typecheck + build + test on Node 22/24/26, then pack the real
 tarball, check the pack left nothing behind, install it globally with the registry out of
 reach and run the bin), `release.yml` (on a `v*` tag, made by `npm run bump`: verify the tag
 against `apps/cli/package.json`, test, CycloneDX SBOMs scoped to the `apps/cli` workspace,
