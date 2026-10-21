@@ -306,7 +306,7 @@ test("a JSON body is decoded by its declared charset, BOM dropped; an unknown ch
     assert.deepEqual(await engine.getJson("/x"), { name: text }, charset);
   }
   const engine = new RequestEngine({ transport: async () => rawResponse("{}", "application/json; charset=x-klingon") });
-  await assert.rejects(engine.getJson("/x"), (e: unknown) => e instanceof FdsParseError && /Unsupported response charset "x-klingon"/.test((e as Error).message));
+  await assert.rejects(engine.getJson("/x"), (e: unknown) => e instanceof FdsParseError && /^GET https:\/\/fragdenstaat\.de\/x: unsupported response charset "x-klingon"\.$/.test((e as Error).message));
 });
 
 test("server text in an error message is cut at 500 characters; the body keeps it all", async () => {
@@ -498,7 +498,7 @@ test("a number the answer's JSON cannot carry exactly is a parse error, never a 
     const e = engine(makeMockTransport(() => rawResponse(body(n), "application/json")).transport);
     await assert.rejects(e.getJson("/api/v1/request/", undefined, "list"), (err) => {
       assert.ok(err instanceof FdsParseError, n);
-      assert.equal(err.message, `Unexpected response from /api/v1/request/: the number ${n} cannot be represented exactly.`);
+      assert.equal(err.message, `GET https://fragdenstaat.de/api/v1/request/: the number ${n} cannot be represented exactly.`);
       return true;
     });
   }
@@ -606,4 +606,33 @@ test("bigIntegerKeys: a declared member's number is its exact literal as a strin
   // Without declarations the scan is the plain number check.
   assert.equal(firstInexactNumber('{"a":"1e400","b":3e-324}'), "3e-324");
   assert.deepEqual(scanNumbers('{"a":1}'), { json: '{"a":1}', inexact: undefined });
+});
+
+test("an answer error names the request: method and URL, userinfo redacted (D9)", async () => {
+  const answers: Array<[string, () => HttpResponse, "list" | undefined]> = [
+    ["not valid JSON", () => rawResponse("<html>", "text/html"), undefined],
+    ["empty response body", () => rawResponse(" ", "application/json"), undefined],
+    ["cannot be represented exactly", () => rawResponse('{"n":1e400}', "application/json"), undefined],
+    ["unsupported response charset", () => rawResponse("{}", "application/json; charset=x-bogus"), undefined],
+    ["unexpected response shape (HTTP 200)", () => rawResponse("{}", "application/json"), "list"],
+  ];
+  const base = new URL("https://fragdenstaat.de");
+  base.username = "alice";
+  base.password = "s3cret";
+  for (const [what, respond, shape] of answers) {
+    const e = new RequestEngine({ baseUrl: base.href, transport: makeMockTransport(respond).transport });
+    await assert.rejects(e.getJson("/api/v1/request/", { q: "x" }, shape), (err: unknown) => {
+      assert.ok(err instanceof FdsParseError, what);
+      assert.ok(err.message.startsWith("GET https://***@fragdenstaat.de/api/v1/request/?q=x: "), err.message);
+      assert.ok(err.message.includes(what), err.message);
+      assert.ok(!err.message.includes("s3cret"), err.message);
+      return true;
+    });
+  }
+  // A CSV request answered with an HTML page names it too, and the raw answer carries the request.
+  const html = new RequestEngine({ baseUrl: base.href, transport: makeMockTransport(() => rawResponse("<html>", "text/html")).transport });
+  await assert.rejects(html.getRaw("/api/v1/request/", "text/csv", { format: "csv" }), (err: unknown) =>
+    err instanceof FdsParseError && err.message.startsWith("GET https://***@fragdenstaat.de/api/v1/request/?format=csv: unexpected response (HTTP 200): expected text/csv, got an HTML page"));
+  const csv = new RequestEngine({ transport: makeMockTransport(() => rawResponse("id\n1\n", "text/csv")).transport });
+  assert.equal((await csv.getRaw("/api/v1/request/", "text/csv", { format: "csv" })).request, "GET https://fragdenstaat.de/api/v1/request/?format=csv");
 });

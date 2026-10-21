@@ -75,6 +75,11 @@ export interface RawResponse {
   data: Buffer;
   contentType: string;
   status: number;
+  /**
+   * The request that got this answer, as messages name it: `GET <url>`, userinfo redacted
+   * (set by `getRaw`, so a note about the text of a CSV page names it too).
+   */
+  request?: string | undefined;
 }
 
 export interface EngineOptions {
@@ -432,8 +437,24 @@ export class RequestEngine {
         `Invalid path segment "${dotSegment}" in ${cutForMessage(normalizedPath)}: "." and ".." cannot be used as an id.`,
       );
     }
+    return this.joinUrl(normalizedPath, query);
+  }
+
+  /** Base URL + path + query string, without buildUrl's validation. */
+  private joinUrl(path: string, query?: QueryParams): string {
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
     const qs = query ? buildQueryString(query) : "";
     return `${this.#baseUrl}${normalizedPath}${qs ? `?${qs}` : ""}`;
+  }
+
+  /**
+   * The request URL as error messages show it: absolute (so a message names the host that
+   * gave a bad answer, which matters with a custom base URL), userinfo redacted and cut at
+   * MAX_MESSAGE_VALUE_LENGTH characters. It never throws: describing a URL for a message does
+   * not validate it (buildUrl does).
+   */
+  describeUrl(path: string, query?: QueryParams): string {
+    return cutForMessage(redactUrl(this.joinUrl(path, query)));
   }
 
   /**
@@ -592,7 +613,13 @@ export class RequestEngine {
    */
   async getJson<T>(path: string, query?: QueryParams, shape?: ResponseShape): Promise<T> {
     const res = await this.request("GET", path, { query, accept: "application/json" });
-    const text = decodeBody(res.data, res.contentType, path);
+    // Every error about the answer names the request, as a network error does.
+    const request = `GET ${this.describeUrl(path, query)}`;
+    const text = decodeBody(res.data, res.contentType, request);
+    if (text.trim() === "") {
+      // A broken answer, not "nothing found": every endpoint answers with a JSON document.
+      throw new FdsParseError(`${request}: empty response body.`);
+    }
     // Declared big integers are quoted first, so JSON.parse delivers them exactly.
     const { json, inexact } = scanNumbers(text, this.bigIntegerKeys);
     let value: unknown;
@@ -602,19 +629,17 @@ export class RequestEngine {
       // An HTML maintenance or proxy page is the usual non-JSON answer: name its type,
       // so it reads as an upstream problem rather than a client bug.
       const type = res.contentType.split(";")[0]?.trim() ?? "";
-      const hint = type !== "" && !/json/i.test(type) ? `: expected JSON, got Content-Type "${cleanDetail(type)}"` : "";
-      throw new FdsParseError(`Failed to parse JSON response from ${cutForMessage(path)}${hint}`, { cause });
+      const hint = type !== "" && !/json/i.test(type) ? ` (expected JSON, got Content-Type "${cleanDetail(type)}")` : "";
+      throw new FdsParseError(`${request}: the answer is not valid JSON${hint}.`, { cause });
     }
     // JSON.parse rounds and overflows numbers silently: refuse the answer rather than print a
     // changed value.
     if (inexact !== undefined) {
-      throw new FdsParseError(
-        `Unexpected response from ${cutForMessage(path)}: the number ${cutForMessage(inexact)} cannot be represented exactly.`,
-      );
+      throw new FdsParseError(`${request}: the number ${cutForMessage(inexact)} cannot be represented exactly.`);
     }
     const problem = shape === undefined ? undefined : responseShapeProblem(value, shape);
     if (problem !== undefined) {
-      throw new FdsParseError(`Unexpected response from ${cutForMessage(path)} (HTTP ${res.status}): ${problem}`);
+      throw new FdsParseError(`${request}: unexpected response shape (HTTP ${res.status}): ${problem}`);
     }
     return value as T;
   }
@@ -622,20 +647,22 @@ export class RequestEngine {
   /**
    * Perform a GET returning the raw bytes (the server-rendered CSV). An HTML page (a
    * maintenance or login page, a proxy's error page) or a JSON body answered with a 2xx
-   * to a CSV request is an FdsParseError, not a download: the CLI would otherwise print
-   * it, or save it over the user's `-o` file, with exit 0.
+   * to a CSV request is an FdsParseError naming the request, not a download: the CLI would
+   * otherwise print it, or save it over the user's `-o` file, with exit 0. The response
+   * carries `request` (`GET <url>`, userinfo redacted), for a message about its text.
    */
   async getRaw(path: string, accept: string, query?: QueryParams): Promise<RawResponse> {
     const res = await this.request("GET", path, { query, accept });
+    const request = `GET ${this.describeUrl(path, query)}`;
     const type = res.contentType.split(";")[0]?.trim().toLowerCase() ?? "";
     const got = isHtml(res) ? "an HTML page" : !/json/i.test(accept) && /[/+]json$/.test(type) ? "JSON" : undefined;
     if (got !== undefined) {
       throw new FdsParseError(
-        `Unexpected response from ${cutForMessage(path)} (HTTP ${res.status}): expected ${accept}, got ${got}` +
+        `${request}: unexpected response (HTTP ${res.status}): expected ${accept}, got ${got}` +
           (res.contentType === "" ? "" : ` (Content-Type "${cleanDetail(res.contentType)}")`),
       );
     }
-    return res;
+    return { ...res, request };
   }
 
   private toApiError(
@@ -882,15 +909,16 @@ export function cleanDetail(text: string): string {
  * none). TextDecoder drops a leading byte order mark, which Buffer#toString keeps and
  * JSON.parse then rejects, so a BOM added by a proxy or a backend change cannot turn a
  * valid answer into a parse error, and a Latin-1 body keeps its umlauts. An unknown
- * charset label is an FdsParseError.
+ * charset label is an FdsParseError naming `request` (`GET <url>`, as the engine's
+ * messages start).
  */
-export function decodeBody(body: Buffer, contentType: string, path: string): string {
+export function decodeBody(body: Buffer, contentType: string, request: string): string {
   const charset = /;\s*charset\s*=\s*"?([^";\s]+)"?/i.exec(contentType)?.[1] ?? "utf-8";
   let decoder: TextDecoder;
   try {
     decoder = new TextDecoder(charset);
   } catch {
-    throw new FdsParseError(`Unsupported response charset "${cleanDetail(charset)}" from ${cutForMessage(path)}.`);
+    throw new FdsParseError(`${cutForMessage(request)}: unsupported response charset "${cleanDetail(charset)}".`);
   }
   return decoder.decode(body);
 }

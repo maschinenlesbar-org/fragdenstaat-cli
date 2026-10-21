@@ -110,14 +110,18 @@ apps/cli/src/cli/
   ENOTFOUND …`, with the original error as the `cause`.
 - **Decoding.** A JSON body is decoded by the charset its `Content-Type` declares
   (UTF-8 when it names none) with `TextDecoder` (`decodeBody`), which also drops a
-  leading byte order mark; an unknown charset label is an `FdsParseError`. A body with a
+  leading byte order mark; an unknown charset label is an `FdsParseError`, and so is an empty
+  body (`empty response body.`). Every error about an answer names the request, as a network
+  error does: `GET <url>: …`, the URL absolute (`describeUrl`, userinfo redacted, cut at 500
+  characters): `GET <url>: the answer is not valid JSON (expected JSON, got Content-Type
+  "text/html").`, `GET <url>: unsupported response charset "…".`. A body with a
   number JSON.parse cannot carry exactly — one out of a double's range (`1e400`, which
   printed as `null`), one past 2^53 that it rounds, in any form (`12345678901234567890`,
   `12345678901234567890.0`, `9007199254740993e0`, `9007199254740992.5`), or a non-zero one
   too small for a double (`1e-400`, which became `0`), or a subnormal one (below
   `2.2250738585072014e-308`) that doesn't print as written (`3e-324`, which became `5e-324`) — is
   an `FdsParseError` too
-  (`Unexpected response from <path>: the number … cannot be represented exactly.`), never a
+  (`GET <url>: the number … cannot be represented exactly.`), never a
   changed value. Past 2^53 the number as written is compared with the number as printed
   (`String(value)`), not with the double's exact binary value: `12345678901234567890` prints
   as `12345678901234567000` and is refused, while `1E23` or `1.7976931348623157E308` (a
@@ -302,7 +306,7 @@ When in doubt, trust the live API, not the schema.
   list, search or autocomplete call must get an object with an `objects` array and a
   `meta` object holding a numeric `total_count`, a `get` a non-empty object. Anything
   else — `null`, `{}`, `{"detail": "Wartung"}`, an array — is an `FdsParseError`
-  (`Unexpected response from <path> (HTTP 200): …`, exit 1, an ERROR record of
+  (`GET <url>: unexpected response shape (HTTP 200): …`, exit 1, an ERROR record of
   `fragdenstaat.api`), never printed as data or
   read as "nothing found". The records themselves are not schema-validated.
 - **Related resources are hyperlinked** as absolute `resource_uri` URLs, not embedded
@@ -373,7 +377,8 @@ When in doubt, trust the live API, not the schema.
   stderr note when the page came back full. `getRaw` refuses a 2xx HTML page (by
   Content-Type, or a body that starts `<!doctype html`/`<html`) or a JSON body
   answered to a CSV request with an `FdsParseError`, so `-o` never saves a maintenance
-  page as `requests.csv`. `format=xml` 404s everywhere;
+  page as `requests.csv` (`GET <url>: unexpected response (HTTP 200): expected text/csv, got
+  an HTML page …`). `format=xml` 404s everywhere;
   `format=jsonp` works on some resources only — neither is wrapped.
 - **Two error-body shapes** (`engine.ts` handles both):
   `{"detail": "<message>"}` for 404/406/format errors, and
