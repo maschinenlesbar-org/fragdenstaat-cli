@@ -306,7 +306,12 @@ exact userinfo of every URL argument (`credentialsIn`, exported) and replaces it
 everything it prints — commander's usage errors, which echo rejected values
 (`argument '<url>' is invalid`, `unknown command '<url>'`), and the help that follows them
 — so a password with spaces, quotes, `#`, `?` or `/` is caught as well as an ordinary one.
-Only a value that starts with a scheme counts (a bare `a:b@c` is a file name, a search
+A URL counts wherever it starts inside an argument (`urlsWithin`: each `://` found with
+indexOf, its scheme by walking back, at most 64 per argument), since a text filter or an id is
+sent trimmed and a refusal quotes it whole: a padded `" https://u:pw@host"`, one after a dash or
+inside a phrase reached the request URL of an error record and the refusals; its
+percent-encoded form with the `@` (`bob%3Apw%40`), as a request URL carries it, is replaced too.
+Only a URL with a scheme counts (a bare `a:b@c` is a file name, a search
 text or a User-Agent as often as a credential: `-o run:2026-10-09@x.json` and
 `--tags 'a:b@c'` stay as they are), except as the `--base-url` value, where a
 `user:password@host` typed without its scheme is still a credential. On stderr the log replaces them in each record's message, before the record is cut and

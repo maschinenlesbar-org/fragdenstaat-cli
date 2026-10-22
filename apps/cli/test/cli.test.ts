@@ -1101,3 +1101,78 @@ test("the empty-result note quotes a name filter as it was sent: trimmed and in 
   assert.match(note, /--tags "M\u00fcller" takes one exact tag name/);
   assert.ok(!note.includes("\u0308") && !note.includes(" Mu"), note);
 });
+
+// T15 of the 2026-10-21 fix round (jobsuche-cli 28be809, ladesaeulenregister-cli 001c48d,
+// abgeordnetenwatch-cli 6d136ad): a URL with a password anywhere in an argument — a text filter,
+// padded, after a dash, inside a phrase, an id, a rejected option value, commander's echo — must
+// never reach stderr, neither raw in a refusal or note nor percent-encoded in the request URL of
+// an error record.
+test("a password in a URL inside any argument is redacted on stderr, raw or percent-encoded (T15)", async () => {
+  const url = "https://bob:s3cretpw@host.example/x";
+  const argvs = [
+    ["request", "search", "--q", url],
+    ["request", "search", "--q", ` ${url}`],
+    ["request", "search", "--q", `Akten ${url}`],
+    ["publicbody", "search", "--q", ` -${url}`],
+    ["request", "list", "--categories", `\t${url}`],
+    ["request", "list", "--classification", `Amt ${url}`],
+    ["request", "list", "--tags", ` ${url}`],
+    ["request", "list", "--reference", ` ${url}`],
+    ["request", "list", "--slug", ` ${url}`],
+    ["request", "list", "--jurisdiction", ` ${url}`],
+    ["request", "list", "--campaign", `1 ${url}`],
+    ["request", "list", "--is-foi", ` ${url}`],
+    ["request", "list", "--costs-min", ` ${url}`],
+    ["request", "list", "--created-after", `2024 ${url}`],
+    ["request", "list", "--status", ` ${url}`],
+    ["request", "list", "--limit", ` ${url}`],
+    ["request", "list", "--csv", "--q", ` ${url}`],
+    ["request", "tags", ` ${url}`],
+    ["publicbody", "autocomplete", `Amt ${url}`],
+    ["law", "autocomplete", ` ${url}`],
+    ["georegion", "autocomplete", ` -${url}`],
+    ["request", "get", ` ${url}`],
+    ["document", "get", `1 ${url}`],
+    ["request", "search", "-o", `-${url}`],
+    ["request", ` ${url}`],
+    [` ${url}`],
+    ["request", "search", "--q", url, "--bogus"],
+    ["request", "search", `--q= ${url}`],
+    ["--timeout", ` ${url}`, "law", "list"],
+  ];
+  const answers: Array<() => HttpResponse> = [
+    () => jsonResponse({ detail: `not found: ${url}` }, 404),
+    () => jsonResponse({}, 500),
+    () => rawResponse("busy", "text/plain", 503),
+    () => {
+      throw Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" });
+    },
+  ];
+  for (const argv of argvs) {
+    for (const answer of answers) {
+      const cli = makeCli(answer);
+      await run(["--max-retries", "0", ...argv], cli.deps);
+      const err = cli.err.join("\n");
+      assert.ok(err.length > 0, JSON.stringify(argv));
+      assert.doesNotMatch(err, /s3cretpw|bob%3As3/, `${JSON.stringify(argv)}: ${err}`);
+    }
+  }
+  // A password under 4 characters is not replaced on its own, so the percent-encoded userinfo
+  // a request URL carries is matched as a whole (with its "@").
+  for (const argv of [["request", "search", "--q", " https://bob:pw@host.example/x"], ["law", "autocomplete", "Amt https://bob:pw@h.example"]]) {
+    const cli = makeCli(() => jsonResponse({}, 404));
+    await run(["--max-retries", "0", ...argv], cli.deps);
+    const err = cli.err.join("\n");
+    assert.match(err, /\*\*\*/, err);
+    assert.doesNotMatch(err, /bob:pw@|bob%3Apw%40/, `${JSON.stringify(argv)}: ${err}`);
+  }
+});
+
+test("the URL search of the redaction is linear: a 1 MB argument without '://' is quick (T15)", async () => {
+  for (const big of ["a".repeat(1 << 20), "a:/".repeat(350_000), `${"a".repeat(1 << 20)}://`]) {
+    const cli = makeCli(() => jsonResponse({}, 404));
+    const started = performance.now();
+    await run(["--max-retries", "0", "request", "search", "--q", big], cli.deps);
+    assert.ok(performance.now() - started < 1500, `${big.length} characters took ${Math.round(performance.now() - started)} ms`);
+  }
+});

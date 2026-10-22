@@ -155,7 +155,9 @@ export interface Redaction {
  * The secrets of the run in `argv`. Commander echoes rejected values in its errors
  * (`argument '<url>' is invalid`, `unknown command '<url>'`) and the help follows them:
  * whatever path a credential takes to stdout or stderr, the exact userinfo (as
- * `credentialsIn` finds it, plus its JSON-quoted form) is replaced by `***`. A pattern
+ * `credentialsIn` finds it, plus its JSON-quoted and percent-encoded forms) is replaced by
+ * `***`, for every URL that starts anywhere in an argument (`urlsWithin`: padded, after a
+ * dash, inside a phrase). A pattern
  * alone can't delimit a password with spaces, quotes, `#`, `?` or `/`; the exact strings
  * can. Downloads (`outBinary`, `writeFile`) are data and pass unchanged, as does all text
  * when no argument carries credentials.
@@ -166,16 +168,19 @@ export function redactionFor(argv: readonly string[]): Redaction {
     token.startsWith("-") && token.includes("=") ? token.slice(token.indexOf("=") + 1) : token,
   );
   const secrets = new Set<string>();
+  // A URL given as a text filter is echoed percent-encoded in a request URL (`bob%3Apw%40host`).
+  const encoded = new Set<string>();
   const echoed = new Set<string>();
   const passwords = new Set<string>();
   // A base URL typed without its scheme is read as if it had one.
   const baseUrls = flagValues(argv, BASE_URL_FLAGS).map((value) => (/^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(value) ? value : `http://${value}`));
-  for (const source of [...values, ...baseUrls]) {
+  for (const source of [...values.flatMap(urlsWithin), ...baseUrls]) {
     for (const secret of credentialsIn(source)) {
       secrets.add(secret);
       secrets.add(JSON.stringify(secret).slice(1, -1));
       // A commander error message escapes C1 and format characters (`escapeTerminalText`).
       secrets.add(escapeTerminalText(secret));
+      encoded.add(encodeURIComponent(`${secret}@`));
       // What a server echoes back: the Basic value and the decoded user:password on
       // stdout and stderr, the password alone (it may well occur in the data) on stderr.
       const [basic, pair, password] = echoedCredentialForms(secret);
@@ -189,8 +194,38 @@ export function redactionFor(argv: readonly string[]): Redaction {
   // Longest first, so a password never leaves half of the user:password around it.
   const echoedList = [...echoed].sort((a, b) => b.length - a.length);
   const passwordList = [...passwords].sort((a, b) => b.length - a.length);
-  const out = (text: string): string => redactSecrets(redactUserinfo(redactCredentials(text, list)), echoedList);
+  const out = (text: string): string => {
+    let result = redactUserinfo(redactCredentials(text, list));
+    for (const form of encoded) result = result.split(form).join("***%40");
+    return redactSecrets(result, echoedList);
+  };
   return { out, err: (text) => redactSecrets(out(text), passwordList) };
+}
+
+/** The most URLs `urlsWithin` reads inside one argument, after the one it may start with. */
+const MAX_URLS_WITHIN = 64;
+
+/** A character a URL scheme may hold after its first letter. */
+const SCHEME_CHAR = /[A-Za-z0-9+.-]/;
+
+/**
+ * `value` and the rest of it from each place a URL starts inside it (`<scheme>://`, the scheme
+ * starting with a letter), for `credentialsIn`, which reads a URL at the start of its input only.
+ * A value is sent trimmed (or split into words) and a refusal quotes it whole, so a padded
+ * `" https://user:pw@host"`, one after a dash or inside a phrase reached the request URL and the
+ * messages that quote it with its password. Each `://` is found with indexOf and its scheme by
+ * walking back, never by a pattern retried at every position (quadratic on a long argument); at
+ * most MAX_URLS_WITHIN are read from one argument, since each is parsed whole.
+ */
+function urlsWithin(value: string): string[] {
+  const found = [value];
+  for (let at = value.indexOf("://"); at !== -1 && found.length <= MAX_URLS_WITHIN; at = value.indexOf("://", at + 3)) {
+    let start = at;
+    while (start > 0 && SCHEME_CHAR.test(value[start - 1] as string)) start--;
+    while (start < at && !/[A-Za-z]/.test(value[start] as string)) start++;
+    if (start > 0 && start < at) found.push(value.slice(start));
+  }
+  return found;
 }
 
 /**
