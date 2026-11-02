@@ -209,8 +209,11 @@ What the library rejects with `FdsValidationError`, before any request:
   `maxRetries`, `retryDelayMs`, `maxResponseBytes`) is an `FdsValidationError`
   (`Invalid option <name>: …`), like a bad `baseUrl` or `userAgent`; `null` options
   count as none. Every failure the library raises is an `FdsError` subclass; server
-  text in a message (an error `detail`, a redirect target) is cut at 500 characters
-  (`MAX_DETAIL_LENGTH`), and so is a URL or path (`cutForMessage`,
+  text in a message (an error `detail`, a redirect target) is cleaned
+  (`sanitizeServerText`: only its first 16 384 characters are read, whole terminal escape
+  sequences, the other controls and every format character are dropped, whitespace folded, in
+  linear regex passes, so a 16 MB error detail costs neither time nor the heap) and cut at
+  500 characters (`MAX_DETAIL_LENGTH`), and so is a URL or path (`cutForMessage`,
   `MAX_MESSAGE_VALUE_LENGTH`; also a value quoted in a validation message (`quoteValue`,
   exported: JSON-quoted with DEL, C1, U+2028/2029 and every format character — a zero-width
   space, a soft hyphen, a bidi control — escaped as `\uXXXX`, so a refused `a\u200bb` shows

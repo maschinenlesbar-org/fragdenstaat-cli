@@ -721,3 +721,34 @@ test("a connection reset after spent retries says so, and the error carries retr
   const own = new RequestEngine({ maxRetries: 1, retryDelayMs: 0, sleep: async () => {}, transport: async () => { throw new FdsNetworkError("socket hang up", { cause: Object.assign(new Error("x"), { code: "ECONNRESET" }) }); } });
   await assert.rejects(own.getJson("/x/"), (err: unknown) => err instanceof FdsNetworkError && err.message === "GET https://fragdenstaat.de/x/ failed: socket hang up (after 1 retry)" && err.retries === 1);
 });
+
+test("sanitizeServerText reads a bounded prefix and drops what the per-character filter dropped", () => {
+  // The filter it replaces, one character at a time: C0 but TAB to CR, DEL, C1 and Cf go.
+  const perCharacter = (text: string): string =>
+    [...text]
+      .filter((ch) => {
+        const n = ch.codePointAt(0) ?? 0;
+        return (n >= 0x09 && n <= 0x0d) || !(n <= 0x1f || (n >= 0x7f && n <= 0x9f) || /\p{Cf}/u.test(ch));
+      })
+      .join("")
+      .replace(/\s+/g, " ")
+      .trim();
+  const every = Array.from({ length: 0x3000 }, (_, i) => String.fromCharCode(i)).join("") + "\u{1f600}\u{e0001}\ud800x";
+  for (let at = 0; at < every.length; at += 512) {
+    const piece = every.slice(at, at + 512).replace(/[\u001b\u0090\u0098\u009b-\u009f]/g, "");
+    assert.equal(sanitizeServerText(piece), perCharacter(piece), `from U+${at.toString(16)}`);
+  }
+  // At most 16 384 units of the text are read, never half a surrogate pair.
+  assert.equal(sanitizeServerText("x".repeat(100_000)).length, 16_384);
+  assert.equal(sanitizeServerText(`${"x".repeat(16_383)}\u{1f600}`), "x".repeat(16_383));
+  // Whole escape sequences go, not only their control bytes; a control string ends at another
+  // introducer: the first is dropped by the filter, the second string as a whole.
+  const ESC = String.fromCharCode(0x1b);
+  const BEL = String.fromCharCode(0x07);
+  const OSC8 = String.fromCharCode(0x9d);
+  const ST8 = String.fromCharCode(0x9c);
+  assert.equal(sanitizeServerText(`a${ESC}[31mred${ESC}[0m ${ESC}]0;title${BEL}b`), "ared b");
+  assert.equal(sanitizeServerText(`a${OSC8}0;x${OSC8}0;t${ST8}b`), "a0;xb");
+  assert.equal(sanitizeServerText(`a${ESC}]0;x${ESC}]0;t${BEL}b`), "a0;xb");
+});
+
