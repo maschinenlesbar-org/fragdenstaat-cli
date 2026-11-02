@@ -136,7 +136,8 @@ apps/cli/src/cli/
   strings (`scanNumbers`), never a reviver. Text is never changed silently (the kit's
   decision D2): bytes that are not valid in the charset (`decodeText` decodes fatally first,
   then with replacement, and counts) and a lone surrogate written as a JSON escape
-  (`\ud800`, `wellFormedEscapes`) become U+FFFD, so the result is well-formed (`jq` refuses a
+  (`\ud800`, `wellFormedEscapes`, which joins its pieces in batches, `TextBuilder`, so millions
+  of repairs stay within a small heap) become U+FFFD, so the result is well-formed (`jq` refuses a
   lone surrogate, and the whole output with it), and the engine option `onWarning` gets one
   message naming the request and the count (`replacementWarning`); the CLI logs it as a WARN
   record of `fragdenstaat.api`. It is not an error: one bad character never sinks an answer.

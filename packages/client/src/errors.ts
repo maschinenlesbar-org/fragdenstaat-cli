@@ -107,6 +107,35 @@ export function redactCredentials(text: string, credentials: readonly string[]):
   return out;
 }
 
+/** How many pieces a TextBuilder joins at a time. */
+const BUILDER_BATCH = 16_384;
+
+/**
+ * A text put together from many pieces (slices of a server answer and their replacements),
+ * joined in batches of BUILDER_BATCH into flat strings, so memory stays proportional to the text,
+ * not to the number of pieces. One `+=` per piece made a rope node each, and one array of every
+ * piece a slot each: millions of lone-surrogate repairs in a large answer exhausted a small heap
+ * either way.
+ */
+export class TextBuilder {
+  readonly #done: string[] = [];
+  #batch: string[] = [];
+
+  push(...pieces: string[]): void {
+    for (const piece of pieces) this.#batch.push(piece);
+    if (this.#batch.length >= BUILDER_BATCH) {
+      this.#done.push(this.#batch.join(""));
+      this.#batch = [];
+    }
+  }
+
+  toString(): string {
+    this.#done.push(this.#batch.join(""));
+    this.#batch = [];
+    return this.#done.join("");
+  }
+}
+
 /**
  * Longest URL or path (in characters) an error message shows, like the 500 characters
  * kept of a server `detail`. A 20 000-character query would otherwise put a 20 KB URL on

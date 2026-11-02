@@ -26,6 +26,7 @@ import {
   redactCredentials,
   redactSecrets,
   redactUrl,
+  TextBuilder,
 } from "./errors.js";
 import { assertNonBlankParams, assertValid, headerValueProblem, validateBaseUrl } from "./validate.js";
 
@@ -1054,7 +1055,9 @@ function escapeAt(json: string, at: number): number {
  */
 function wellFormedEscapes(json: string): { json: string; replaced: number } {
   if (!SURROGATE_ESCAPE.test(json)) return { json, replaced: 0 };
-  let out = "";
+  // Pieces are joined in batches (TextBuilder), so memory stays proportional to the answer, not
+  // to the number of repairs: one `+=` each made a rope node per lone escape.
+  const out = new TextBuilder();
   let copied = 0;
   let replaced = 0;
   for (let i = 0; i < json.length; i++) {
@@ -1069,12 +1072,14 @@ function wellFormedEscapes(json: string): { json: string; replaced: number } {
       i += 11;
       continue;
     }
-    out += json.slice(copied, i) + "\\ufffd";
+    out.push(json.slice(copied, i), "\\ufffd");
     copied = i + 6;
     replaced++;
     i += 5;
   }
-  return replaced === 0 ? { json, replaced } : { json: out + json.slice(copied), replaced };
+  if (replaced === 0) return { json, replaced };
+  out.push(json.slice(copied));
+  return { json: out.toString(), replaced };
 }
 
 function isLowSurrogate(code: number): boolean {

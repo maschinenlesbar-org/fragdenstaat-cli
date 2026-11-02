@@ -2,6 +2,8 @@
 // 2026-10-27, class C; the cases of the kit's P28 that concern this, until P28 is rolled out).
 // - Server text bound for a message is cut before it is cleaned: one `+=` per character over a
 //   16 MB error detail exhausted a small heap before the cut to 500 characters.
+// - Many lone surrogate escapes in a 2xx answer are repaired within a small heap: one `+=` per
+//   repair made a rope node each.
 // The memory cases run the built bin in a child process with --max-old-space-size.
 
 import { test } from "node:test";
@@ -15,6 +17,8 @@ import type { AddressInfo } from "node:net";
 const BIN = fileURLToPath(new URL("../src/cli/index.js", import.meta.url));
 /** CLI argv (after the global options) for one GET whose answer carries a free-form value. */
 const call = ["request", "get", "1"];
+/** The raw 2xx body with `json` (a JSON value, written as is) as that value. */
+const bodyWith = (json: string): string => `{"id":1,"x":${json}}`;
 /** An error body whose message the client quotes, with `json` (a JSON string, written as is) as that message. */
 const errorBodyWith = (json: string): string => `{"detail":${json}}`;
 
@@ -71,4 +75,13 @@ test("a 16 MB error detail ends in one ERROR record within a small heap", STARTS
   assert.equal(records.length, 1, run.stderr.slice(0, 500));
   assert.match(records[0] ?? "", /ERROR \[fragdenstaat\.api\] /);
   assert.ok((records[0] ?? "").length < 5000, "the record is cut");
+});
+
+test("an answer of millions of lone surrogate escapes is repaired within a small heap", STARTS_A_PROCESS, async () => {
+  // 6 million repairs (36 MB): one `+=` each exhausted a 128 MB heap; batched, 96 MB suffice.
+  const n = 6_000_000;
+  const run = await runWithAnswer(200, Buffer.from(bodyWith(`"${"\\ud800".repeat(n)}"`)), 128);
+  noCrash(run, "lone surrogates");
+  assert.equal(run.code, 0, run.stderr.slice(0, 500));
+  assert.match(run.stderr, new RegExp(`WARN  \\[fragdenstaat\\.api\\] GET \\S+: ${n} characters of the answer were not valid text`));
 });
