@@ -355,16 +355,18 @@ export class RequestEngine {
     // FdsValidationError (a configuration error, not a transport failure); the default
     // transport still re-checks each request URL's scheme as an FdsNetworkError.
     this.#baseUrl = validateBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL);
-    this.#credentials = credentialsIn(this.#baseUrl).flatMap((raw) => {
+    // The userinfo as typed and as sent (WHATWG percent-encodes some of its characters, and a
+    // server that echoes the request URL echoes that spelling).
+    const userinfos = [...new Set([...credentialsIn(this.#baseUrl), ...credentialsIn(new URL(this.#baseUrl).href)])];
+    this.#credentials = userinfos.flatMap((raw) => {
       try {
         return [raw, decodeURIComponent(raw)];
       } catch {
         return [raw];
       }
     });
-    this.#echoed = credentialsIn(this.#baseUrl)
-      .flatMap(echoedCredentialForms)
-      .sort((a, b) => b.length - a.length);
+    // Each form also percent-encoded (`urlSpellings`), as a server puts it into a URL.
+    this.#echoed = [...new Set(userinfos.flatMap(echoedCredentialForms).flatMap(urlSpellings))].sort((a, b) => b.length - a.length);
     this.transport = options.transport ?? nodeHttpTransport;
     // A blank, control-character or non-Latin-1 value is an FdsValidationError here,
     // not a raw TypeError from Node at send time (or CR/LF handed to a custom transport).
@@ -419,6 +421,32 @@ export class RequestEngine {
    */
   private scrub(text: string): string {
     return this.#credentials.length === 0 ? text : redactSecrets(redactCredentials(text, this.#credentials), this.#echoed);
+  }
+
+  /**
+   * An error body, already scrubbed as sent, as `FdsApiError.body` keeps it: when it is JSON with
+   * an escape in it, checked decoded too. An escape (`\"`, `\u00e4`) hides an echoed credential
+   * from the scrub of the text as sent, while a caller who parses the body sees it. Such a body
+   * is kept as the decoded JSON written again (`JSON.stringify`, one spelling per character) with
+   * the credential scrubbed in that spelling. A body that doesn't parse is text nobody decodes,
+   * and stays as sent; one too deeply nested to write again is left out ("").
+   */
+  private scrubBody(scrubbed: string): string {
+    if (this.#echoed.length === 0 || !scrubbed.includes("\\")) return scrubbed;
+    let decoded: unknown;
+    try {
+      decoded = JSON.parse(scrubbed);
+    } catch {
+      return scrubbed;
+    }
+    let rewritten: string;
+    try {
+      rewritten = JSON.stringify(decoded);
+    } catch {
+      return "";
+    }
+    const spelled = this.#echoed.map((form) => JSON.stringify(form).slice(1, -1));
+    return spelled.some((form) => rewritten.includes(form)) ? redactSecrets(rewritten, spelled) : scrubbed;
   }
 
   /**
@@ -746,7 +774,9 @@ export class RequestEngine {
     // cli/shared.ts): JSON.stringify alone leaves DEL and the C1 range raw.
     // ... and cap its length, so a hostile or buggy body cannot flood stderr with one huge
     // line (FdsApiError.body keeps the full text).
-    if (detail !== undefined) detail = cleanDetail(detail);
+    // The decoded text is scrubbed again first: a JSON escape (`\"`, `\u00e4`) hid an echoed
+    // credential from the scrub of the body as sent.
+    if (detail !== undefined) detail = cleanDetail(this.scrub(detail));
     // Redirects are not followed; name the target so the user can fix --base-url.
     const location =
       status >= 300 && status < 400 && locationHeader ? redirectTarget(url, locationHeader) : undefined;
@@ -754,7 +784,7 @@ export class RequestEngine {
       status,
       url,
       method,
-      body: text,
+      body: this.scrubBody(text),
       detail,
       location,
       retries: retry.retries,
@@ -787,6 +817,19 @@ export function responseShapeProblem(value: unknown, shape: ResponseShape): stri
     return "expected a { meta, objects } list with a numeric meta.total_count.";
   }
   return undefined;
+}
+
+/**
+ * `form` and its spelling in a URL (`encodeURIComponent`): a server that puts a credential into
+ * a URL, a redirect's Location, percent-encodes it. A form that has no such spelling (a lone
+ * surrogate) is kept as it is.
+ */
+function urlSpellings(form: string): string[] {
+  try {
+    return [form, encodeURIComponent(form)];
+  } catch {
+    return [form];
+  }
 }
 
 /** A JSON number token, matched at a given position (sticky). */

@@ -335,7 +335,12 @@ In the library, the engine keeps the base URL in a real `#private` field, so
 `console.log(client)`, `util.inspect` and `JSON.stringify` never show it, and it scrubs
 the base URL's userinfo (raw and percent-decoded), and the forms a server echoes it back
 in (the `Basic` value, the decoded `user:password`, the password alone from 4 characters:
-`echoedCredentialForms`), from error bodies and details,
+`echoedCredentialForms`, each also percent-encoded, and the userinfo as WHATWG sends it, e.g.
+`p%22%C3%A4` for a typed `p"ä`), from error bodies and details — the decoded `detail` again
+after `JSON.parse`, since an escape (`\"`, `\u00e4`) hides an echo from the scrub of the body as
+sent; `FdsApiError.body` stays as sent unless such an escape hid one, then it is the decoded JSON
+written again with the forms as `***` (`scrubBody`; `""` for one too deeply nested to write
+again) —
 transport error text (fetch's "Request cannot be constructed from a URL that includes
 credentials: …") and the `cause` chain it attaches.
 
