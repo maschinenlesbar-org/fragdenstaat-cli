@@ -779,7 +779,7 @@ export class RequestEngine {
     if (detail !== undefined) detail = cleanDetail(this.scrub(detail));
     // Redirects are not followed; name the target so the user can fix --base-url.
     const location =
-      status >= 300 && status < 400 && locationHeader ? redirectTarget(url, locationHeader) : undefined;
+      status >= 300 && status < 400 && locationHeader ? redirectTarget(url, locationHeader, (t) => this.scrub(t)) : undefined;
     return new FdsApiError({
       status,
       url,
@@ -1141,18 +1141,20 @@ function isLowSurrogate(code: number): boolean {
 }
 
 /**
- * The absolute, printable form of a `Location` header: resolved against the request
- * URL, userinfo redacted, control/bidi characters stripped (it is server text bound
- * for stderr). An unparseable value is shown sanitised as it came, with any userinfo
- * cut out by text.
+ * The absolute, printable form of a `Location` header: the base URL's credentials scrubbed
+ * (`scrub`) as sent, before resolving percent-encodes what is left of them in a new spelling
+ * (`'` as `%27` in a query); resolved against the request URL, userinfo redacted,
+ * control/bidi characters stripped (it is server text bound for stderr). An unparseable
+ * value is shown sanitised as it came, with any userinfo cut out by text.
  */
-function redirectTarget(requestUrl: string, location: string): string | undefined {
+function redirectTarget(requestUrl: string, location: string, scrub: (text: string) => string): string | undefined {
+  const sent = scrub(location);
   let target: string;
   try {
-    target = redactUrl(new URL(location, requestUrl).href);
+    target = redactUrl(new URL(sent, requestUrl).href);
   } catch {
     // Unparseable (`http://bob:hunter2@exa mple/`): still cut any userinfo out by text.
-    target = redactUrl(location);
+    target = redactUrl(sent);
   }
   const clean = cleanDetail(target);
   return clean === "" ? undefined : clean;

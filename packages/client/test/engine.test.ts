@@ -919,3 +919,33 @@ test("an echo of the request URL as sent is scrubbed, a short password too (D)",
     assert.ok(!text.includes("p%22%C3%A4") && !text.includes('p"ä'), text);
   }
 });
+
+test("a credential in a redirect's Location is scrubbed, in its path and its query (D2)", async () => {
+  // The Location was resolved and its own userinfo redacted, but the base URL's credential in its
+  // path or query (raw, percent-encoded, as Basic) reached the message and `.location`.
+  const pw = "pä\"s's-W0rd";
+  const base = `https://alice:${encodeURIComponent(pw)}@mirror.example`;
+  const basic = Buffer.from(`alice:${pw}`, "utf8").toString("base64");
+  const decoded = (text: string): string =>
+    text.replace(/(?:%[0-9a-fA-F]{2})+/g, (run) => {
+      try {
+        return decodeURIComponent(run);
+      } catch {
+        return run;
+      }
+    });
+  for (const location of [
+    `https://elsewhere.example/login?user=alice&pw=${encodeURIComponent(pw)}`,
+    `https://elsewhere.example/login?pw=${pw}`,
+    `https://elsewhere.example/${encodeURIComponent(`alice:${pw}`)}/x`,
+    `https://elsewhere.example/auth?basic=${basic}`,
+    `/relative/${pw}`,
+  ]) {
+    const e = new RequestEngine({ baseUrl: base, maxRetries: 0, transport: async () => ({ status: 302, headers: { location }, body: Buffer.alloc(0) }) });
+    const err = await e.getJson("/x").catch((caught: unknown) => caught);
+    assert.ok(err instanceof FdsApiError && /^HTTP 302 /.test(err.message), String(err));
+    for (const text of [err.message, err.location ?? ""].map(decoded)) {
+      for (const secret of [pw, `alice:${pw}`, basic]) assert.ok(!text.includes(secret), `${location}: ${text}`);
+    }
+  }
+});

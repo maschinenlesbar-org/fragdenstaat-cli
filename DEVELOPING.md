@@ -375,8 +375,9 @@ When in doubt, trust the live API, not the schema.
 - **Trailing slashes are mandatory** — a slashless path 301-redirects (Django
   `APPEND_SLASH`). Every client path ends in `/`, and the engine does **not** follow
   redirects (a 3xx surfaces as an `FdsApiError` whose message names the target:
-  `redirect to <Location> not followed`, the Location resolved, redacted and
-  sanitised), so this matters. `http://` likewise 301s to `https://`.
+  `redirect to <Location> not followed`, the Location with the base URL's credentials
+  scrubbed as sent — in its path or query, raw, percent-encoded or as the Basic value —
+  then resolved, redacted and sanitised), so this matters. `http://` likewise 301s to `https://`.
 - **A plain-`http:` base URL warns.** To a host other than loopback (`localhost`,
   `127.0.0.0/8`, `::1`) the CLI writes one `WARN` record of `fragdenstaat.http` on stderr per run,
   before the first request (`action()` in `shared.ts`); the sentence comes from the exported
