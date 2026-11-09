@@ -487,3 +487,19 @@ test("parity: a base URL with a backslash, or a scheme not followed by // and th
     assert.ok(!String((r.lib as { error: unknown }).error).includes(pw), base);
   }
 });
+
+test("parity: a base URL typed without its scheme never shows its user name, token or password (F5)", async () => {
+  for (const [base, secret] of [
+    ["T0kenS3cret:@h.example", "t0kens3cret"],
+    ["T0kenS3cret@h.example", "t0kens3cret"],
+    ["my_user:s3cret-Pw@h.example", "s3cret-Pw"],
+    ["alice:s3cret-Pw@h.example", "alice"],
+  ] as const) {
+    const r = await parity(["--base-url", base, "jurisdiction", "list"], (t) => new FragDenStaatClient({ transport: t, baseUrl: base }).jurisdictions.list());
+    assertBothReject(r);
+    const lib = String((r.lib as { error: unknown }).error);
+    for (const text of [r.cli.err, r.cli.out, lib]) {
+      assert.ok(!text.toLowerCase().includes(secret.toLowerCase()), `${base}: ${text}`);
+    }
+  }
+});

@@ -276,6 +276,13 @@ test("baseUrlProblem accepts an http(s) URL and reports each malformed shape", (
   }
   assert.equal(baseUrlProblem("http:///h.example/?q=1"), "A base URL cannot have a query (?) or fragment (#).");
   assert.equal(baseUrlProblem("HTTPS://H.example"), undefined);
+  // A value typed without its scheme names no scheme (it would be the user name or a token,
+  // lower-cased, which no exact-string redaction matches) and quotes no password (F5).
+  assert.equal(baseUrlProblem("T0kenS3cret:@h.example"), "Expected an absolute http(s) URL.");
+  assert.equal(baseUrlProblem("alice:s3cret@h.example"), "Expected an absolute http(s) URL.");
+  assert.equal(baseUrlProblem("my_user:s3cret@h.example"), 'Invalid URL "***@h.example".');
+  assert.equal(baseUrlProblem("1alice:s3cret@h.example:99999"), 'Invalid URL "***@h.example:99999".');
+  assert.equal(baseUrlProblem("ftp://u:s3cret@h"), 'Unsupported protocol "ftp:" (use http or https).');
 });
 
 test("validateBaseUrl strips trailing slashes and throws FdsValidationError", () => {

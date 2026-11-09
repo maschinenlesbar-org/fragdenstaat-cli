@@ -301,7 +301,10 @@ What the library rejects with `FdsValidationError`, before any request:
   the Authorization header and failed at request time with "URI malformed"; a literal
   `%` is `%25`). Userinfo is
   allowed (Basic auth for a protected mirror) and redacted in every message (see
-  "Credential redaction" below). This is a configuration error, so it is an `FdsValidationError`, not the transport's
+  "Credential redaction" below), also in a value typed without its scheme: `T0ken:@host` or
+  `alice:pw@host` parses as a URL whose scheme is the user name, so the refusal names a scheme
+  only when the value spells `<scheme>://` (`Expected an absolute http(s) URL.` otherwise), and
+  `Invalid URL "…"` quotes `my_user:pw@host` as `"***@host"`. This is a configuration error, so it is an `FdsValidationError`, not the transport's
   `FdsNetworkError`. The CLI's `parseBaseUrl` calls the same `baseUrlProblem`, with the
   same reasons. Requests go to the base URL as WHATWG parses it (`new URL(baseUrl).href`,
   trailing slashes stripped): the host lower-cased, a default port dropped, the path and the

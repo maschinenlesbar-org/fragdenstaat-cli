@@ -4,7 +4,7 @@
 // a request; the CLI's commander parsers call the same Problem functions, so a
 // rule is written once and both layers reject exactly the same inputs.
 
-import { FdsValidationError, cutForMessage, quoteValue, redactUrl } from "./errors.js";
+import { FdsValidationError, credentialsIn, cutForMessage, quoteValue, redactCredentials, redactUrl } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import { MAX_PAGE_SIZE, type Pagination } from "./params.js";
 
@@ -322,12 +322,18 @@ export const baseUrlSpaceProblem: Problem<string> = (value) => {
 
 /**
  * Hide the userinfo of a URL that may not parse: {@link redactUrl} for a parseable
- * one, else a textual `scheme://user:pw@` -> `scheme://***@` replacement.
+ * one, else a textual `scheme://user:pw@` -> `scheme://***@` replacement. A value typed without
+ * its scheme (`my_user:pw@host`) is read as the CLI reads a --base-url, as `http://<value>`:
+ * redactUrl finds a userinfo only after a scheme, so such a password was quoted in clear.
  */
 function redactAnyUrl(value: string): string {
   const redacted = redactUrl(value);
-  return redacted !== value ? redacted : value.replace(/^([^:/?#\s]+:\/\/)[^/?#]*@/, "$1***@");
+  const shown = redacted !== value ? redacted : value.replace(/^([^:/?#\s]+:\/\/)[^/?#]*@/, "$1***@");
+  return SPELLED_SCHEME.test(value) ? shown : redactCredentials(shown, credentialsIn(`http://${value}`));
 }
+
+/** A value that spells its scheme, `<scheme>://`. */
+const SPELLED_SCHEME = /^[A-Za-z][A-Za-z0-9+.-]*:\/\//;
 
 /**
  * Rule for the base URL, in this order: a string; no whitespace or control
@@ -353,6 +359,10 @@ export const baseUrlProblem: Problem<unknown> = (value) => {
     return `Invalid URL ${quoteValue(redactAnyUrl(value))}.`;
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
+    // `user:password@host` without a scheme parses as a URL whose scheme is the user name
+    // ("t0kens3cret:"), lower-cased, which no exact-string redaction matches: name a scheme only
+    // when the value spells one, `<scheme>://`.
+    if (!SPELLED_SCHEME.test(value)) return "Expected an absolute http(s) URL.";
     return `Unsupported protocol "${cutForMessage(url.protocol)}" (use http or https).`;
   }
   if (/[?#]/.test(value)) return "A base URL cannot have a query (?) or fragment (#).";
