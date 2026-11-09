@@ -589,6 +589,18 @@ with `--compact` within a small heap; an answer full of DEL characters prints es
 small heap, or, past V8's longest string, is an ERROR record of `output`; an answer in two
 million one-byte chunks is read within a small heap, as the default transport joins small chunks
 as they arrive).
+From the security audit 2026-10-27 (reference `create-cli-template`): P28 hostile error answers
+(a number with a long run of zeros and an error of unterminated control-string introducers are
+handled in linear time; a 16 MB error message and millions of lone surrogate escapes stay within
+a small heap, run with the built bin; the base URL's credentials are scrubbed from decoded server
+text and from a redirect's Location; the 2xx-quote case is skipped, `quotedBody` undefined, as
+this client quotes no server value), P29 base-URL credentials (a token userinfo is scrubbed, a
+backslash or a scheme without `//` and the host is refused, requests go to the parsed host, the
+redaction of stdout is linear and finds glued URLs), P30 output links (`--force` follows no other
+user's link in a shared directory, an EACCES path isn't "exists", a stream is checked on its
+descriptor; the adapter writes a `--csv` page, whose bytes are written as they came, and maps the
+body's `files` onto this CliIO) and P31 the release pipeline (`release.yml` and `tools/sbom/` read
+as text). P28's bin runs and `engine.test.ts`'s `scanNumbers` memory test start a process (30 s).
 Tests must keep passing on Node 22/24/26 (`engines`: `>=22.12`, the floor of the pinned commander 15).
 
 ## CI / release

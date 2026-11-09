@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { FragDenStaatClient } from "@maschinenlesbar.org/fragdenstaat-client/internal/client";
 import { FdsValidationError } from "@maschinenlesbar.org/fragdenstaat-client/internal/errors";
 import type { Transport } from "@maschinenlesbar.org/fragdenstaat-client/internal/http";
-import { jsonResponse, parity, type CliOutcome, type LibOutcome } from "./helpers.js";
+import { parity, type CliOutcome, type LibOutcome } from "./helpers.js";
 
 const lib = (transport: Transport) => new FragDenStaatClient({ transport });
 
@@ -428,63 +428,6 @@ test("parity: a malformed base URL is rejected by CLI and library with the same 
     const r = await parity(["--base-url", baseUrl, "jurisdiction", "list"], withBase(baseUrl));
     assertBothReject(r, `Invalid baseUrl: ${reason}`);
     assert.ok(r.cli.err.includes(reason), `CLI reason for ${JSON.stringify(baseUrl)}: ${r.cli.err}`);
-  }
-});
-
-test("the CLI's redaction of stdout is linear in the answer and hides the userinfo of glued URLs (B, B2)", async () => {
-  // With a URL with userinfo in argv, every stdout text is redacted. 200 000 characters of
-  // `a.a.…` took about 8 s with the scheme regex run.ts had; the linear pass takes milliseconds.
-  const base = "https://alice:s3cret-Pw@mirror.example";
-  const answer = (x: string) => () => jsonResponse({ id: 1, x });
-  const call = (t: Transport) => new FragDenStaatClient({ transport: t, baseUrl: base }).requests.get(1);
-  const value = "a.".repeat(100_000);
-  const start = performance.now();
-  const big = await parity(["--base-url", base, "--compact", "request", "get", "1"], call, answer(value));
-  const ms = performance.now() - start;
-  assert.equal(big.cli.code, 0, big.cli.err);
-  assert.ok(big.cli.out.includes(value));
-  assert.ok(ms < 1500, `${Math.round(ms)} ms`);
-  // A URL glued onto the one before it starts inside that one's authority.
-  const glued = await parity(["--base-url", base, "--compact", "request", "get", "1"], call, answer("https://host://u:p1@h and https://u:p2@x://v:q3@w"));
-  assert.equal(glued.cli.code, 0, glued.cli.err);
-  assert.ok(glued.cli.out.includes("https://host://***@h and https://***@x://***@w"), glued.cli.out);
-  for (const secret of ["u:p1", "u:p2", "v:q3"]) assert.ok(!glued.cli.out.includes(secret), glued.cli.out);
-});
-
-test("a token in --base-url (a userinfo without a password) is redacted from what the CLI prints (E)", async () => {
-  const token = "T0kenS3cret";
-  const basic = Buffer.from(`${token}:`, "utf8").toString("base64");
-  const base = `https://${token}@mirror.example`;
-  const call = (t: Transport) => new FragDenStaatClient({ transport: t, baseUrl: base, maxRetries: 0 }).requests.get(1);
-  // An error answer that echoes the token: stderr.
-  const failed = await parity(["--base-url", base, "--max-retries", "0", "request", "get", "1"], call, () =>
-    jsonResponse({ detail: `bad token ${token}` }, 401),
-  );
-  assert.notEqual(failed.cli.code, 0);
-  assert.ok(!failed.cli.err.includes(token), failed.cli.err);
-  // A 2xx answer that echoes the Basic value and `TOKEN:`: stdout.
-  const echoed = await parity(["--base-url", base, "request", "get", "1"], call, () =>
-    jsonResponse({ id: 1, x: `Basic ${basic} for ${token}:x` }),
-  );
-  assert.equal(echoed.cli.code, 0, echoed.cli.err);
-  assert.ok(!echoed.cli.out.includes(basic) && !echoed.cli.out.includes(`${token}:`), echoed.cli.out);
-});
-
-test("parity: a base URL with a backslash, or a scheme not followed by // and the host, is refused by CLI and library, never echoing the password (F, F3, F4)", async () => {
-  const pw = "s3cret-Pw";
-  for (const base of [
-    `https://alice:${pw}@api.example\\@evil.example`,
-    `http:alice:${pw}@127.0.0.1:9`,
-    `http:/alice:${pw}@127.0.0.1:9`,
-    `http:///alice:${pw}@127.0.0.1:9`,
-    `HTTPS:alice:${pw}@mirror.example`,
-    `https:\\\\alice:${pw}@mirror.example`,
-    `http:///alice:${pw}@mirror.example/?q=1`,
-  ]) {
-    const r = await parity(["--base-url", base, "jurisdiction", "list"], (t) => new FragDenStaatClient({ transport: t, baseUrl: base }).jurisdictions.list());
-    assertBothReject(r);
-    assert.ok(!r.cli.err.includes(pw) && !r.cli.out.includes(pw), `${base}: ${r.cli.err}`);
-    assert.ok(!String((r.lib as { error: unknown }).error).includes(pw), base);
   }
 });
 
