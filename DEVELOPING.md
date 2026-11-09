@@ -133,7 +133,9 @@ apps/cli/src/cli/
   this API carries a number that large (ids, counts and coordinates are far below it), so the
   client declares no `bigIntegerKeys` (the engine option, from the kit: a declared member's
   number is delivered as its exact literal, as a string). The check is one linear pass that skips
-  strings (`scanNumbers`), never a reviver. Text is never changed silently (the kit's
+  strings (`scanNumbers`), never a reviver; a library caller's declared members are quoted
+  into a `TextBuilder`, so millions of them stay within a small heap (`engine.test.ts` checks
+  3 million under 128 MB in a process of its own, 30 s). Text is never changed silently (the kit's
   decision D2): bytes that are not valid in the charset (`decodeText` decodes fatally first,
   then with replacement, and counts) and a lone surrogate written as a JSON escape
   (`\ud800`, `wellFormedEscapes`, which joins its pieces in batches, `TextBuilder`, so millions
