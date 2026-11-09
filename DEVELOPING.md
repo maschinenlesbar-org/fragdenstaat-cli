@@ -290,14 +290,23 @@ What the library rejects with `FdsValidationError`, before any request:
   `new URL()` trims and drops such characters, so the URL check passed while request
   paths were appended to the raw string and `"https://h/ "` requested
   `/%20/api/v1/...`), parseable, an `http:`/`https:` scheme, no query or fragment
-  (paths are appended as a string, so `?`/`#` would swallow every path), and no `%` in
+  (paths are appended as a string, so `?`/`#` would swallow every path), no backslash (WHATWG
+  ends an http(s) host at `\`, so `https://u:pw@a.example\@b.example` read differently to a
+  text-based reader of the URL than to the checks; `credentialsIn` ends a special scheme's
+  authority there too and skips the slashes and backslashes WHATWG skips after it), `//` and
+  the host right after the scheme (`http:host`, `http:/host`, `http:///host`, `HTTPS:host` are
+  repaired by WHATWG silently into `http(s)://host`: `Expected an absolute http(s) URL ("https://"
+  and the host).`), and no `%` in
   the user name or password that doesn't start an escape (Node decodes the userinfo for
   the Authorization header and failed at request time with "URI malformed"; a literal
   `%` is `%25`). Userinfo is
   allowed (Basic auth for a protected mirror) and redacted in every message (see
   "Credential redaction" below). This is a configuration error, so it is an `FdsValidationError`, not the transport's
   `FdsNetworkError`. The CLI's `parseBaseUrl` calls the same `baseUrlProblem`, with the
-  same reasons.
+  same reasons. Requests go to the base URL as WHATWG parses it (`new URL(baseUrl).href`,
+  trailing slashes stripped): the host lower-cased, a default port dropped, the path and the
+  userinfo percent-encoded where WHATWG does it, so a custom transport that reads the URL as
+  text reaches the host every check names, and messages show that spelling.
 - **Non-numeric law id filters and bad cost amounts.** `laws.list`/`listCsv` take
   `jurisdiction`, `mediator` and `id` only as a non-negative integer or a digit string
   (`idFilterProblem`) and send them as numbers (`normalizeIdFilter`, `"007"` becomes

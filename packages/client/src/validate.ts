@@ -332,7 +332,10 @@ function redactAnyUrl(value: string): string {
 /**
  * Rule for the base URL, in this order: a string; no whitespace or control
  * characters ({@link baseUrlSpaceProblem}); parseable by `new URL()`; an `http:` or
- * `https:` scheme; no query or fragment. Request paths are appended to the base URL
+ * `https:` scheme; no query or fragment; no backslash (WHATWG ends an http(s) host at one, so
+ * `https://u:pw@a.example\@b.example` would read differently to a text-based reader); `//` and
+ * the host right after the scheme (`http:host`, `http:/host`, `http:///host` are repaired by
+ * WHATWG silently into another URL than the one typed). Request paths are appended to the base URL
  * as a string, so a `?` or `#` would swallow every path (`http://h/?x=1` requested
  * `/?x=1/api/...`, `http://h/#f` requested `/`); a `%` in the user name or password
  * that starts a valid escape (`%25` for a literal one: Node decodes the userinfo for the
@@ -353,6 +356,9 @@ export const baseUrlProblem: Problem<unknown> = (value) => {
     return `Unsupported protocol "${cutForMessage(url.protocol)}" (use http or https).`;
   }
   if (/[?#]/.test(value)) return "A base URL cannot have a query (?) or fragment (#).";
+  // WHATWG reads a "\" in an http(s) URL as "/", so it ends the host: in
+  // `https://u:pw@a.example\@b.example` every reader of the base URL has to agree where.
+  if (value.includes("\\")) return 'A base URL cannot contain a backslash (\\); write "/" instead.';
   // Node decodes the userinfo into the Authorization header and throws "URI malformed" for a
   // "%" that isn't an escape — at request time, as a network error. Reject it here.
   for (const part of [url.username, url.password]) {
@@ -362,6 +368,9 @@ export const baseUrlProblem: Problem<unknown> = (value) => {
       return 'The user name or password has a "%" that is not followed by two hex digits; write a literal "%" as %25.';
     }
   }
+  // WHATWG skips any slashes after "http:" and repairs `http:host`, `http:/host` and
+  // `http:///host` into `http://host` silently: the host requested would not be the one typed.
+  if (!/^https?:\/\/[^/]/i.test(value)) return 'Expected an absolute http(s) URL ("https://" and the host).';
   return undefined;
 };
 

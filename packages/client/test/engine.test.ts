@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { TextDecoder } from "node:util";
 import { execFileSync } from "node:child_process";
 import { RequestEngine, bigIntegerKeysOption, firstInexactNumber, isBidiControl, parseRetryAfter, sanitizeServerText, scanNumbers } from "../src/engine.js";
-import { FdsApiError, FdsError, FdsNetworkError, FdsParseError, FdsValidationError, cutForMessage, cutText, echoedCredentialForms, redactUrl, redactUrlUserinfo, TextBuilder, toWellFormed } from "../src/errors.js";
+import { FdsApiError, FdsError, FdsNetworkError, FdsParseError, FdsValidationError, credentialsIn, cutForMessage, cutText, echoedCredentialForms, redactUrl, redactUrlUserinfo, TextBuilder, toWellFormed } from "../src/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
 import type { HttpResponse } from "../src/http.js";
 import * as fx from "./fixtures.js";
@@ -972,5 +972,66 @@ test("echoedCredentialForms treats a userinfo without a password as a token (Bas
     for (const text of [err.message, err.detail ?? "", err.body]) {
       assert.ok(!text.includes(token) && !text.includes(basic(`${token}:`)), `${base}: ${text}`);
     }
+  }
+});
+
+test("credentialsIn ends the authority of a special scheme at a backslash, as WHATWG does (F)", () => {
+  for (const scheme of ["http", "https", "HTTPS", "ws", "wss", "ftp"]) {
+    assert.deepEqual(credentialsIn(`${scheme}://u:p@a.example\\@b.example/x`), ["u:p"], scheme);
+    assert.equal(new URL(`${scheme}://u:p@a.example\\@b.example/x`).password, "p", scheme);
+  }
+  // Another scheme's authority runs on to "/", "?" or "#".
+  assert.deepEqual(credentialsIn("foo://u:p@a.example\\@b.example/x"), ["u:p@a.example\\"]);
+  assert.deepEqual(credentialsIn("https://u:p@a.example/x\\@y"), ["u:p"]);
+});
+
+test("credentialsIn skips the slashes and backslashes WHATWG skips after a special scheme (F3)", () => {
+  // `http:///u:pw@h`, `https:\\u:pw@h` and `http:u:pw@h` all carry `u:pw` for WHATWG; read
+  // after "://", the userinfo was missed, so a refused --base-url echoed the password in clear.
+  for (const value of [
+    "http:alice:pw@h.example",
+    "http:/alice:pw@h.example",
+    "http:///alice:pw@h.example/x",
+    "https:////alice:pw@h.example",
+    "HTTPS:\\\\alice:pw@h.example",
+    "wss:\\/alice:pw@h.example",
+    "ftp:alice:pw@h.example",
+  ]) {
+    assert.deepEqual(credentialsIn(value), ["alice:pw"], value);
+    assert.equal(new URL(value).password, "pw", value);
+  }
+  // Another scheme needs "//" before an authority: `foo:u:p@h` and `foo:///u:p@h` carry none.
+  assert.deepEqual(credentialsIn("foo:u:p@h.example"), []);
+  assert.deepEqual(credentialsIn("foo:///u:p@h.example"), []);
+  assert.equal(new URL("foo:///u:p@h.example").password, "");
+});
+
+test("a base URL with a backslash, or a scheme not followed by // and the host, is refused at construction, never echoing the password (F, F4)", () => {
+  const pw = "s3cret-Pw";
+  for (const baseUrl of [
+    `https://alice:${pw}@api.example\\@evil.example`,
+    `http:alice:${pw}@127.0.0.1:9`,
+    `http:/alice:${pw}@127.0.0.1:9`,
+    `http:///alice:${pw}@127.0.0.1:9`,
+    `HTTPS:alice:${pw}@mirror.example`,
+    `https:\\\\alice:${pw}@mirror.example`,
+  ]) {
+    assert.throws(() => new RequestEngine({ baseUrl }), (err: unknown) => {
+      assert.ok(err instanceof FdsValidationError, String(err));
+      assert.ok(!err.message.includes(pw), err.message);
+      return true;
+    }, baseUrl);
+  }
+});
+
+test("requests go to the host of the parsed base URL, spelled as it parses, an @ in its path included (F)", async () => {
+  for (const base of ["https://alice:pw@api.example/v1/@evil.example", "https://API.Example:443/v1"]) {
+    const parsed = new URL(base);
+    const mt = makeMockTransport(() => jsonResponse(fx.requestList));
+    await new RequestEngine({ baseUrl: base, transport: mt.transport }).getJson("/api/v1/request/");
+    const url = mt.last().url;
+    assert.equal(new URL(url).origin, parsed.origin, url);
+    const authority = url.slice(url.indexOf("//") + 2).split("/")[0] ?? "";
+    assert.ok(authority === parsed.host || authority.endsWith(`@${parsed.host}`), `${base}: ${url}`);
   }
 });
