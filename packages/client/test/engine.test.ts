@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { TextDecoder } from "node:util";
 import { execFileSync } from "node:child_process";
 import { RequestEngine, bigIntegerKeysOption, firstInexactNumber, isBidiControl, parseRetryAfter, sanitizeServerText, scanNumbers } from "../src/engine.js";
-import { FdsApiError, FdsError, FdsNetworkError, FdsParseError, FdsValidationError, cutForMessage, cutText, redactUrl, redactUrlUserinfo, TextBuilder, toWellFormed } from "../src/errors.js";
+import { FdsApiError, FdsError, FdsNetworkError, FdsParseError, FdsValidationError, cutForMessage, cutText, echoedCredentialForms, redactUrl, redactUrlUserinfo, TextBuilder, toWellFormed } from "../src/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
 import type { HttpResponse } from "../src/http.js";
 import * as fx from "./fixtures.js";
@@ -946,6 +946,31 @@ test("a credential in a redirect's Location is scrubbed, in its path and its que
     assert.ok(err instanceof FdsApiError && /^HTTP 302 /.test(err.message), String(err));
     for (const text of [err.message, err.location ?? ""].map(decoded)) {
       for (const secret of [pw, `alice:${pw}`, basic]) assert.ok(!text.includes(secret), `${location}: ${text}`);
+    }
+  }
+});
+
+test("echoedCredentialForms treats a userinfo without a password as a token (Basic `TOKEN:`) (E)", async () => {
+  const basic = (pair: string): string => Buffer.from(pair, "utf8").toString("base64");
+  assert.deepEqual(echoedCredentialForms("alice:s3cret"), [basic("alice:s3cret"), "alice:s3cret", "s3cret"]);
+  assert.deepEqual(echoedCredentialForms("T0ken"), [basic("T0ken:"), "T0ken:", "T0ken"]);
+  assert.deepEqual(echoedCredentialForms("T0ken:"), [basic("T0ken:"), "T0ken:", "T0ken"]);
+  assert.deepEqual(echoedCredentialForms("T%C3%B6k"), [basic("Tök:"), "Tök:"]); // short: not alone
+  assert.deepEqual(echoedCredentialForms(":pw12"), [basic(":pw12"), ":pw12", "pw12"]);
+  assert.deepEqual(echoedCredentialForms(""), []);
+  assert.deepEqual(echoedCredentialForms(":"), []);
+  // Through the engine: a 401 that echoes the token in every form keeps none of them.
+  const token = "T0kenS3cret";
+  for (const base of [`https://${token}@mirror.example`, `https://${token}:@mirror.example`]) {
+    const e = new RequestEngine({
+      baseUrl: base,
+      maxRetries: 0,
+      transport: async () => jsonResponse({ detail: `bad token ${token}; Basic ${basic(`${token}:`)}` }, 401),
+    });
+    const err = await e.getJson("/x").catch((caught: unknown) => caught);
+    assert.ok(err instanceof FdsApiError, String(err));
+    for (const text of [err.message, err.detail ?? "", err.body]) {
+      assert.ok(!text.includes(token) && !text.includes(basic(`${token}:`)), `${base}: ${text}`);
     }
   }
 });

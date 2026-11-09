@@ -328,7 +328,9 @@ in a stdout text is cut by pattern (`redactUrlUserinfo`, client `errors.ts`), in
 that also finds a URL glued onto the one before it (`https://host://u:p@h`): the regex `run.ts`
 had tried a scheme at every word start and took seconds on a run of `a.a.…` in an answer. The forms a server echoes a userinfo back in are
 replaced too: the `Basic` value and the decoded `user:password` on stdout and stderr, the
-password alone (4 characters or more) on stderr only, since it may well occur in the data.
+password alone (4 characters or more) on stderr only, since it may well occur in the data. A
+userinfo without a password (`https://TOKEN@host`, `https://TOKEN:@host`) is a token: the user
+name is the secret, and Node sends it as Basic `TOKEN:` (`echoedCredentialForms`).
 `redactUrl` falls back to
 the same text-based cut (`redactCredentials`) for a value that doesn't parse as a URL.
 In the library, the engine keeps the base URL in a real `#private` field, so

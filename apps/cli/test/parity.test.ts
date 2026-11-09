@@ -450,3 +450,22 @@ test("the CLI's redaction of stdout is linear in the answer and hides the userin
   assert.ok(glued.cli.out.includes("https://host://***@h and https://***@x://***@w"), glued.cli.out);
   for (const secret of ["u:p1", "u:p2", "v:q3"]) assert.ok(!glued.cli.out.includes(secret), glued.cli.out);
 });
+
+test("a token in --base-url (a userinfo without a password) is redacted from what the CLI prints (E)", async () => {
+  const token = "T0kenS3cret";
+  const basic = Buffer.from(`${token}:`, "utf8").toString("base64");
+  const base = `https://${token}@mirror.example`;
+  const call = (t: Transport) => new FragDenStaatClient({ transport: t, baseUrl: base, maxRetries: 0 }).requests.get(1);
+  // An error answer that echoes the token: stderr.
+  const failed = await parity(["--base-url", base, "--max-retries", "0", "request", "get", "1"], call, () =>
+    jsonResponse({ detail: `bad token ${token}` }, 401),
+  );
+  assert.notEqual(failed.cli.code, 0);
+  assert.ok(!failed.cli.err.includes(token), failed.cli.err);
+  // A 2xx answer that echoes the Basic value and `TOKEN:`: stdout.
+  const echoed = await parity(["--base-url", base, "request", "get", "1"], call, () =>
+    jsonResponse({ id: 1, x: `Basic ${basic} for ${token}:x` }),
+  );
+  assert.equal(echoed.cli.code, 0, echoed.cli.err);
+  assert.ok(!echoed.cli.out.includes(basic) && !echoed.cli.out.includes(`${token}:`), echoed.cli.out);
+});
