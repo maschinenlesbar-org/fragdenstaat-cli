@@ -586,7 +586,9 @@ and no temporary file; stdout redirected to a file and cut short exits 1).
 From the fix round 2026-10-21: P27 big and odd answers (a lone surrogate or invalid bytes are
 replaced with U+FFFD and reported with a WARN, never silent or fatal; a large flat answer prints
 with `--compact` within a small heap; an answer full of DEL characters prints escaped within a
-small heap, or, past V8's longest string, is an ERROR record of `output`).
+small heap, or, past V8's longest string, is an ERROR record of `output`; an answer in two
+million one-byte chunks is read within a small heap, as the default transport joins small chunks
+as they arrive).
 Tests must keep passing on Node 22/24/26 (`engines`: `>=22.12`, the floor of the pinned commander 15).
 
 ## CI / release
