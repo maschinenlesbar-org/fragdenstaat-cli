@@ -593,9 +593,15 @@ Tests must keep passing on Node 22/24/26 (`engines`: `>=22.12`, the floor of the
 
 `.github/workflows/`: `ci.yml` (typecheck + build + test on Node 22/24/26, then pack the real
 tarball, check the pack left nothing behind, install it globally with the registry out of
-reach and run the bin), `release.yml` (on a `v*` tag, made by `npm run bump`: verify the tag
-against `apps/cli/package.json`, test, CycloneDX SBOMs scoped to the `apps/cli` workspace,
-`npm pack --workspace apps/cli`, GitHub Release), `publish.yml` (manual
+reach and run the bin), `release.yml` (on a `v*` tag, made by `npm run bump`, in three jobs:
+`pack`, read-only — verify the tag against `apps/cli/package.json`, changelog, test,
+`npm pack --workspace apps/cli`, the tarball's and the notes' sha256 as job outputs; `sbom`,
+read-only — the two CycloneDX SBOMs scoped to the `apps/cli` workspace, from the tool locked in
+`tools/sbom/` (`npm ci --ignore-scripts --prefix tools/sbom`, never `npx`); `release`, the only
+job with `contents: write` — checks the downloaded files against those digests and runs only
+`gh release create`. To update the SBOM tool, change its version in `tools/sbom/package.json`
+and run `npm install --package-lock-only --ignore-scripts` there; don't chain that install into
+an npm script, as for `tools/docs`), `publish.yml` (manual
 `npm publish --workspace apps/cli` via OIDC trusted publishing, dispatched from the release tag: `gh workflow run publish.yml --ref vX.Y.Z`), `docs.yml` (website + TypeDoc
 → GitHub Pages, via the isolated `tools/docs/` toolchain). The npm tarball ships only `dist/src`, the bundled client and
 commander + `LICENSING.md` + `CONTRIBUTING.md` (see `apps/cli/package.json` `files`; `prepack`
