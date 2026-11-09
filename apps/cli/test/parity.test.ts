@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { FragDenStaatClient } from "@maschinenlesbar.org/fragdenstaat-client/internal/client";
 import { FdsValidationError } from "@maschinenlesbar.org/fragdenstaat-client/internal/errors";
 import type { Transport } from "@maschinenlesbar.org/fragdenstaat-client/internal/http";
-import { parity, type CliOutcome, type LibOutcome } from "./helpers.js";
+import { jsonResponse, parity, type CliOutcome, type LibOutcome } from "./helpers.js";
 
 const lib = (transport: Transport) => new FragDenStaatClient({ transport });
 
@@ -429,4 +429,24 @@ test("parity: a malformed base URL is rejected by CLI and library with the same 
     assertBothReject(r, `Invalid baseUrl: ${reason}`);
     assert.ok(r.cli.err.includes(reason), `CLI reason for ${JSON.stringify(baseUrl)}: ${r.cli.err}`);
   }
+});
+
+test("the CLI's redaction of stdout is linear in the answer and hides the userinfo of glued URLs (B, B2)", async () => {
+  // With a URL with userinfo in argv, every stdout text is redacted. 200 000 characters of
+  // `a.a.…` took about 8 s with the scheme regex run.ts had; the linear pass takes milliseconds.
+  const base = "https://alice:s3cret-Pw@mirror.example";
+  const answer = (x: string) => () => jsonResponse({ id: 1, x });
+  const call = (t: Transport) => new FragDenStaatClient({ transport: t, baseUrl: base }).requests.get(1);
+  const value = "a.".repeat(100_000);
+  const start = performance.now();
+  const big = await parity(["--base-url", base, "--compact", "request", "get", "1"], call, answer(value));
+  const ms = performance.now() - start;
+  assert.equal(big.cli.code, 0, big.cli.err);
+  assert.ok(big.cli.out.includes(value));
+  assert.ok(ms < 1500, `${Math.round(ms)} ms`);
+  // A URL glued onto the one before it starts inside that one's authority.
+  const glued = await parity(["--base-url", base, "--compact", "request", "get", "1"], call, answer("https://host://u:p1@h and https://u:p2@x://v:q3@w"));
+  assert.equal(glued.cli.code, 0, glued.cli.err);
+  assert.ok(glued.cli.out.includes("https://host://***@h and https://***@x://***@w"), glued.cli.out);
+  for (const secret of ["u:p1", "u:p2", "v:q3"]) assert.ok(!glued.cli.out.includes(secret), glued.cli.out);
 });

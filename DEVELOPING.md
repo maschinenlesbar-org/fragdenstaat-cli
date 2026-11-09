@@ -321,7 +321,10 @@ text or a User-Agent as often as a credential: `-o run:2026-10-09@x.json` and
 `user:password@host` typed without its scheme is still a credential. On stderr the log replaces them in each record's message, before the record is cut and
 escaped (`createLogger({ redact })`), so a password holding DEL, C1 or bidi characters is
 found in its raw form, and the record's frame (time, level, topic) is never touched;
-`io.out` (stdout) is redacted as a whole. The forms a server echoes a userinfo back in are
+`io.out` (stdout) is redacted as a whole; behind the exact strings, the userinfo of every URL
+in a stdout text is cut by pattern (`redactUrlUserinfo`, client `errors.ts`), in one linear pass
+that also finds a URL glued onto the one before it (`https://host://u:p@h`): the regex `run.ts`
+had tried a scheme at every word start and took seconds on a run of `a.a.…` in an answer. The forms a server echoes a userinfo back in are
 replaced too: the `Basic` value and the decoded `user:password` on stdout and stderr, the
 password alone (4 characters or more) on stderr only, since it may well occur in the data.
 `redactUrl` falls back to
