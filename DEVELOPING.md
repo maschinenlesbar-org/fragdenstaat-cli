@@ -439,7 +439,15 @@ When in doubt, trust the live API, not the schema.
   for a stream, so a blocked FIFO `open()` stays interruptible). The temporary name stays
   within 255 bytes (the base name is shortened, the random part kept). `--force` keeps the old
   file's mode and writes through a symlink, or a chain of them, to the file it names, which is
-  created when the link dangles (the link stays; the kit's decision D1). Deliberately not kept: the owner and hard links of a replaced
+  created when the link dangles (the link stays; the kit's decision D1) — unless, at any hop,
+  the link's owner is neither the caller nor its directory's owner and that directory is sticky
+  or writable by others (`SHARED_DIRECTORY`, the rule of Linux's fs.protected_symlinks, which
+  never sees these links as the CLI resolves them itself): that is EACCES, naming the link,
+  refused before the request (`outputParentProblem`) or at the write. The owners come through
+  `LinkOwners` (`nodeFilesFor(owners)`; the real file system for the process's user is
+  `nodeFiles`, behind `defaultIO`), so a test can be another user without root. `outputState`
+  calls a path it can't inspect (EACCES on the way) neither existing nor missing: it throws an
+  `OutputError` saying so — it used to be "exists", which `--force` let through. Deliberately not kept: the owner and hard links of a replaced
   file, and a directory that isn't writable refuses `-o` even when the file in it is.
   This holds for both the JSON and `--csv` output paths (`writeOutput` in `shared.ts`;
   the `CliIO.writeFile` seam takes an `exclusive` flag so tests can drive both

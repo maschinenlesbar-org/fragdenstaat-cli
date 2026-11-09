@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, closeSync, lstatSync, mkdtempSync, openSync, readdirSync, rmSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, lstatSync, mkdirSync, mkdtempSync, openSync, readdirSync, rmSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { execFile, execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EventEmitter } from "node:events";
-import { defaultIO, handleOutputErrors, stderrAfterStdout, stdoutWriter } from "../src/cli/io.js";
+import { defaultIO, handleOutputErrors, nodeFilesFor, stderrAfterStdout, stdoutWriter, type LinkOwners } from "../src/cli/io.js";
 import { createLogger } from "../src/cli/log.js";
 
 // Exploratory test 2026-09-26, finding 13: -o pointing at a directory.
@@ -260,6 +260,104 @@ test("-o: a file whose directory is missing, not a directory or not writable is 
       chmodSync(locked, 0o700);
     }
   } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Security audit 2026-10-27, class G: --force followed a link another user planted in /tmp.
+
+/** The caller, another user, and /tmp (owned by root, sticky and world-writable). */
+const ME = 1000;
+const OTHER = 1001;
+const SHARED = { uid: 0, mode: 0o41777 };
+
+/** Owners as a test says: links' owners by path (the caller otherwise), directories' owner and mode. */
+function owners(links: Record<string, number>, dirs: Record<string, { uid: number; mode: number }>): LinkOwners {
+  return {
+    uid: ME,
+    ownerOf: (path, follow) => (follow ? (dirs[path] ?? { uid: ME, mode: 0o40755 }) : { uid: links[path] ?? ME, mode: 0o120777 }),
+  };
+}
+
+/** A temporary directory with a victim file and a link `out.json` to it. */
+function planted(): { dir: string; victim: string; link: string; done: () => void } {
+  const dir = mkdtempSync(join(tmpdir(), "fds-io-"));
+  const victim = join(dir, "victim.txt");
+  writeFileSync(victim, "keep me\n");
+  const link = join(dir, "out.json");
+  symlinkSync(victim, link);
+  return { dir, victim, link, done: () => rmSync(dir, { recursive: true, force: true }) };
+}
+
+test("--force does not follow a link another user made in a directory others can write to, at any hop (G)", () => {
+  const t = planted();
+  try {
+    for (const mode of [SHARED, { uid: ME, mode: 0o40777 }]) {
+      const files = nodeFilesFor(owners({ [t.link]: OTHER }, { [t.dir]: mode }));
+      assert.match(files.parentProblem(t.link, true) ?? "", /another user/);
+      assert.ok((files.parentProblem(t.link, true) ?? "").includes(t.link));
+      assert.throws(() => files.write(t.link, Buffer.from("x"), true), /another user/);
+      assert.equal(readFileSync(t.victim, "utf8"), "keep me\n");
+      assert.ok(lstatSync(t.link).isSymbolicLink());
+    }
+    // own link -> a foreign link in the shared directory -> the victim
+    const inner = join(t.dir, "inner");
+    symlinkSync(t.victim, inner);
+    const outer = join(t.dir, "outer.json");
+    symlinkSync(inner, outer);
+    const chain = nodeFilesFor(owners({ [inner]: OTHER }, { [t.dir]: SHARED }));
+    assert.match(chain.parentProblem(outer, true) ?? "", /another user/);
+    assert.throws(() => chain.write(outer, Buffer.from("x"), true), /another user/);
+    assert.equal(readFileSync(t.victim, "utf8"), "keep me\n");
+    // A foreign dangling link: the file it names is not created.
+    const dangling = join(t.dir, "dangling.json");
+    const target = join(t.dir, "created-elsewhere.json");
+    symlinkSync(target, dangling);
+    const d = nodeFilesFor(owners({ [dangling]: OTHER }, { [t.dir]: SHARED }));
+    assert.match(d.parentProblem(dangling, true) ?? "", /another user/);
+    assert.throws(() => d.write(dangling, Buffer.from("x"), true), /another user/);
+    assert.throws(() => statSync(target));
+  } finally {
+    t.done();
+  }
+});
+
+test("--force still follows the caller's own links, the directory owner's, and any link in a directory only its owner writes (G)", () => {
+  const cases: Array<[string, (t: ReturnType<typeof planted>) => LinkOwners]> = [
+    ["the caller's own link in a shared directory", (t) => owners({}, { [t.dir]: SHARED })],
+    ["a link of the shared directory's owner", (t) => owners({ [t.link]: 0 }, { [t.dir]: SHARED })],
+    ["another user's link in a directory only its owner writes", (t) => owners({ [t.link]: OTHER }, { [t.dir]: { uid: OTHER, mode: 0o40755 } })],
+    ["another user's link where no caller id exists", (t) => ({ ...owners({ [t.link]: OTHER }, { [t.dir]: SHARED }), uid: undefined })],
+  ];
+  for (const [label, who] of cases) {
+    const t = planted();
+    try {
+      const files = nodeFilesFor(who(t));
+      assert.equal(files.parentProblem(t.link, true), undefined, label);
+      files.write(t.link, Buffer.from("new\n"), true);
+      assert.equal(readFileSync(t.victim, "utf8"), "new\n", label);
+      assert.ok(lstatSync(t.link).isSymbolicLink(), label);
+    } finally {
+      t.done();
+    }
+  }
+});
+
+test("a path that can't be inspected is reported as such, not as an existing file (G)", { skip: process.getuid?.() === 0 }, () => {
+  const dir = mkdtempSync(join(tmpdir(), "fds-io-"));
+  try {
+    const closed = join(dir, "closed");
+    mkdirSync(closed);
+    const link = join(dir, "out.json");
+    symlinkSync(join(closed, "x.json"), link);
+    chmodSync(closed, 0o000);
+    assert.throws(() => defaultIO.outputState?.(link), (err: unknown) => {
+      assert.ok(err instanceof Error);
+      assert.match(err.message, /^Cannot write to ".*out\.json": EACCES/);
+      return true;
+    });
+  } finally {
+    chmodSync(join(dir, "closed"), 0o700);
     rmSync(dir, { recursive: true, force: true });
   }
 });

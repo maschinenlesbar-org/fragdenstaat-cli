@@ -23,7 +23,10 @@ temporary file beside it, renamed over it), so a write that fails part-way (`Cou
 to "…": …`, exit 1) or is interrupted (Ctrl-C, `SIGTERM`, `SIGHUP`: exit 130, 143, 129)
 leaves the old file as it was and no half-written or temporary one; `--force` keeps the old
 file's mode and writes through a symlink to the file it points at, creating it when the link
-dangles (the link stays). A device, a FIFO or the shell's own descriptor (`/dev/null`,
+dangles (the link stays) — but not through a link another user made in a directory others can
+write to (sticky or writable by others, such as `/tmp`), at any hop: that is refused (exit 1),
+before the request or, when it appears during it, at the write. A path that can't be inspected
+(EACCES on the way) is refused saying so (exit 1). A device, a FIFO or the shell's own descriptor (`/dev/null`,
 `/dev/stdout`, `>(gzip > x.gz)`) is written in place, without `--force`. An answer that isn't the data asked for fails with exit 1
 and writes nothing: a JSON body without the `{ meta, objects }` envelope (or, for
 `get`, without an object), or an HTML or JSON page answered to `--csv`.

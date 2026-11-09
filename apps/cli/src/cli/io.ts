@@ -114,9 +114,16 @@ export function nodeOutputState(path: string): OutputState {
     const stats = statSync(path);
     if (stats.isDirectory()) return "directory";
     return stats.isFIFO() || stats.isCharacterDevice() || stats.isSocket() ? "stream" : "exists";
-  } catch {
-    // statSync follows a link; a dangling one is still something an exclusive create
-    // refuses, so lstat decides between "exists" and "missing".
+  } catch (err) {
+    // statSync follows a link; a dangling one (or a loop) is still something an exclusive
+    // create refuses, so lstat decides between "exists" and "missing". A link that can't be
+    // followed for another reason (EACCES: a directory on its way the caller may not search, or
+    // a kernel that refuses another user's link) is not called existing: that let --force
+    // through to it. It is an OutputError naming the path.
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT" && code !== "ENOTDIR" && code !== "ELOOP") {
+      throw new OutputError(`Cannot write to "${cutForMessage(path)}": ${reasonOf(err)}`, { cause: err });
+    }
     try {
       lstatSync(path);
       return "exists";
@@ -126,11 +133,11 @@ export function nodeOutputState(path: string): OutputState {
   }
 }
 
-/** `CliIO.outputParentProblem` on the real file system. */
-export function nodeOutputParentProblem(path: string, overwrite: boolean): string | undefined {
+/** `CliIO.outputParentProblem` on the real file system, links followed by the rule of `owners`. */
+function parentProblemOf(path: string, overwrite: boolean, owners: LinkOwners): string | undefined {
   let target: string;
   try {
-    target = overwrite ? linkTarget(path) : path;
+    target = overwrite ? linkTarget(path, owners) : path;
   } catch (err) {
     return `Cannot write to "${cutForMessage(path)}": ${reasonOf(err)}`;
   }
@@ -251,12 +258,20 @@ function existingMode(path: string): number | undefined {
 /** Most links followed for one `-o` path, as the kernel's ELOOP limit. */
 const MAX_LINKS = 40;
 
+/** The mode bits of a directory others share: sticky, or writable by others. */
+const SHARED_DIRECTORY = 0o1002;
+
 /**
  * The file a path names, through any symlinks, so `--force` writes where a link points: also
  * when the link dangles, where the file it names is created (the link stays). A loop throws
- * (ELOOP).
+ * (ELOOP). A link is followed only when the caller or the owner of its directory made it, or
+ * nobody else can write to that directory (neither sticky nor writable by others): the rule of
+ * Linux's fs.protected_symlinks, checked at every hop, the last dangling one too. The kernel
+ * never sees these links (they are read here and the file is renamed onto the target), so its own
+ * check can't apply: a link another user planted in /tmp sent the answer over any file the
+ * caller could replace. Such a link throws (EACCES), naming it.
  */
-function linkTarget(path: string): string {
+function linkTarget(path: string, owners: LinkOwners): string {
   let current = resolve(path);
   for (let hops = 0; hops <= MAX_LINKS; hops++) {
     let link: string;
@@ -265,6 +280,16 @@ function linkTarget(path: string): string {
       link = readlinkSync(current);
     } catch {
       return current; // nothing there (yet): this is the file to create
+    }
+    if (owners.uid !== undefined) {
+      const owner = owners.ownerOf(current, false).uid;
+      const dir = owners.ownerOf(dirname(current), true);
+      if (owner !== owners.uid && owner !== dir.uid && (dir.mode & SHARED_DIRECTORY) !== 0) {
+        throw Object.assign(
+          new Error(`"${cutForMessage(current)}" is a link another user made in a directory others can write to; it is not followed`),
+          { code: "EACCES" },
+        );
+      }
     }
     current = resolve(dirname(current), link);
   }
@@ -459,6 +484,51 @@ function stdoutIsFile(): boolean {
   return process.stdout.fd !== undefined && isRegularFile(process.stdout.fd);
 }
 
+/** Who owns a path, as the rule for following `-o` links needs it (injectable for tests). */
+export interface LinkOwners {
+  /** The caller's user id; undefined where there is none (Windows): then no link is refused. */
+  uid: number | undefined;
+  /** The owner and mode of `path`: of the link itself (`follow` false), or of the directory it is in (`follow` true). */
+  ownerOf(path: string, follow: boolean): { uid: number; mode: number };
+}
+
+/** The process's user and the real file system. */
+const processOwners: LinkOwners = {
+  uid: process.getuid?.(),
+  ownerOf: (path, follow) => (follow ? statSync(path) : lstatSync(path)),
+};
+
+/** The `-o` part of CliIO on the real file system: `outputState`, `outputParentProblem` and `writeFile`. */
+export interface OutputFiles {
+  /** `CliIO.outputState`. Throws an OutputError naming the path when it can't be told (EACCES on the way). */
+  state(path: string): OutputState;
+  /** `CliIO.outputParentProblem`. */
+  parentProblem(path: string, overwrite: boolean): string | undefined;
+  /**
+   * `CliIO.writeFile`, with `overwrite` (`--force`) for its `!exclusive`: without it the name is
+   * claimed with an exclusive create (EEXIST for anything there).
+   */
+  write(path: string, data: Buffer, overwrite: boolean): void;
+}
+
+/** The real file system for `-o`, following links by the rule of `owners`. */
+export function nodeFilesFor(owners: LinkOwners = processOwners): OutputFiles {
+  return {
+    state: nodeOutputState,
+    parentProblem: (path, overwrite) => parentProblemOf(path, overwrite, owners),
+    write(path, data, overwrite) {
+      const state = nodeOutputState(path);
+      if (state === "directory") throw new FdsError(isDirectoryMessage(path));
+      if (state === "stream") return writeInPlace(path, data);
+      if (!overwrite) return writeClaimed(path, data);
+      replaceFile(linkTarget(path, owners), data);
+    },
+  };
+}
+
+/** The real file system for `-o`, for the process's own user. */
+export const nodeFiles: OutputFiles = nodeFilesFor();
+
 export const defaultIO: CliIO = {
   out: (text) => void stdoutData(text + "\n"),
   // A record never lands inside the data when both streams share a pipe.
@@ -471,15 +541,9 @@ export const defaultIO: CliIO = {
   // holding half a result.
   // A stream (a device, a FIFO, a descriptor path) can't be renamed over, and nothing in it can
   // be lost: written in place. --force writes through a link, a dangling one too.
-  writeFile: (path, data, exclusive) => {
-    const state = nodeOutputState(path);
-    if (state === "directory") throw new FdsError(isDirectoryMessage(path));
-    if (state === "stream") return writeInPlace(path, data);
-    if (exclusive === true) return writeClaimed(path, data);
-    replaceFile(linkTarget(path), data);
-  },
-  outputState: nodeOutputState,
-  outputParentProblem: nodeOutputParentProblem,
+  writeFile: (path, data, exclusive) => nodeFiles.write(path, data, exclusive !== true),
+  outputState: (path) => nodeFiles.state(path),
+  outputParentProblem: (path, overwrite) => nodeFiles.parentProblem(path, overwrite),
   // Settles when the write callback fires: after the bytes are handed to the OS, or with
   // the error (EBADF, EPIPE) that the stream then also emits to handleOutputErrors.
   // To a regular file every byte is written at once (a short write is an error, `stdoutData`);
