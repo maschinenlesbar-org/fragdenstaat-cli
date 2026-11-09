@@ -425,9 +425,13 @@ When in doubt, trust the live API, not the schema.
   write to "…": the directory "…" does not exist.`) are `OutputError`s ("Refusing to overwrite
   existing file "…" (use --force)."), all exit 1, so a refused target costs no request. A
   stream — a character device, a FIFO, a socket, or a descriptor path (`/dev/stdout`,
-  `/dev/fd/N`, `/proc/self/fd/N`) — is written in place (opened with `"a"`, every byte with
-  `writeAll`), with no claim, no temporary file and no `--force` needed: nothing in it can be
-  lost, and a rename over it would replace a FIFO with a file or fail in `/dev`.
+  `/dev/fd/N`, `/proc/self/fd/N`) — is written in place (opened with `O_WRONLY | O_APPEND`, no
+  `O_CREAT`, every byte with `writeAll`), with no claim, no temporary file and no `--force`
+  needed: nothing in it can be lost, and a rename over it would replace a FIFO with a file or
+  fail in `/dev`. The descriptor opened is checked (`fstat`), not the name: when the path is no
+  FIFO, character device or socket by then (a link switched to a regular file after
+  `outputState`; a descriptor path excepted, the shell opened it), nothing is written in place
+  and the write takes the way of a file — without `--force`, "Refusing to overwrite".
   The write itself (`defaultIO.writeFile`) is atomic: without `--force` it claims the name
   with an exclusive create (so a file that appeared during the request is refused too,
   after the request: an `OutputError` of `fragdenstaat.output`, exit 1, not a usage error),

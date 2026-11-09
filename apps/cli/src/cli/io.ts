@@ -91,6 +91,11 @@ export function logOf(deps: CliDeps): Logger {
   return deps.log ?? createLogger({ format: "text", write: (line) => deps.io.err(line), ...(deps.now === undefined ? {} : { now: deps.now }) });
 }
 
+/** The message for an existing `-o` file without `--force`. */
+export function refuseOverwrite(path: string): string {
+  return `Refusing to overwrite existing file "${path}" (use --force).`;
+}
+
 /** The message for an `-o` path that is a directory (`--force` can't help there). */
 export function isDirectoryMessage(path: string): string {
   return `"${cutForMessage(path)}" is a directory; give a file path to --output.`;
@@ -296,23 +301,34 @@ function linkTarget(path: string, owners: LinkOwners): string {
   throw Object.assign(new Error("too many levels of symbolic links"), { code: "ELOOP" });
 }
 
-/** Write `data` to a stream target (a device, a FIFO, a descriptor path) in place, every byte. */
-function writeInPlace(path: string, data: Buffer): void {
+/**
+ * Write `data` to a stream target (a device, a FIFO, a descriptor path) in place, every byte, and
+ * return true; or return false, writing nothing, when what the path names by the time it is
+ * opened is no stream. The descriptor is checked, not the name: a link switched to a regular file
+ * after `outputState` was appended to without --force. The open creates nothing (no O_CREAT) and
+ * blocks as before, so a FIFO whose reader comes later still works.
+ */
+function writeInPlace(path: string, data: Buffer): boolean {
   // Append: on a descriptor path that leads to a file (`-o /dev/stdout >> log`), the shell's
   // own mode stands; on a device or a FIFO it makes no difference.
   let fd: number;
   try {
-    fd = openSync(path, "a");
+    fd = openSync(path, constants.O_WRONLY | constants.O_APPEND);
   } catch (err) {
     // Linux can't open a socket through its descriptor path (ENXIO), and a process started
     // with socket stdio (Node's child_process, a service manager) has one: `-o /dev/stdout` is
     // then written to the descriptor the process already holds, which stays open.
     const own = descriptorOf(path);
     if ((err as NodeJS.ErrnoException).code !== "ENXIO" || own === undefined) throw err;
-    return writeAll(own, data);
+    writeAll(own, data);
+    return true;
   }
   try {
+    // A descriptor path keeps whatever the shell opened, a regular file too.
+    const stats = fstatSync(fd);
+    if (!DESCRIPTOR_PATH.test(path) && !stats.isFIFO() && !stats.isCharacterDevice() && !stats.isSocket()) return false;
     writeAll(fd, data);
+    return true;
   } finally {
     closeSync(fd);
   }
@@ -506,7 +522,8 @@ export interface OutputFiles {
   parentProblem(path: string, overwrite: boolean): string | undefined;
   /**
    * `CliIO.writeFile`, with `overwrite` (`--force`) for its `!exclusive`: without it the name is
-   * claimed with an exclusive create (EEXIST for anything there).
+   * claimed with an exclusive create, and anything there throws `refuseOverwrite`'s message
+   * (code EEXIST). A stream is written in place only when the descriptor opened is one.
    */
   write(path: string, data: Buffer, overwrite: boolean): void;
 }
@@ -517,11 +534,17 @@ export function nodeFilesFor(owners: LinkOwners = processOwners): OutputFiles {
     state: nodeOutputState,
     parentProblem: (path, overwrite) => parentProblemOf(path, overwrite, owners),
     write(path, data, overwrite) {
-      const state = nodeOutputState(path);
+      const state = this.state(path);
       if (state === "directory") throw new FdsError(isDirectoryMessage(path));
-      if (state === "stream") return writeInPlace(path, data);
-      if (!overwrite) return writeClaimed(path, data);
-      replaceFile(linkTarget(path, owners), data);
+      // A path that is no stream by the time it is opened takes the way of a file below.
+      if (state === "stream" && writeInPlace(path, data)) return;
+      if (overwrite) return replaceFile(linkTarget(path, owners), data);
+      try {
+        writeClaimed(path, data);
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException | undefined)?.code !== "EEXIST") throw err;
+        throw Object.assign(new Error(refuseOverwrite(path), { cause: err }), { code: "EEXIST" });
+      }
     },
   };
 }

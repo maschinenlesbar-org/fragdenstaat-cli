@@ -3,7 +3,7 @@
 
 import { constants } from "node:buffer";
 import { Command, InvalidArgumentError, Option } from "commander";
-import { OutputError, isDirectoryMessage, logOf, reasonOf, type CliDeps } from "./io.js";
+import { OutputError, isDirectoryMessage, logOf, reasonOf, refuseOverwrite, type CliDeps } from "./io.js";
 import { FdsError, FdsValidationError, cutForMessage, quoteValue } from "@maschinenlesbar.org/fragdenstaat-client/internal/errors";
 import {
   DEFAULT_BASE_URL,
@@ -301,10 +301,6 @@ export interface GlobalOptions {
  * logged as an ERROR record of `fragdenstaat.output`, rather than the generic
  * "Unexpected error" handler. The EEXIST case gets a dedicated hint pointing at --force.
  */
-/** The message for an existing `-o` file without `--force`. */
-function refuseOverwrite(path: string): string {
-  return `Refusing to overwrite existing file "${path}" (use --force).`;
-}
 
 /**
  * Check `-o` before any request, so a refused target costs none: `--force` without `-o`
