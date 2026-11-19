@@ -1,0 +1,977 @@
+{
+  "comment": "What tools/interop/interop.mjs needs that is particular to this repo: the mock upstream's answer per path (under --base-url http://127.0.0.1:<port>; the API's paths start with /api/v1), how many tools the server lists, and the calls to make with what each must answer. The answers are live ones of 2026-11-19, cut (the client's test/fds.ts).",
+  "answers": {
+    "/api/v1/jurisdiction/": {
+      "meta": {
+        "limit": 50,
+        "next": null,
+        "offset": 0,
+        "previous": null,
+        "total_count": 18
+      },
+      "objects": [
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/1/",
+          "id": 1,
+          "name": "Bund",
+          "slug": "bund",
+          "rank": 1,
+          "site_url": "https://fragdenstaat.de/zustaendigkeit/bund/"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/91/",
+          "id": 91,
+          "name": "Baden-Württemberg",
+          "slug": "baden-wuerttemberg",
+          "rank": 2,
+          "site_url": "https://fragdenstaat.de/zustaendigkeit/baden-wuerttemberg/"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/92/",
+          "id": 92,
+          "name": "Bayern",
+          "slug": "bayern",
+          "rank": 2,
+          "site_url": "https://fragdenstaat.de/zustaendigkeit/bayern/"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/4/",
+          "id": 4,
+          "name": "Berlin",
+          "slug": "berlin",
+          "rank": 2,
+          "site_url": "https://fragdenstaat.de/zustaendigkeit/berlin/"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/3/",
+          "id": 3,
+          "name": "Brandenburg",
+          "slug": "brandenburg",
+          "rank": 2,
+          "site_url": "https://fragdenstaat.de/zustaendigkeit/brandenburg/"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/12/",
+          "id": 12,
+          "name": "Bremen",
+          "slug": "bremen",
+          "rank": 2,
+          "site_url": "https://fragdenstaat.de/zustaendigkeit/bremen/"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/5/",
+          "id": 5,
+          "name": "Hamburg",
+          "slug": "hamburg",
+          "rank": 2,
+          "site_url": "https://fragdenstaat.de/zustaendigkeit/hamburg/"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/94/",
+          "id": 94,
+          "name": "Hessen",
+          "slug": "hessen",
+          "rank": 2,
+          "site_url": "https://fragdenstaat.de/zustaendigkeit/hessen/"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/7/",
+          "id": 7,
+          "name": "Mecklenburg-Vorpommern",
+          "slug": "mecklenburg-vorpommern",
+          "rank": 2,
+          "site_url": "https://fragdenstaat.de/zustaendigkeit/mecklenburg-vorpommern/"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/93/",
+          "id": 93,
+          "name": "Niedersachsen",
+          "slug": "niedersachsen",
+          "rank": 2,
+          "site_url": "https://fragdenstaat.de/zustaendigkeit/niedersachsen/"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/2/",
+          "id": 2,
+          "name": "Nordrhein-Westfalen",
+          "slug": "nrw",
+          "rank": 2,
+          "site_url": "https://fragdenstaat.de/zustaendigkeit/nrw/"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/6/",
+          "id": 6,
+          "name": "Rheinland-Pfalz",
+          "slug": "rheinland-pfalz",
+          "rank": 2,
+          "site_url": "https://fragdenstaat.de/zustaendigkeit/rheinland-pfalz/"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/9/",
+          "id": 9,
+          "name": "Saarland",
+          "slug": "saarland",
+          "rank": 2,
+          "site_url": "https://fragdenstaat.de/zustaendigkeit/saarland/"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/89/",
+          "id": 89,
+          "name": "Sachsen",
+          "slug": "sachsen",
+          "rank": 2,
+          "site_url": "https://fragdenstaat.de/zustaendigkeit/sachsen/"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/13/",
+          "id": 13,
+          "name": "Sachsen-Anhalt",
+          "slug": "sachsen-anhalt",
+          "rank": 2,
+          "site_url": "https://fragdenstaat.de/zustaendigkeit/sachsen-anhalt/"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/11/",
+          "id": 11,
+          "name": "Schleswig-Holstein",
+          "slug": "schleswig-holstein",
+          "rank": 2,
+          "site_url": "https://fragdenstaat.de/zustaendigkeit/schleswig-holstein/"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/10/",
+          "id": 10,
+          "name": "Thüringen",
+          "slug": "thueringen",
+          "rank": 2,
+          "site_url": "https://fragdenstaat.de/zustaendigkeit/thueringen/"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/107/",
+          "id": 107,
+          "name": "Europäische Union",
+          "slug": "europaeische-union",
+          "rank": 3,
+          "site_url": "https://fragdenstaat.de/zustaendigkeit/europaeische-union/"
+        }
+      ]
+    },
+    "/api/v1/law/": {
+      "meta": {
+        "limit": 50,
+        "next": null,
+        "offset": 0,
+        "previous": null,
+        "total_count": 4
+      },
+      "objects": [
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/law/120/",
+          "id": 120,
+          "name": "Datenschutz-, Umwelt- und Verbraucherinformationsgesetz Bayern (BayDSG, BayUIG, VIG)",
+          "slug": "bayuig-vig-bayern",
+          "description": "Bayerisches Umweltinformationsgesetz, Verbraucherinformationsgesetz",
+          "law_type": "",
+          "meta": true,
+          "site_url": "https://fragdenstaat.de/gesetz/bayuig-vig-bayern/",
+          "jurisdiction": "https://fragdenstaat.de/api/v1/jurisdiction/92/",
+          "email_only": true,
+          "mediator": "https://fragdenstaat.de/api/v1/publicbody/15890/",
+          "priority": 3,
+          "max_response_time": 1,
+          "requires_signature": false,
+          "max_response_time_unit": "month_de",
+          "letter_start": "",
+          "letter_end": "",
+          "refusal_reasons": "",
+          "legal_text": "",
+          "combined": [
+            "https://fragdenstaat.de/api/v1/law/119/",
+            "https://fragdenstaat.de/api/v1/law/3/",
+            "https://fragdenstaat.de/api/v1/law/170/"
+          ]
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/law/166/",
+          "id": 166,
+          "name": "Bayerisches Pressegesetz (BayPrG)",
+          "slug": "bayerisches-pressegesetz-bayprg",
+          "description": "",
+          "law_type": "Presserecht",
+          "meta": false,
+          "site_url": "https://fragdenstaat.de/gesetz/bayerisches-pressegesetz-bayprg/",
+          "jurisdiction": "https://fragdenstaat.de/api/v1/jurisdiction/92/",
+          "email_only": true,
+          "mediator": null,
+          "priority": 4,
+          "max_response_time": 5,
+          "requires_signature": false,
+          "max_response_time_unit": "working_day",
+          "letter_start": "",
+          "letter_end": "",
+          "refusal_reasons": "",
+          "legal_text": "",
+          "combined": []
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/law/119/",
+          "id": 119,
+          "name": "Umweltinformationsgesetz Bayern (BayUIG)",
+          "slug": "bayerisches-umweltinformationsgesetz-bayuig",
+          "description": "Bayerisches Umweltinformationsgesetz",
+          "law_type": "UIG",
+          "meta": false,
+          "site_url": "https://fragdenstaat.de/gesetz/bayerisches-umweltinformationsgesetz-bayuig/",
+          "jurisdiction": "https://fragdenstaat.de/api/v1/jurisdiction/92/",
+          "email_only": false,
+          "mediator": null,
+          "priority": 3,
+          "max_response_time": 1,
+          "requires_signature": false,
+          "max_response_time_unit": "month_de",
+          "letter_start": "",
+          "letter_end": "",
+          "refusal_reasons": "Art. 7 (1) 1. internationalen Beziehungen, die Verteidigung oder die öffentliche Sicherheit,\r\nArt. 7 (1) 2. die Vertraulichkeit der Beratungen von informationspflichtigen Stellen im Sinn des Art. 2 Abs. 1,\r\nArt. 7 (1) 3. die Durchführung eines laufenden Gerichtsverfahrens, den Anspruch einer Person auf ein faires Verfahren oder die Durchführung strafrechtlicher, ordnungswidrigkeitenrechtlicher oder disziplinarrechtlicher Ermittlungen\r\nArt. 7 (1) 4. nachteilige Auswirkung auf den Zustand der Umwelt und ihre Bestandteile\r\nArt. 7 (2) 1. offensichtlich missbräuchlich\r\nArt. 7 (2) 2. Bezug auf interne Mitteilungen der informationspflichtigen Stellen\r\nArt. 7 (2) 3. nicht über Umweltinformationen verfügt\r\nArt. 7 (2) 4. sich auf das Zugänglichmachen von Material, das gerade vervollständigt wird, von noch nicht abgeschlossenen Schriftstücken oder noch nicht aufbereiteten Daten bezieht\r\nArt. 7 (2) 5. zu unbestimmt ist und auf Aufforderung der informationspflichtigen Stelle nach Art. 4 Abs. 2 nicht innerhalb einer angemessenen Frist präzisiert wird\r\nArt. 8 (1) 1. durch das Bekanntgeben der Informationen personenbezogene Daten offenbart und dadurch schutzwürdige Interessen der Betroffenen beeinträchtigt würden,\r\nArt. 8 (1) 2. Rechte am geistigen Eigentum, insbesondere Urheberrechte, durch das Zugänglichmachen von Umweltinformationen verletzt würden oder\r\nArt. 8 (1) 3. durch das Bekanntgeben Betriebs- oder Geschäftsgeheimnisse zugänglich gemacht würden oder die Informationen dem Steuergeheimnis oder dem Statistikgeheimnis unterliegen,\r\nArt. 8 (2) Umweltinformationen, die private Dritte einer informationspflichtigen Stelle übermittelt haben, ohne rechtlich dazu verpflichtet zu sein oder rechtlich dazu verpflichtet werden zu können, und deren Offenbarung nachteilige Auswirkungen auf die Interessen der Dritten hätte",
+          "legal_text": "",
+          "combined": []
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/law/170/",
+          "id": 170,
+          "name": "Bayerisches Datenschutzgesetz (BayDSG)",
+          "slug": "baydsg",
+          "description": "",
+          "law_type": "Datenschutzrecht",
+          "meta": false,
+          "site_url": "https://fragdenstaat.de/gesetz/baydsg/",
+          "jurisdiction": "https://fragdenstaat.de/api/v1/jurisdiction/92/",
+          "email_only": false,
+          "mediator": "https://fragdenstaat.de/api/v1/publicbody/15890/",
+          "priority": 1,
+          "max_response_time": 1,
+          "requires_signature": false,
+          "max_response_time_unit": "month_de",
+          "letter_start": "",
+          "letter_end": "",
+          "refusal_reasons": "berechtigtes Interesse nicht vorhanden\r\nentgeltliche Weiterverwendung beabsichtigt\r\nÜbermittlung personenbezogener Daten an nicht öffentliche Stellen unzulässig\r\nBelange der öffentlichen Sicherheit und Ordnung beeinträchtigt\r\nKontroll- und Aufsichtsaufgaben oder sonstige öffentliche oder private Interessen stehen entgegen\r\nBezug auf Verlauf oder auf vertrauliche Inhalte laufender oder abgeschlossener behördeninterner Beratungen\r\nBezug auf Inhalte aus nicht abgeschlossenen Unterlagen\r\nBezug auf noch nicht aufbereitete Daten\r\nunverhältnismäßiger Aufwand\r\nVerschlusssache\r\nBerufs- oder besonderen Amtsgeheimnis\r\npersönlichen Lebensbereich gehörende Geheimnisse\r\nBetriebs- und Geschäftsgeheimnisse",
+          "legal_text": "",
+          "combined": []
+        }
+      ]
+    },
+    "/api/v1/publicbody/autocomplete/": {
+      "meta": {
+        "limit": 50,
+        "next": null,
+        "offset": 0,
+        "previous": null,
+        "total_count": 1
+      },
+      "objects": [
+        {
+          "value": 875,
+          "label": "Umweltbundesamt"
+        }
+      ]
+    },
+    "/api/v1/publicbody/875/": {
+      "resource_uri": "https://fragdenstaat.de/api/v1/publicbody/875/",
+      "id": 875,
+      "name": "Umweltbundesamt",
+      "slug": "umweltbundesamt",
+      "other_names": "uba",
+      "url": "https://www.umweltbundesamt.de/",
+      "parent": "https://fragdenstaat.de/api/v1/publicbody/93/",
+      "classification": {
+        "id": 293,
+        "name": "Umweltamt",
+        "slug": "umweltamt",
+        "depth": 2
+      },
+      "categories": [],
+      "email": "buergerservice@uba.de",
+      "contact": "Telefon: 0340 / 2103 - 0",
+      "address": "Wörlitzer Platz 1\r\n06844 Dessau",
+      "fax": "+4934021032285",
+      "request_note": "",
+      "number_of_requests": 462,
+      "site_url": "https://fragdenstaat.de/behoerde/875/umweltbundesamt/",
+      "jurisdiction": {
+        "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/1/",
+        "id": 1,
+        "name": "Bund",
+        "slug": "bund"
+      },
+      "laws": [
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/law/2/",
+          "id": 2,
+          "name": "Informationsfreiheitsgesetz Bund (IFG, UIG, VIG)",
+          "meta": true
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/law/1/",
+          "id": 1,
+          "name": "Informationsfreiheitsgesetz Bund (IFG)",
+          "meta": false
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/law/175/",
+          "id": 175,
+          "name": "Art. 5 Grundgesetz",
+          "meta": false
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/law/3/",
+          "id": 3,
+          "name": "Verbraucherinformationsgesetz (VIG)",
+          "meta": false
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/law/4/",
+          "id": 4,
+          "name": "Umweltinformationsgesetz Bund (UIG)",
+          "meta": false
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/law/125/",
+          "id": 125,
+          "name": "Bundesarchivgesetz (BArch)",
+          "meta": false
+        }
+      ],
+      "geo": {
+        "type": "Point",
+        "coordinates": [
+          12.239350587031964,
+          51.84250085
+        ]
+      }
+    },
+    "/api/v1/request/373204/": {
+      "resource_uri": "https://fragdenstaat.de/api/v1/request/373204/",
+      "id": 373204,
+      "url": "/anfrage/status-der-kamerasysteme-am-hansaplatz-20-06-2026/",
+      "title": "Status der Kamerasysteme am Hansaplatz 20.06.2026",
+      "slug": "status-der-kamerasysteme-am-hansaplatz-20-06-2026",
+      "jurisdiction": "https://fragdenstaat.de/api/v1/jurisdiction/5/",
+      "jurisdiction_name": "Hamburg",
+      "law": {
+        "resource_uri": "https://fragdenstaat.de/api/v1/law/15/",
+        "id": 15,
+        "name": "Hamburgisches Transparenzgesetz (HmbTG, UIG, VIG)",
+        "max_response_time": 1,
+        "max_response_time_unit": "month_de"
+      },
+      "public_body": {
+        "resource_uri": "https://fragdenstaat.de/api/v1/publicbody/4023/",
+        "id": 4023,
+        "name": "Polizei Hamburg",
+        "slug": "polizei-hamburg",
+        "classification": {
+          "id": 239,
+          "name": "Polizeipräsidium",
+          "slug": "polizeiprasidium",
+          "depth": 2
+        },
+        "jurisdiction": {
+          "resource_uri": "https://fragdenstaat.de/api/v1/jurisdiction/5/",
+          "id": 5,
+          "name": "Hamburg",
+          "rank": 2,
+          "description": "",
+          "slug": "hamburg",
+          "site_url": "https://fragdenstaat.de/zustaendigkeit/hamburg/",
+          "region": "https://fragdenstaat.de/api/v1/georegion/3/",
+          "region_kind": "state",
+          "region_kind_detail": "Freie und Hansestadt",
+          "last_modified_at": "2024-01-03T16:02:23.422979+01:00"
+        },
+        "email": "Transparenzgesetz@polizei.hamburg.de",
+        "site_url": "https://fragdenstaat.de/behoerde/4023/polizei-hamburg/"
+      },
+      "status": "resolved",
+      "readable_status": "Anfrage erfolgreich",
+      "resolution": "successful",
+      "refusal_reason": "",
+      "costs": 45.35,
+      "created_at": "2026-06-22T23:36:04.793816+02:00",
+      "last_message": "2026-07-02T11:37:45+02:00",
+      "due_date": "2026-07-25T00:00:00+02:00",
+      "resolved_on": null,
+      "tags": [
+        "Videoüberwachung"
+      ],
+      "campaign": null,
+      "description": "Die Zeiträume am Samstag, den 20. Juni 2026, von 12 bis 17 Uhr, in denen die stationären Videokameras am und um den Hansaplatz angeschaltet waren. Es wäre mir gerne ersichtlich, wann welche Kameras an-/ausgeschaltet waren.\r\n\r\nFalls also zu manchen Zeiten in dem von mir erfragten Zeitraum manche Kame",
+      "redacted_description": [
+        [
+          false,
+          "Die Zeiträume am Samstag, den 20. Juni 2026, von 12 bis 17 Uhr, in denen die stationären Videokameras am und um den Hansaplatz angeschaltet waren. Es wäre mir gerne ersichtlich, wann welche Kameras an-/ausgeschaltet waren.\r\n\r\nFalls also zu manchen Zeiten in dem von mir erfragten Zeitraum manche Kame"
+        ]
+      ],
+      "summary": "Während 13:00 und 15:00 Uhr (überwachungsfrei-Kundgebung) waren laut polizeilicher Aufzeichnung die Kameras am Hansaplatz noch immer verschwenkt \"[e]insatzbegleitend\" in Betrieb.",
+      "reference": "",
+      "messages": [
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/message/1126401/",
+          "id": 1126401,
+          "timestamp": "2026-06-22T23:36:04.849462+02:00",
+          "is_response": false,
+          "sender": "<< Anfragesteller:in >>",
+          "subject": "Status der Kamerasysteme am Hansaplatz 20.06.2026 [#373204]",
+          "content_hidden": false,
+          "status": "awaiting_response",
+          "content": "Anfrage nach dem Hamburgischen Transparenzgesetz (HmbTG) / HmbUIG / VIG\r\n\r\nGuten Tag,\r\n\r\nich möchte Sie bitten, mir Folgendes zuzusenden:\n\nDie Zeiträume am Samstag, den 20. Juni 2026, von 12 bis 17 Uhr, in denen die stationären Videokameras am und um den Hansaplatz angeschaltet waren. Es wäre mir gerne ersichtlich, wann welche Kameras an-/ausgeschaltet waren.\r\n\r\nFalls also zu manchen Zeiten in dem",
+          "redacted_content": [
+            [
+              false,
+              "Anfrage nach dem Hamburgischen Transparenzgesetz (HmbTG) / HmbUIG / VIG\r\n\r\nGuten Tag,\r\n\r\nich möchte Sie bitten, mir Folgendes zuzusenden:\n\nDie Zeiträume am Samstag, den 20. Juni 2026, von 12 bis 17 Uhr, in denen die stationären Videokameras am und um den Hansaplatz angeschaltet waren. Es wäre mir gerne ersichtlich, wann welche Kameras an-/ausgeschaltet waren.\r\n\r\nFalls also zu manchen Zeiten in dem"
+            ]
+          ],
+          "redacted_subject": [
+            [
+              false,
+              "Status der Kamerasysteme am Hansaplatz 20.06.2026 [#373204]"
+            ]
+          ],
+          "attachments": []
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/message/1126560/",
+          "id": 1126560,
+          "timestamp": "2026-06-23T13:58:19+02:00",
+          "is_response": true,
+          "sender": "Polizei Hamburg",
+          "subject": "Antwortschreiben",
+          "content_hidden": false,
+          "status": "awaiting_response",
+          "content": "Sehr [geschwärzt],\n\n\nanbei die Eingangsbestätigung Ihres Schreibens vom 22.06.2026 samt Antwort.\n\n\nMit freundlichen Grüßen\n\nSP 31",
+          "redacted_content": [
+            [
+              false,
+              "Sehr "
+            ],
+            [
+              true,
+              "[geschwärzt]"
+            ],
+            [
+              false,
+              ",\n\n\nanbei die Eingangsbestätigung Ihres Schreibens vom 22.06.2026 samt Antwort.\n\n\nMit freundlichen Grüßen\n\nSP 31"
+            ]
+          ],
+          "redacted_subject": [
+            [
+              false,
+              "Antwortschreiben"
+            ]
+          ],
+          "attachments": [
+            {
+              "resource_uri": "https://fragdenstaat.de/api/v1/attachment/592512/",
+              "id": 592512,
+              "name": "260623eingangsbesttigungundantwortschreiben_geschwaerzt.pdf",
+              "filetype": "application/pdf",
+              "size": 502287,
+              "site_url": "https://fragdenstaat.de/anfrage/status-der-kamerasysteme-am-hansaplatz-20-06-2026/1126560/anhang/260623eingangsbesttigungundantwortschreiben_geschwaerzt.pdf",
+              "is_redacted": true,
+              "document": null
+            }
+          ]
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/message/1126601/",
+          "id": 1126601,
+          "timestamp": "2026-06-23T15:23:35.982674+02:00",
+          "is_response": false,
+          "sender": "<< Anfragesteller:in >>",
+          "subject": "AW: Antwortschreiben [#373204]",
+          "content_hidden": false,
+          "status": null,
+          "content": "Guten Tag,\r\n\r\ndanke für die schnelle Antwort.\r\n\r\nSie scheinen sich lediglich auf die mir bereits bekannten auf Ihrer Website (https://www.polizei.hamburg/videoueberwachung-hansaplatz-1095518) angegebenen Aufzeichnungszeiten zu beziehen.\r\n\r\nBeispielsweise aufgrund von Versammlungen sind diese regulären Aufzeichnungszeiten allerdings nicht immer repräsentativ für die tatsächliche Sachlage an bestimm",
+          "redacted_content": [
+            [
+              false,
+              "Guten Tag,\r\n\r\ndanke für die schnelle Antwort.\r\n\r\nSie scheinen sich lediglich auf die mir bereits bekannten auf Ihrer Website (https://www.polizei.hamburg/videoueberwachung-hansaplatz-1095518) angegebenen Aufzeichnungszeiten zu beziehen.\r\n\r\nBeispielsweise aufgrund von Versammlungen sind diese regulären Aufzeichnungszeiten allerdings nicht immer repräsentativ für die tatsächliche Sachlage an bestimm"
+            ]
+          ],
+          "redacted_subject": [
+            [
+              false,
+              "AW: Antwortschreiben [#373204]"
+            ]
+          ],
+          "attachments": []
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/message/1126956/",
+          "id": 1126956,
+          "timestamp": "2026-06-24T13:18:10+02:00",
+          "is_response": true,
+          "sender": "Polizei Hamburg",
+          "subject": "Gebührenhinweis",
+          "content_hidden": false,
+          "status": "awaiting_response",
+          "content": "Sehr [geschwärzt],\n\n\nanbei der Gebührenhinweis bezüglich Ihrer Anfrage \"Status der Kamerasysteme am Hansaplatz\".\n\n\nMit freundlichen Grüßen\n\nSP 31",
+          "redacted_content": [
+            [
+              false,
+              "Sehr "
+            ],
+            [
+              true,
+              "[geschwärzt]"
+            ],
+            [
+              false,
+              ",\n\n\nanbei der Gebührenhinweis bezüglich Ihrer Anfrage \"Status der Kamerasysteme am Hansaplatz\".\n\n\nMit freundlichen Grüßen\n\nSP 31"
+            ]
+          ],
+          "redacted_subject": [
+            [
+              false,
+              "Gebührenhinweis"
+            ]
+          ],
+          "attachments": [
+            {
+              "resource_uri": "https://fragdenstaat.de/api/v1/attachment/592981/",
+              "id": 592981,
+              "name": "260624gebhrenhinweis_geschwaerzt.pdf",
+              "filetype": "application/pdf",
+              "size": 738055,
+              "site_url": "https://fragdenstaat.de/anfrage/status-der-kamerasysteme-am-hansaplatz-20-06-2026/1126956/anhang/260624gebhrenhinweis_geschwaerzt.pdf",
+              "is_redacted": true,
+              "document": null
+            }
+          ]
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/message/1127973/",
+          "id": 1127973,
+          "timestamp": "2026-06-25T00:30:25.247838+02:00",
+          "is_response": false,
+          "sender": "<< Anfragesteller:in >>",
+          "subject": "AW: Gebührenhinweis [#373204]",
+          "content_hidden": false,
+          "status": null,
+          "content": "Guten Tag,\r\n\r\nbitte bestätigen Sie mir noch einmal, dass diese Anfrage (mit Auswerten der Kamerasystemlogs o.ä. zur Bestimmung der Sachlage im angegebenen Rahmen) tatsächlich über den Umfang einer kostenfreien Anfrage hinausgeht.\r\n\r\nSofern dies der Fall ist, akzeptiere ich die Gebühr und freue mich über baldige Auskunft.\r\n\r\nZudem wüsste ich noch gerne, ob wider Erwarten etwas gegen eine anschließe",
+          "redacted_content": [
+            [
+              false,
+              "Guten Tag,\r\n\r\nbitte bestätigen Sie mir noch einmal, dass diese Anfrage (mit Auswerten der Kamerasystemlogs o.ä. zur Bestimmung der Sachlage im angegebenen Rahmen) tatsächlich über den Umfang einer kostenfreien Anfrage hinausgeht.\r\n\r\nSofern dies der Fall ist, akzeptiere ich die Gebühr und freue mich über baldige Auskunft.\r\n\r\nZudem wüsste ich noch gerne, ob wider Erwarten etwas gegen eine anschließe"
+            ]
+          ],
+          "redacted_subject": [
+            [
+              false,
+              "AW: Gebührenhinweis [#373204]"
+            ]
+          ],
+          "attachments": []
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/message/1129590/",
+          "id": 1129590,
+          "timestamp": "2026-06-29T11:16:30+02:00",
+          "is_response": true,
+          "sender": "Polizei Hamburg",
+          "subject": "erneuter Gebührenhinweis",
+          "content_hidden": false,
+          "status": "awaiting_response",
+          "content": "Sehr [geschwärzt],\n\n\nanbei ein erneuter Gebührenhinweis mit Erläuterung der anfallenden Gebühr bezüglich Ihrer Anfrage.\n\n\nMit freundlichen Grüßen\n\nSP 31",
+          "redacted_content": [
+            [
+              false,
+              "Sehr "
+            ],
+            [
+              true,
+              "[geschwärzt]"
+            ],
+            [
+              false,
+              ",\n\n\nanbei ein erneuter Gebührenhinweis mit Erläuterung der anfallenden Gebühr bezüglich Ihrer Anfrage.\n\n\nMit freundlichen Grüßen\n\nSP 31"
+            ]
+          ],
+          "redacted_subject": [
+            [
+              false,
+              "erneuter Gebührenhinweis"
+            ]
+          ],
+          "attachments": [
+            {
+              "resource_uri": "https://fragdenstaat.de/api/v1/attachment/594442/",
+              "id": 594442,
+              "name": "260629erneutergebhrenhinweis_geschwaerzt.pdf",
+              "filetype": "application/pdf",
+              "size": 860386,
+              "site_url": "https://fragdenstaat.de/anfrage/status-der-kamerasysteme-am-hansaplatz-20-06-2026/1129590/anhang/260629erneutergebhrenhinweis_geschwaerzt.pdf",
+              "is_redacted": true,
+              "document": null
+            }
+          ]
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/message/1129639/",
+          "id": 1129639,
+          "timestamp": "2026-06-29T12:32:46.555364+02:00",
+          "is_response": false,
+          "sender": "<< Anfragesteller:in >>",
+          "subject": "AW: erneuter Gebührenhinweis [#373204]",
+          "content_hidden": false,
+          "status": null,
+          "content": "Guten Tag,\r\nvielen Dank für die Erläuterung.\r\n\r\nIch möchte meinen Antrag gerne trotz Gebühren aufrechterhalten.\r\n\r\nMit freundlichen Grüßen\r\n<< Antragsteller:in >> << Antragsteller:in >>\n\n\n\n\nAnfragenr: 373204\nAntwort an: <<E-Mail-Adresse>>\n\nLaden Sie große Dateien zu dieser Anfrage hier hoch:\nhttps://fragdenstaat.de/a/373204/\n\nPostanschrift\n<< Antragsteller:in >> << Antragsteller:in >>\n<< Adresse e",
+          "redacted_content": [
+            [
+              false,
+              "Guten Tag,\r\nvielen Dank für die Erläuterung.\r\n\r\nIch möchte meinen Antrag gerne trotz Gebühren aufrechterhalten.\r\n\r\nMit freundlichen Grüßen\r\n"
+            ],
+            [
+              true,
+              "<< Antragsteller:in >> << Antragsteller:in >>"
+            ],
+            [
+              false,
+              "\n\n\n\n\nAnfragenr: 373204\nAntwort an: "
+            ],
+            [
+              true,
+              "<<E-Mail-Adresse>>"
+            ],
+            [
+              false,
+              "\n\nLaden Sie große Dateien zu dieser Anfrage hier hoch:\n"
+            ],
+            [
+              true,
+              "https://fragdenstaat.de/a/373204/"
+            ],
+            [
+              false,
+              "\n\nPostanschrift\n"
+            ],
+            [
+              true,
+              "<< Antragsteller:in >> << Antragsteller:in >>\n<< Adresse e"
+            ]
+          ],
+          "redacted_subject": [
+            [
+              false,
+              "AW: erneuter Gebührenhinweis [#373204]"
+            ]
+          ],
+          "attachments": []
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/message/1130987/",
+          "id": 1130987,
+          "timestamp": "2026-07-02T11:37:45+02:00",
+          "is_response": true,
+          "sender": "Polizei Hamburg",
+          "subject": "Status der Kamerasysteme am Hansaplatz",
+          "content_hidden": false,
+          "status": "awaiting_response",
+          "content": "Sehr [geschwärzt],\n\nanbei die Dokumentation der Videoüberwachung vom 20.06.2026 am Hansaplatz.\nWeitere Dokumente stehen nicht zur Verfügung.\n\n\nMit freundlichen Grüßen\n\nSP 31",
+          "redacted_content": [
+            [
+              false,
+              "Sehr "
+            ],
+            [
+              true,
+              "[geschwärzt]"
+            ],
+            [
+              false,
+              ",\n\nanbei die Dokumentation der Videoüberwachung vom 20.06.2026 am Hansaplatz.\nWeitere Dokumente stehen nicht zur Verfügung.\n\n\nMit freundlichen Grüßen\n\nSP 31"
+            ]
+          ],
+          "redacted_subject": [
+            [
+              false,
+              "Status der Kamerasysteme am Hansaplatz"
+            ]
+          ],
+          "attachments": [
+            {
+              "resource_uri": "https://fragdenstaat.de/api/v1/attachment/594940/",
+              "id": 594940,
+              "name": "25-kw-dokumentationdervideoberwachung-hansaplatz.pdf",
+              "filetype": "application/pdf",
+              "size": 73757,
+              "site_url": "https://fragdenstaat.de/anfrage/status-der-kamerasysteme-am-hansaplatz-20-06-2026/1130987/anhang/25-kw-dokumentationdervideoberwachung-hansaplatz.pdf",
+              "is_redacted": false,
+              "document": null
+            }
+          ]
+        }
+      ]
+    },
+    "/api/v1/document/890/": {
+      "resource_uri": "https://fragdenstaat.de/api/v1/document/890/",
+      "id": 890,
+      "site_url": "https://fragdenstaat.de/dokumente/890/",
+      "title": "Ablehnungsbescheid.pdf",
+      "slug": "",
+      "description": "",
+      "published_at": null,
+      "num_pages": 5,
+      "file_url": "https://media.frag-den-staat.de/files/foi/402591/Ablehnungsbescheid.pdf",
+      "file_size": 368484,
+      "properties": {},
+      "foirequest": "https://fragdenstaat.de/api/v1/request/157764/",
+      "publicbody": "https://fragdenstaat.de/api/v1/publicbody/875/",
+      "last_modified_at": "2019-07-29 13:56:17.790173+00:00",
+      "pages": [
+        {
+          "number": 1,
+          "content": "Für Mensch & Umwelt\n\nUmweltbundesamt | Postfach 1406 1 06813 Dessau-Roßlau\n\nHerrn\nArne Brix\n\nper Mail\na.brix.2.mgnun59he3@fragdenstaat.de\n\nVollzug des Umweltinformationsgesetzes (UIG)\nIhr Antrag vom 12. Juli 2019\n\nSehr geehrter Herr Brix,\n\nauf Ihren Antrag vom 12.07.2019 auf Zugang zu Informationen "
+        },
+        {
+          "number": 2,
+          "content": "Verbesserung der gesundheitsbezogenen Verbraucherinformation (VIG),\n\nsoweit Informationen im Sinne des $ 1 Absatz 1 VIG betroffen sind, gestellt.\n\nSie begehren den Zugang zu Informationen zum \"ökologischen\nGesundheitszustand\" der Wälder in Deutschland und zu den\n\nforstwirtschaftlichen Folgen durch d"
+        },
+        {
+          "number": 3,
+          "content": "Verfügung stehen. Auf der Website des Umweltbundesamtes sind unter\ndem folgenden Link Ergebnisse der Waldzustandserhebung von 2017\n\nveröffentlicht worden, insbesondere zu dem Thema „Kronenverlichtung“:\n\n- ://www.umw m daten/f - n-land-\n\nkosysteme/land-oek me/waldzustand-kronenverlichtun\n\nSie finden "
+        },
+        {
+          "number": 4,
+          "content": "Da Sie auf eine andere Art des Informationszugangs verwiesen wurden,\nwird nach & 5 Absatz 1 S. 2 UIG der Antrag auf Zugänglichmachung von\n\nInformationen diesbezüglich abgelehnt.\n\n2. Informationen seitens des Bundesministerium für Ernährung und\n\nLandwirtschaft (BMEL)\n\nDas Bundesministerium für Ernähr"
+        },
+        {
+          "number": 5,
+          "content": "Möglicherweise liegen die weiteren von Ihnen angefragten Informationen\ndem Bundesministerium für Ernährung und Landwirtschaft (www.bmel.de)\noder den entsprechenden Landesministerien vor. Ferner halten\nmöglicherweise die Bundesanstalt für Landwirtschaft und Ernährung (BLE;\nwww.ble.de) oder das Thünen"
+        }
+      ]
+    },
+    "/api/v1/campaign/": {
+      "meta": {
+        "limit": 50,
+        "next": null,
+        "offset": 0,
+        "previous": null,
+        "total_count": 18
+      },
+      "objects": [
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/campaign/10/",
+          "id": 10,
+          "name": "Prinzenfonds",
+          "slug": "prinzenfonds",
+          "active": false,
+          "start_date": "2020-06-18T10:00:00+02:00"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/campaign/1/",
+          "id": 1,
+          "name": "Frag den Bundestag",
+          "slug": "frag-den-bundestag",
+          "active": false,
+          "start_date": "2016-01-25T12:00:00+01:00"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/campaign/2/",
+          "id": 2,
+          "name": "Frag das Jobcenter",
+          "slug": "frag-das-jobcenter",
+          "active": false,
+          "start_date": "2016-10-20T12:00:00+02:00"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/campaign/3/",
+          "id": 3,
+          "name": "Gläserne Gesetze",
+          "slug": "glaserne-gesetze",
+          "active": false,
+          "start_date": "2017-06-15T12:00:00+02:00"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/campaign/5/",
+          "id": 5,
+          "name": "Frag sie Abi!",
+          "slug": "frag-sie-abi",
+          "active": false,
+          "start_date": "2019-02-11T12:00:00+01:00"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/campaign/11/",
+          "id": 11,
+          "name": "Spekulation abwenden",
+          "slug": "spekulation-abwenden",
+          "active": false,
+          "start_date": "2020-07-14T09:30:00+02:00"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/campaign/9/",
+          "id": 9,
+          "name": "Glyphosat",
+          "slug": "glyphosat",
+          "active": false,
+          "start_date": "2019-04-02T10:00:00+02:00"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/campaign/4/",
+          "id": 4,
+          "name": "Topf Secret",
+          "slug": "topf-secret",
+          "active": true,
+          "start_date": "2019-01-14T12:00:00+01:00"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/campaign/12/",
+          "id": 12,
+          "name": "Black Box EU",
+          "slug": "blackboxeu",
+          "active": false,
+          "start_date": "2020-11-15T13:17:00+01:00"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/campaign/24/",
+          "id": 24,
+          "name": "Windgeld",
+          "slug": "windgeld",
+          "active": false,
+          "start_date": "2026-01-20T11:53:53+01:00"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/campaign/13/",
+          "id": 13,
+          "name": "Klima-Gebäude-Check",
+          "slug": "klimacheck",
+          "active": false,
+          "start_date": "2020-09-25T14:53:00+02:00"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/campaign/25/",
+          "id": 25,
+          "name": "Gaswende",
+          "slug": "gaswende",
+          "active": false,
+          "start_date": "2026-05-28T15:00:00+02:00"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/campaign/18/",
+          "id": 18,
+          "name": "Schwangerschaftsabbrüche",
+          "slug": "schwangerschaftsabbrueche",
+          "active": false,
+          "start_date": "2021-11-18T09:00:00+01:00"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/campaign/16/",
+          "id": 16,
+          "name": "Aktion Ehrensache",
+          "slug": "aktion-ehrensache",
+          "active": false,
+          "start_date": "2021-03-16T09:56:00+01:00"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/campaign/15/",
+          "id": 15,
+          "name": "Verschlusssache Prüfung",
+          "slug": "verschlusssache-prufung",
+          "active": true,
+          "start_date": "2021-01-26T12:00:00+01:00"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/campaign/14/",
+          "id": 14,
+          "name": "Mission Fleisch",
+          "slug": "topf-secret-mission-fleisch",
+          "active": false,
+          "start_date": "2020-12-08T01:00:00+01:00"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/campaign/17/",
+          "id": 17,
+          "name": "Lobbyregister selbst gemacht",
+          "slug": "lobbyregister-selbstgemacht",
+          "active": false,
+          "start_date": "2021-06-07T08:00:00+02:00"
+        },
+        {
+          "resource_uri": "https://fragdenstaat.de/api/v1/campaign/20/",
+          "id": 20,
+          "name": "Lageberichte des Auswärtiges Amts",
+          "slug": "lageberichte-auswaertiges-amt",
+          "active": false,
+          "start_date": "2022-11-10T08:00:00+01:00"
+        }
+      ]
+    }
+  },
+  "tools": 8,
+  "calls": [
+    {
+      "name": "findLaws",
+      "arguments": {
+        "jurisdiction": "Bayern"
+      },
+      "expect": {
+        "status": "ok",
+        "total": 4,
+        "laws.0.jurisdiction": "Bayern",
+        "laws.1.deadline.text": "5 working days"
+      }
+    },
+    {
+      "name": "findPublicBody",
+      "arguments": {
+        "name": "Umweltbundesamt"
+      },
+      "expect": {
+        "status": "ok",
+        "body.id": 875,
+        "body.email": "buergerservice@uba.de"
+      }
+    },
+    {
+      "name": "getRequest",
+      "arguments": {
+        "id": 373204,
+        "limit": 2
+      },
+      "expect": {
+        "status": "ok",
+        "messageCount": 8,
+        "nextOffset": 2,
+        "request.resolution": "successful"
+      }
+    },
+    {
+      "name": "getDocument",
+      "arguments": {
+        "id": 890
+      },
+      "expect": {
+        "status": "ok",
+        "pageCount": 5,
+        "document.requestId": 157764
+      }
+    },
+    {
+      "name": "searchReference",
+      "arguments": {
+        "kind": "campaigns",
+        "query": "Topf Secret"
+      },
+      "expect": {
+        "status": "ok",
+        "items.0.id": 4
+      }
+    },
+    {
+      "name": "findLaws",
+      "arguments": {
+        "jurisdiction": "Bayern",
+        "limit": 500
+      },
+      "error": true
+    }
+  ]
+}
