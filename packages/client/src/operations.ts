@@ -1114,8 +1114,17 @@ export async function findLaws(client: FragDenStaatClient, input: FindLawsInput)
       const siblings = await t.list("/api/v1/law/", LAW_LIST_PARAMS, { jurisdiction: row.jurisdictionId, limit: MAX_PAGE_SIZE }, (p) => client.laws.list(p));
       for (const sibling of siblings.objects) combinedNames.set(sibling.id, sibling.name);
     }
+    // A town's statute has no jurisdiction but bundles its Land's laws: those by id, a few at most.
+    for (const cid of combinedIds.filter((c) => !combinedNames.has(c)).slice(0, 5)) {
+      const one = await t.list("/api/v1/law/", LAW_LIST_PARAMS, { id: cid, limit: 1 }, (p) => client.laws.list(p));
+      for (const law of one.objects) combinedNames.set(law.id, law.name);
+    }
     const legal = str(detail["legal_text"]) ?? "";
-    const reasons = arr(detail["refusal_reasons"]).map((r) => (typeof r === "string" ? r : Array.isArray(r) ? r.filter((x) => typeof x === "string").join(": ") : "")).filter((r) => r !== "");
+    // The refusal reasons come as one text, a reason per line (a list in older answers).
+    const rawReasons = detail["refusal_reasons"];
+    const reasons = (typeof rawReasons === "string" ? rawReasons.split(/\r?\n/) : arr(rawReasons).map((r) => (typeof r === "string" ? r : Array.isArray(r) ? r.filter((x) => typeof x === "string").join(": ") : "")))
+      .map((r) => r.trim())
+      .filter((r) => r !== "");
     const full: LawDetail = {
       ...row,
       description: str(detail["description"]) || null,
@@ -1131,7 +1140,7 @@ export async function findLaws(client: FragDenStaatClient, input: FindLawsInput)
     const notes = [
       `Deadline: ${full.deadline.text}${full.requiresSignature ? "; filing needs a handwritten signature" : ""}.`,
       legal === "" ? "The catalogue holds no statute text for this law (usual): the law's page (siteUrl) links it." : `The statute has ${full.legalTextChars} characters; the excerpt is its start.`,
-      ...(full.meta ? ["A meta law: one request can invoke the laws it bundles (combined)."] : []),
+      ...(full.combined.length > 0 ? ["A meta law: one request can invoke the laws it bundles (combined)."] : []),
       ...(row.jurisdictionId === null ? ["A local statute: it belongs to no jurisdiction."] : []),
     ];
     return t.done({ status: "ok", searched, law: full, notes });
@@ -1157,7 +1166,8 @@ export async function findLaws(client: FragDenStaatClient, input: FindLawsInput)
   const total = page.meta.total_count;
   const notes: string[] = [];
   if (params.jurisdiction !== undefined) notes.push("Local statutes (Satzungen) have no jurisdiction and are never in a jurisdiction's list: search them by the town (query).");
-  if (input.meta === true) notes.push("Meta laws bundle several; the concrete statute is a non-meta law (meta false).");
+  if (input.meta === true) notes.push("Meta laws bundle several (a town's Satzung bundled with its Land's UIG is one); the concrete statute is a non-meta law (meta false).");
+  if (input.meta === false) notes.push("Local statutes (Satzungen) are meta laws (bundled with their Land's UIG): meta false leaves them out.");
   notes.push("Every deadline is given with its unit (deadline.text): a number alone means nothing.");
   if (laws.length === 0) {
     const reason = offset > 0 && total > 0 ? `The search found ${total}; offset ${offset} is past the end.` : `No law matched ${JSON.stringify(searched)}. Words match the catalogue's own wording; try one word (umwelt, the town's name), or drop a filter.`;

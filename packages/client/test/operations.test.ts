@@ -296,6 +296,14 @@ test("findLaws by one law: a meta law names the laws it bundles; the statute tex
   assert.ok("law" in ifg);
   assert.equal(ifg.law.id, 1);
   assert.equal(ifg.law.legalTextChars, 2500);
+  assert.equal(ifg.law.refusalReasons[0], "§ 1.3: Regelungen in anderen Rechtsvorschriften gehen vor", "the API sends them as lines of one text");
+  assert.ok(ifg.law.refusalReasons.length > 1);
+  const satzung = await findLaws(client, { law: "51" });
+  assert.ok("law" in satzung);
+  assert.equal(satzung.law.meta, true, "a town's statute bundles its Land's UIG");
+  assert.deepEqual(satzung.law.combined, [{ id: 119, name: "Umweltinformationsgesetz Bayern (BayUIG)" }], "named though the statute has no jurisdiction");
+  assert.match(satzung.notes.join(" "), /local statute/);
+  assert.deepEqual(requestsOf(satzung).slice(-2), ["/api/v1/law/51/", "/api/v1/law/?id=119&limit=1"]);
   assert.equal([...(ifg.law.legalTextExcerpt ?? "")].length, 2001);
   const several = await findLaws(client, { law: "Umweltinformationsgesetz" });
   assert.equal(several.status, "ambiguous");
