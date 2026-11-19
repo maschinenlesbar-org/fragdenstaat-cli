@@ -1,0 +1,119 @@
+{
+ "comment": "What tools/image/smoke.mjs needs that is particular to this repo: the bin (its log topic), a command that makes one request, the exit code of a network error, the mock's answer to that request (by path, under --base-url http://mock:8080; the API's paths start with /api/v1), and a string the printed answer contains. The answer is the laws of Bayern (law list --jurisdiction 92), recorded live on 2026-11-19 and cut.",
+ "bin": "fragdenstaat",
+ "command": [
+  "law",
+  "list",
+  "--jurisdiction",
+  "92",
+  "--limit",
+  "4"
+ ],
+ "networkErrorExit": 1,
+ "answers": {
+  "/api/v1/law/": {
+   "meta": {
+    "limit": 50,
+    "next": null,
+    "offset": 0,
+    "previous": null,
+    "total_count": 4
+   },
+   "objects": [
+    {
+     "resource_uri": "https://fragdenstaat.de/api/v1/law/120/",
+     "id": 120,
+     "name": "Datenschutz-, Umwelt- und Verbraucherinformationsgesetz Bayern (BayDSG, BayUIG, VIG)",
+     "slug": "bayuig-vig-bayern",
+     "description": "Bayerisches Umweltinformationsgesetz, Verbraucherinformationsgesetz",
+     "law_type": "",
+     "meta": true,
+     "site_url": "https://fragdenstaat.de/gesetz/bayuig-vig-bayern/",
+     "jurisdiction": "https://fragdenstaat.de/api/v1/jurisdiction/92/",
+     "email_only": true,
+     "mediator": "https://fragdenstaat.de/api/v1/publicbody/15890/",
+     "priority": 3,
+     "max_response_time": 1,
+     "requires_signature": false,
+     "max_response_time_unit": "month_de",
+     "letter_start": "",
+     "letter_end": "",
+     "refusal_reasons": "",
+     "legal_text": "",
+     "combined": [
+      "https://fragdenstaat.de/api/v1/law/119/",
+      "https://fragdenstaat.de/api/v1/law/3/",
+      "https://fragdenstaat.de/api/v1/law/170/"
+     ]
+    },
+    {
+     "resource_uri": "https://fragdenstaat.de/api/v1/law/166/",
+     "id": 166,
+     "name": "Bayerisches Pressegesetz (BayPrG)",
+     "slug": "bayerisches-pressegesetz-bayprg",
+     "description": "",
+     "law_type": "Presserecht",
+     "meta": false,
+     "site_url": "https://fragdenstaat.de/gesetz/bayerisches-pressegesetz-bayprg/",
+     "jurisdiction": "https://fragdenstaat.de/api/v1/jurisdiction/92/",
+     "email_only": true,
+     "mediator": null,
+     "priority": 4,
+     "max_response_time": 5,
+     "requires_signature": false,
+     "max_response_time_unit": "working_day",
+     "letter_start": "",
+     "letter_end": "",
+     "refusal_reasons": "",
+     "legal_text": "",
+     "combined": []
+    },
+    {
+     "resource_uri": "https://fragdenstaat.de/api/v1/law/119/",
+     "id": 119,
+     "name": "Umweltinformationsgesetz Bayern (BayUIG)",
+     "slug": "bayerisches-umweltinformationsgesetz-bayuig",
+     "description": "Bayerisches Umweltinformationsgesetz",
+     "law_type": "UIG",
+     "meta": false,
+     "site_url": "https://fragdenstaat.de/gesetz/bayerisches-umweltinformationsgesetz-bayuig/",
+     "jurisdiction": "https://fragdenstaat.de/api/v1/jurisdiction/92/",
+     "email_only": false,
+     "mediator": null,
+     "priority": 3,
+     "max_response_time": 1,
+     "requires_signature": false,
+     "max_response_time_unit": "month_de",
+     "letter_start": "",
+     "letter_end": "",
+     "refusal_reasons": "Art. 7 (1) 1. internationalen Beziehungen, die Verteidigung oder die öffentliche Sicherheit,\r\nArt. 7 (1) 2. die Vertraulichkeit der Beratungen von informationspflichtigen Stellen im Sinn des Art. 2 Abs. 1,\r\nArt. 7 (1) 3. die Durchführung eines laufenden Gerichtsverfahrens, den Anspruch einer Person auf ein faires Verfahren oder die Durchführung strafrechtlicher, ordnungswidrigkeitenrechtlicher oder disziplinarrechtlicher Ermittlungen\r\nArt. 7 (1) 4. nachteilige Auswirkung auf den Zustand der Umwelt und ihre Bestandteile\r\nArt. 7 (2) 1. offensichtlich missbräuchlich\r\nArt. 7 (2) 2. Bezug auf interne Mitteilungen der informationspflichtigen Stellen\r\nArt. 7 (2) 3. nicht über Umweltinformationen verfügt\r\nArt. 7 (2) 4. sich auf das Zugänglichmachen von Material, das gerade vervollständigt wird, von noch nicht abgeschlossenen Schriftstücken oder noch nicht aufbereiteten Daten bezieht\r\nArt. 7 (2) 5. zu unbestimmt ist und auf Aufforderung der informationspflichtigen Stelle nach Art. 4 Abs. 2 nicht innerhalb einer angemessenen Frist präzisiert wird\r\nArt. 8 (1) 1. durch das Bekanntgeben der Informationen personenbezogene Daten offenbart und dadurch schutzwürdige Interessen der Betroffenen beeinträchtigt würden,\r\nArt. 8 (1) 2. Rechte am geistigen Eigentum, insbesondere Urheberrechte, durch das Zugänglichmachen von Umweltinformationen verletzt würden oder\r\nArt. 8 (1) 3. durch das Bekanntgeben Betriebs- oder Geschäftsgeheimnisse zugänglich gemacht würden oder die Informationen dem Steuergeheimnis oder dem Statistikgeheimnis unterliegen,\r\nArt. 8 (2) Umweltinformationen, die private Dritte einer informationspflichtigen Stelle übermittelt haben, ohne rechtlich dazu verpflichtet zu sein oder rechtlich dazu verpflichtet werden zu können, und deren Offenbarung nachteilige Auswirkungen auf die Interessen der Dritten hätte",
+     "legal_text": "",
+     "combined": []
+    },
+    {
+     "resource_uri": "https://fragdenstaat.de/api/v1/law/170/",
+     "id": 170,
+     "name": "Bayerisches Datenschutzgesetz (BayDSG)",
+     "slug": "baydsg",
+     "description": "",
+     "law_type": "Datenschutzrecht",
+     "meta": false,
+     "site_url": "https://fragdenstaat.de/gesetz/baydsg/",
+     "jurisdiction": "https://fragdenstaat.de/api/v1/jurisdiction/92/",
+     "email_only": false,
+     "mediator": "https://fragdenstaat.de/api/v1/publicbody/15890/",
+     "priority": 1,
+     "max_response_time": 1,
+     "requires_signature": false,
+     "max_response_time_unit": "month_de",
+     "letter_start": "",
+     "letter_end": "",
+     "refusal_reasons": "berechtigtes Interesse nicht vorhanden\r\nentgeltliche Weiterverwendung beabsichtigt\r\nÜbermittlung personenbezogener Daten an nicht öffentliche Stellen unzulässig\r\nBelange der öffentlichen Sicherheit und Ordnung beeinträchtigt\r\nKontroll- und Aufsichtsaufgaben oder sonstige öffentliche oder private Interessen stehen entgegen\r\nBezug auf Verlauf oder auf vertrauliche Inhalte laufender oder abgeschlossener behördeninterner Beratungen\r\nBezug auf Inhalte aus nicht abgeschlossenen Unterlagen\r\nBezug auf noch nicht aufbereitete Daten\r\nunverhältnismäßiger Aufwand\r\nVerschlusssache\r\nBerufs- oder besonderen Amtsgeheimnis\r\npersönlichen Lebensbereich gehörende Geheimnisse\r\nBetriebs- und Geschäftsgeheimnisse",
+     "legal_text": "",
+     "combined": []
+    }
+   ]
+  }
+ },
+ "expectStdout": "Bayerisches Pressegesetz (BayPrG)"
+}
