@@ -3,6 +3,7 @@
 
 import { constants } from "node:buffer";
 import { Command, InvalidArgumentError, Option } from "commander";
+import { pidsProblem, responseCapFor } from "./limits.js";
 import { OutputError, isDirectoryMessage, logOf, reasonOf, refuseOverwrite, type CliDeps } from "./io.js";
 import { FdsError, FdsValidationError, cutForMessage, quoteValue } from "@maschinenlesbar.org/fragdenstaat-client/internal/errors";
 import {
@@ -703,6 +704,9 @@ export interface ActionContext {
  * Commander invokes actions as (arg1, ..., argN, options, command); we slice off
  * the trailing options object and command instance to recover the positionals.
  */
+/** The container can't run the CLI as it is limited (limits.ts): an ERROR record of the cli area and exit 1. */
+export class EnvironmentError extends FdsError {}
+
 export function action(
   deps: CliDeps,
   fn: (ctx: ActionContext, positionals: string[]) => Promise<void>,
@@ -713,6 +717,15 @@ export function action(
     const global = command.optsWithGlobals() as GlobalOptions;
     checkOutputTarget(deps, global);
     const options = toEngineOptions(global);
+    // In a container: under a pids limit Node can't work with, refuse before any request; under a
+    // memory limit the 100 MiB default can't be held, so cap by the memory instead (an oversized
+    // answer is then the cap's error, not an OOM kill). An explicit --max-response-bytes wins.
+    const limits = deps.limits?.() ?? {};
+    const problem = pidsProblem(limits);
+    if (problem !== undefined) throw new EnvironmentError(problem);
+    const given = command.getOptionValueSourceWithGlobals("maxResponseBytes");
+    const memory = given === undefined || given === "default" ? limits.memoryBytes : undefined;
+    if (memory !== undefined) options.maxResponseBytes = responseCapFor(memory);
     options.onRetry = (event) => logOf(deps).warn("http", retryMessage(event));
     // An answer delivered changed (invalid text replaced with U+FFFD) is never silent.
     options.onWarning = (message) => logOf(deps).warn("api", message);

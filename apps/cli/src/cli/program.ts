@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError } from "commander";
 import type { CliDeps } from "./io.js";
 import { defaultIO } from "./io.js";
+import { readContainerLimits } from "./limits.js";
 import { FragDenStaatClient } from "@maschinenlesbar.org/fragdenstaat-client/internal/client";
 import { MAX_TIMEOUT_MS } from "@maschinenlesbar.org/fragdenstaat-client/internal/http";
 import { MAX_RETRIES } from "@maschinenlesbar.org/fragdenstaat-client/internal/engine";
@@ -41,6 +42,8 @@ export const VERSION = readVersion();
 export const defaultDeps: CliDeps = {
   io: defaultIO,
   createClient: (options) => new FragDenStaatClient(options),
+  // In a container: the memory and pids limits (cgroup), for action()'s checks.
+  limits: () => readContainerLimits(),
 };
 
 /** commander value-parser for `--log-format`. */
