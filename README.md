@@ -37,6 +37,62 @@ npx @maschinenlesbar.org/fragdenstaat-cli --help
 
 Requires Node.js 22.12+.
 
+### Docker
+
+From 0.10.0 every release is also a container image for linux/amd64 and linux/arm64 on the
+GitHub Container Registry, made from the same tarball as the npm package. It needs no Node.js and no
+install:
+
+```bash
+docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
+  ghcr.io/maschinenlesbar-org/fragdenstaat-cli:latest law list --jurisdiction 92
+```
+
+The image's entrypoint is the program, so the command follows the image name directly;
+`… fragdenstaat-cli:latest fragdenstaat law list …` works too. Without `-o` a CSV export goes
+to stdout, so redirect it on the host: `… fragdenstaat-cli:latest request list --tags lobbyismus --csv > requests.csv`.
+
+In a container with a memory limit (`--memory`) the default `--max-response-bytes` is an eighth
+of that limit (at most the usual 100 MiB), so an oversized answer is refused with a clear
+error instead of the container being killed for memory. The largest answers, a long request
+thread or a document of hundreds of pages with their text, are a few MB.
+The CLI needs at least 12 processes and threads (`--pids-limit 12`): below that it refuses with
+an error, and with 4 or fewer Node.js itself hangs before the CLI can check.
+
+`latest` is the newest release. For scripts, name a release and pin its digest, which the
+[release notes](https://github.com/maschinenlesbar-org/fragdenstaat-cli/releases) give:
+`…/fragdenstaat-cli:0.10.0@sha256:<digest>`. Each image carries signed build provenance;
+check it with
+
+```bash
+gh attestation verify oci://ghcr.io/maschinenlesbar-org/fragdenstaat-cli:latest \
+  --repo maschinenlesbar-org/fragdenstaat-cli
+```
+
+### MCP server
+
+From 0.10.0 the same data is also an [MCP](https://modelcontextprotocol.io/) server for AI
+agents, `@maschinenlesbar.org/fragdenstaat-mcp` (command `fragdenstaat-mcp`, image
+`ghcr.io/maschinenlesbar-org/fragdenstaat-mcp`): eight read-only tools, the public body to
+address (its FOI email and request note), FOI requests by full text or facets, how requests went
+(outcomes and success rate over the resolved ones), the documents released, the FOI law that
+applies with its deadline in words, one request with its correspondence, one document's text,
+and the names and ids the filters take, with the API's traps handled (names resolved to ids,
+exact names or slugs; the full-text search without status; a jurisdiction's laws without the
+local statutes; a tag as a slug for documents), on stdio or Streamable HTTP. Setup for Claude
+Code, Claude Desktop and VS Code:
+[MCP.md](https://github.com/maschinenlesbar-org/fragdenstaat-cli/blob/main/MCP.md).
+
+```bash
+npm i -g @maschinenlesbar.org/fragdenstaat-mcp
+claude mcp add fragdenstaat -- fragdenstaat-mcp
+```
+
+No single licence covers the data: every result says which terms apply to which kind of record
+(CC0 request texts, authority answers presumed public domain, personal data under the GDPR), and
+running the server as a service for others may need the Open Knowledge Foundation Deutschland's
+permission (we provide the tool, not the data).
+
 ## Quick start
 
 ```bash
@@ -176,7 +232,11 @@ const law = await fds.laws.get(124);
 Every resource group exposes `.list(params)` and `.get(id)`; `request`/`publicbody`
 add `.search()`, and `request`/`publicbody`/`law`/`category`/`georegion` add
 autocomplete. Errors are typed (`FdsApiError` with `.status`/`.detail`,
-`FdsNetworkError`, `FdsParseError`). The full API docs build with `npm run docs`.
+`FdsNetworkError`, `FdsParseError`). The skills' use cases are library functions too:
+`findPublicBody`, `findRequests`, `getRequestOutcomes`, `findDocuments`, `findLaws`,
+`getRequest`, `getDocument` and `searchReference` take the client and resolve names for you
+(`await getRequestOutcomes(fds, { tag: "Videoüberwachung" })`). The full API docs build with
+`npm run docs`.
 
 ## Skills
 
