@@ -80,12 +80,12 @@ Every tool only reads. An answer is JSON (`structuredContent` and the same as te
 terms. Names are resolved to the ids, exact names or slugs each endpoint takes; a name that fits
 several is answered as `ambiguous`, with the candidates, never one picked. A text over 2000
 characters is cut and ends in `…[cut, N characters in all]`, and the answer says `truncated`. An
-answer over `--max-result-chars` first loses entries from the end of its page (`nextOffset` says
-where to go on), then has its longest texts cut further (each with that mark) or, when that isn't
-enough, its other lists shortened; a list keeps its first entry, `notes` stay whole, and the answer
-says `truncated`. One that can't be cut down so far is a tool error that says to ask for less. A
-failure is a tool error that says what to change (one over 5000 characters loses its middle, never
-its end, where the reason is).
+answer over `--max-result-chars` first loses entries from the end of its page (then `nextOffset`
+says where to go on), then has its longest texts cut further (each with that mark) or, when that
+isn't enough, its other lists shortened (`reason` names them); a list keeps its first entry, `notes`
+stay whole, and the answer says `truncated`. One that can't be cut down so far is a tool error that
+says to ask for less. A failure is a tool error that says what to change (one over 5000 characters
+loses its middle, never its end, where the reason is).
 
 ## Options
 
