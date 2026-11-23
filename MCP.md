@@ -127,7 +127,8 @@ change.
 - **Personal data.** Requests and answers name people; the platform redacts them
   (`[geschwärzt]`, `<< Anfragesteller:in >>`). The tools pass the redacted texts and never the
   signed file links of attachments.
-- **Logs** go to stderr, one record per line; stdout carries only the protocol.
+- **Logs** go to stderr, one record per line; stdout carries only the protocol. A call that fails
+  upstream or reaches its deadline leaves a WARN record naming the tool.
 - **Never installs anything.**
 
 ## Licence
