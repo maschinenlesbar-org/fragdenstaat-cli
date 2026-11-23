@@ -76,11 +76,12 @@ For scripts and shared configs, pin a release and its digest from the
 | `searchReference` | The names and ids the filters take: jurisdictions, categories, types of body, campaigns, request tags. |
 
 Every tool only reads. An answer is JSON (`structuredContent` and the same as text), with the
-`source` it came from (every request the answer made) and the data's terms. Names are resolved to
-the ids, exact names or slugs each endpoint takes; a name that fits several is answered as
-`ambiguous`, with the candidates, never one picked. A text over 2000 characters is cut and ends in
-`…[cut, N characters in all]`, and the answer says `truncated`. A failure is a tool error that says
-what to change (one over 5000 characters loses its middle, never its end, where the reason is).
+`source` it came from (every request the answer made; whole, never cut like the data) and the data's
+terms. Names are resolved to the ids, exact names or slugs each endpoint takes; a name that fits
+several is answered as `ambiguous`, with the candidates, never one picked. A text over 2000
+characters is cut and ends in `…[cut, N characters in all]`, and the answer says `truncated`. A
+failure is a tool error that says what to change (one over 5000 characters loses its middle, never
+its end, where the reason is).
 
 ## Options
 
