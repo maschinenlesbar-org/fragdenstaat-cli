@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { listTools } from "../src/mcp/server.js";
 import { connect } from "./harness.js";
-import { CAMPAIGNS, DOCUMENTS, fdsApi, variant } from "./helpers.js";
+import { CAMPAIGNS, DOCUMENTS, fdsApi, REQUEST_373204, variant } from "./helpers.js";
 import type { JsonObject } from "@maschinenlesbar.org/fragdenstaat-client";
 
 const API = "https://fragdenstaat.de";
@@ -165,5 +165,21 @@ test("getDocument: a page's text comes whole up to 20000 characters; the size ca
   const long = (await connection.call("getDocument", { id: 890, offset: 2, limit: 1 })).structuredContent ?? {};
   assert.equal(long["truncated"], true);
   assert.match((long["pages"] as { content: string }[])[0]?.content ?? "", /…\[cut, 30000 characters in all\]$/);
+  await connection.close();
+});
+
+test("getRequest: the request's text, its summary and each message come whole up to 20000 characters", async () => {
+  const long = (n: number, end: string): string => `${"Wort ".repeat(Math.ceil(n / 5)).slice(0, n - end.length)}${end}`;
+  const messages = (REQUEST_373204["messages"] as JsonObject[]).map((m, i) => (i === 1 ? variant(m, { content: long(4945, "Ende der Antwort."), redacted_content: [[false, long(4945, "Ende der Antwort.")]] }) : m));
+  const request = variant(REQUEST_373204, { description: long(4004, "Ende der Frage."), redacted_description: [[false, long(4004, "Ende der Frage.")]], summary: long(3000, "Ende der Zusammenfassung."), messages });
+  const connection = await connect({ transport: fdsApi({ requests: [request] }) });
+  const content = (await connection.call("getRequest", { id: 373204, limit: 2 })).structuredContent ?? {};
+  const got = content["request"] as { description: string; summary: string };
+  assert.match(got.description, /Ende der Frage\.$/);
+  assert.match(got.summary, /Ende der Zusammenfassung\.$/);
+  const answer = (content["messages"] as { content: string; contentChars: number }[])[1];
+  assert.equal(answer?.content.length, 4945);
+  assert.equal(answer?.contentChars, 4945);
+  assert.equal(content["truncated"], undefined);
   await connection.close();
 });

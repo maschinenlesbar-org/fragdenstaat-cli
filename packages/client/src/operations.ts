@@ -1377,7 +1377,7 @@ export interface MessageRow {
   isResponse: boolean;
   sender: string | null;
   subject: string;
-  /** The published text (redactions marked), cut to 2000 characters. */
+  /** The published text (redactions marked), whole. */
   content: string;
   contentChars: number;
   /** True when the platform hides the text. */
@@ -1425,7 +1425,7 @@ export async function getRequest(client: FragDenStaatClient, input: { id: number
       isResponse: m["is_response"] === true,
       sender: str(m["sender"]),
       subject: redactedText(m["redacted_subject"], m["subject"]),
-      content: cut(content, 2000),
+      content,
       contentChars: [...content].length,
       contentHidden: m["content_hidden"] === true,
       attachments: arr(m["attachments"]).map(obj).filter((a): a is JsonObject => a !== null).map((a) => ({

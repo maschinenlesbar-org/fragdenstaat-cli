@@ -79,7 +79,8 @@ Every tool only reads. An answer is JSON (`structuredContent` and the same as te
 `source` it came from (every request the answer made; whole, never cut like the data) and the data's
 terms. Names are resolved to the ids, exact names or slugs each endpoint takes; a name that fits
 several is answered as `ambiguous`, with the candidates, never one picked. A text over 2000
-characters (a document page's text in `getDocument`: over 20000) is cut and ends in `…[cut, N
+characters (in `getDocument` a page's text, in `getRequest` the request's text, its summary and a
+message: over 20000) is cut and ends in `…[cut, N
 characters in all]`, and the answer says `truncated`. An
 answer over `--max-result-chars` first loses entries from the end of its page (then `nextOffset`
 says where to go on), then has its longest texts cut further (each with that mark) or, when that

@@ -49,8 +49,11 @@ export const INSTRUCTIONS = [
 /** The deadline's error says what to ask instead. */
 export const DEADLINE_HINT = "Ask a narrower question: one body or request by its id, fewer filters resolved by name (give ids), fewer results (limit).";
 
-/** The longest page text getDocument passes whole (other texts are cut at 2000 characters). */
-export const PAGE_TEXT_LENGTH = 20_000;
+/**
+ * The longest text getDocument (a page's text) and getRequest (the request's text, its summary,
+ * a message) pass whole; other texts are cut at 2000 characters.
+ */
+export const LONG_TEXT_LENGTH = 20_000;
 
 /** An answer over the size cap says what to ask instead. */
 export const SIZE_HINT = "Ask for less: fewer results (limit), a page (offset, limit), fewer messages or pages of one request or document.";
@@ -319,13 +322,16 @@ export const TOOLS: readonly ToolDefinition[] = [
     title: "One FOI request with its correspondence",
     description: [
       'One FOI request in full with its messages: the request text, the authority\'s answers, the attachments, the law and its deadline, the costs. Use it for "zeig mir die Anfrage 373204", "was hat die Behörde geantwortet?", "welche Anhänge hat die Anfrage?", "show FOI request 373204", "what did the authority answer?", "read the correspondence of this request".',
-      "Messages in order: isResponse true are the authority's, false the requester's; each text cut to 2000 characters (contentChars is the full length), redactions marked ([geschwärzt]): quote the redacted text, never restore it. Attachments name their page (siteUrl); one that became a document has a documentId for getDocument. resolution is null until resolved; resolved_on is never filled, lastMessage approximates the close. Long threads come a page of messages at a time (offset, limit; nextOffset).",
+      "Messages in order: isResponse true are the authority's, false the requester's; each text whole up to 20000 characters (contentChars is its length; a longer one is marked cut), so fewer messages may come than asked: follow nextOffset; redactions marked ([geschwärzt]): quote the redacted text, never restore it. Attachments name their page (siteUrl); one that became a document has a documentId for getDocument. resolution is null until resolved; resolved_on is never filled, lastMessage approximates the close. Long threads come a page of messages at a time (offset, limit; nextOffset).",
       RULES,
     ].join("\n\n"),
     inputSchema: input({ id: id("The request's id (from findRequests)."), offset, limit: limit(50, 20, "messages") }, ["id"]),
     outputSchema: output({ request: obj, messages: arr, messageCount: int, nextOffset: int }),
     source,
     paged: (args) => ({ list: "messages", offset: num(args, "offset") ?? 0 }),
+    // The correspondence is the answer: each text whole up to LONG_TEXT_LENGTH; the size cap then
+    // moves messages to the next call rather than cutting them.
+    maxFieldLength: LONG_TEXT_LENGTH,
     async run(args, context) {
       const answer = remember(args, await getRequest(context.client, { id: num(args, "id") ?? -1 }, pages(context)));
       return answer["status"] === "ok" ? pageOf(answer, "messages", "messageCount", num(args, "offset") ?? 0, num(args, "limit") ?? 20) : answer;
@@ -343,9 +349,9 @@ export const TOOLS: readonly ToolDefinition[] = [
     outputSchema: output({ document: obj, pages: arr, pageCount: int, nextOffset: int }),
     source,
     paged: (args) => ({ list: "pages", offset: num(args, "offset") ?? 0 }),
-    // A page's text is the answer: whole up to PAGE_TEXT_LENGTH (a dense page holds about 5000);
+    // A page's text is the answer: whole up to LONG_TEXT_LENGTH (a dense page holds about 5000);
     // the size cap then moves pages to the next call rather than cutting them.
-    maxFieldLength: PAGE_TEXT_LENGTH,
+    maxFieldLength: LONG_TEXT_LENGTH,
     async run(args, context) {
       const answer = remember(args, await getDocument(context.client, { id: num(args, "id") ?? -1 }, pages(context)));
       return answer["status"] === "ok" ? pageOf(answer, "pages", "pageCount", num(args, "offset") ?? 0, num(args, "limit") ?? 5) : answer;

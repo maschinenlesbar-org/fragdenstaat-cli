@@ -577,3 +577,12 @@ test("findLaws: a meta law names every law it bundles, up to maxPages lookups; t
   assert.equal(few.law.combined.filter((c) => c.name !== null).length, 3);
   assert.match(few.notes.join(" "), /5 of the 8 bundled laws were not looked up \(maxPages\): 123, 1, 2, 3, 170|5 of the 8 bundled laws were not looked up/);
 });
+
+test("getRequest: a message's text comes whole, with its length", async () => {
+  const text = `${"x".repeat(4930)}Ende der Antwort.`;
+  const messages = (REQUEST_373204["messages"] as JsonObject[]).map((m, i) => (i === 1 ? variant(m, { content: text, redacted_content: [[false, text]] }) : m));
+  const answer = await getRequest(setup({ requests: [variant(REQUEST_373204, { messages })] }).client, { id: 373204 });
+  assert.ok("messages" in answer);
+  assert.equal(answer.messages[1]?.content, text);
+  assert.equal(answer.messages[1]?.contentChars, text.length);
+});
