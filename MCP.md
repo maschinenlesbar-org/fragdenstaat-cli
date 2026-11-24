@@ -127,7 +127,9 @@ loses its middle, never its end, where the reason is).
   and other invisible characters removed, but an emoji keeps its joiners; a key that cleaning makes
   equal to another stays, as `name~2`), but it is still other people's text: a model can be told
   things in it. The server can't act on that (it has no tool that writes), but other tools in the
-  same session could.
+  same session could. A link is passed on only as what it claims to be: a record's page or file
+  (`url`, `siteUrl`, `fileUrl`) as an https link on the platform's hosts (fragdenstaat.de,
+  media.frag-den-staat.de), a body's own website as an http or https link; anything else is null.
 - **Stops cleanly.** On `docker stop` (SIGTERM) or Ctrl-C the HTTP server takes no new connection
   and lets calls in flight answer for up to 5 s, then exits 143 (130); a second signal ends it at
   once. On stdio a signal ends it at once; when stdin ends, it first answers the requests it has

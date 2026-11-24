@@ -24,7 +24,7 @@ import {
   requestsOf,
   searchReference,
 } from "../src/operations.js";
-import { DOCUMENTS, fdsApi, REQUESTS, variant } from "./fds.js";
+import { DOCUMENTS, fdsApi, LAWS, PUBLIC_BODIES, REQUEST_373204, REQUESTS, variant } from "./fds.js";
 import { jsonResponse, makeMockTransport, type MockTransport } from "./helpers.js";
 import type { JsonObject } from "../src/types.js";
 
@@ -372,4 +372,37 @@ test("helpers: ids from resource URIs; names folded for comparing", () => {
   assert.equal(idFromUri(null), null);
   assert.equal(foldName("Thüringen"), foldName("thueringen"));
   assert.equal(foldName(" Baden-Württemberg "), "baden wuerttemberg");
+});
+
+test("links from upstream: the platform's pages and files only as https links on its hosts; a body's own website only as http(s)", async () => {
+  const messages = (REQUEST_373204["messages"] as JsonObject[]).map((m, i) =>
+    i === 1 ? variant(m, { attachments: (m["attachments"] as JsonObject[]).map((a) => variant(a, { site_url: "javascript:alert(1)" })) }) : m,
+  );
+  const request = variant(REQUEST_373204, { url: "javascript:alert(document.cookie)", messages });
+  const document = variant(DOCUMENTS[2] as JsonObject, { file_url: "http://evil.example/x.pdf", site_url: "https://fragdenstaat.de.evil.example/dokumente/890/" });
+  const body = variant(PUBLIC_BODIES[0] as JsonObject, { url: "javascript:alert(2)", site_url: "//evil.example/behoerde/" });
+  const law = variant(LAWS.find((l) => l["id"] === 1) as JsonObject, { site_url: "data:text/html,<script>alert(3)</script>" });
+  const { client } = setup({ requests: [request], documents: [document], publicBodies: [body], laws: LAWS.map((l) => (l["id"] === 1 ? law : l)) });
+  const got = await getRequest(client, { id: 373204 });
+  assert.ok("request" in got);
+  assert.equal(got.request.url, null);
+  assert.equal(got.messages[1]?.attachments[0]?.siteUrl, null);
+  assert.match(got.messages[3]?.attachments[0]?.siteUrl ?? "", /^https:\/\/fragdenstaat\.de\/anfrage\//, "a platform link stays");
+  const doc = await getDocument(client, { id: 890 });
+  assert.ok("document" in doc);
+  assert.equal(doc.document.fileUrl, null);
+  assert.equal(doc.document.siteUrl, null);
+  const profile = await findPublicBody(client, { name: "875" });
+  assert.ok("body" in profile);
+  assert.equal(profile.body.url, null);
+  assert.equal(profile.body.siteUrl, null);
+  const one = await findLaws(client, { law: "1" });
+  assert.ok("law" in one);
+  assert.equal(one.law.siteUrl, null);
+  const listed = await findDocuments(setup().client, { publicBody: "875" });
+  assert.ok("documents" in listed);
+  assert.ok(listed.documents.every((d) => d.fileUrl?.startsWith("https://media.frag-den-staat.de/") !== false), "the recorded files stay");
+  const own = await findPublicBody(setup().client, { name: "875" });
+  assert.ok("body" in own);
+  assert.equal(own.body.url, "https://www.umweltbundesamt.de/");
 });

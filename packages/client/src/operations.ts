@@ -124,11 +124,30 @@ export type NotResolved =
   | { status: "ambiguous"; searched: Record<string, unknown>; ambiguous: Ambiguity; reason: string }
   | { status: "empty"; searched: Record<string, unknown>; reason: string };
 
-/** The site's origin a resource URI belongs to (`https://fragdenstaat.de`), for site paths. */
-function siteUrl(path: unknown, resourceUri: unknown): string | null {
-  if (typeof path !== "string" || path === "") return null;
+/** The platform's hosts: fragdenstaat.de and frag-den-staat.de (media.frag-den-staat.de), with their subdomains. */
+const PLATFORM_HOST = /(?:^|\.)(?:fragdenstaat|frag-den-staat)\.de$/;
+
+/**
+ * A link to the platform's page or file: an https URL on its hosts (a path is resolved against
+ * fragdenstaat.de), else null. Upstream text is data, and a client renders a link as one: a
+ * `javascript:` or `data:` URL, or a page on another host, is never passed on as the record's.
+ */
+function platformLink(value: unknown): string | null {
+  if (typeof value !== "string" || value === "") return null;
   try {
-    return new URL(path, typeof resourceUri === "string" ? resourceUri : "https://fragdenstaat.de/").href;
+    const url = new URL(value, "https://fragdenstaat.de/");
+    return url.protocol === "https:" && url.username === "" && url.password === "" && PLATFORM_HOST.test(url.hostname) ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A link to a body's own website: an absolute http or https URL on any host, else null. */
+function webLink(value: unknown): string | null {
+  if (typeof value !== "string" || value === "") return null;
+  try {
+    const url = new URL(value);
+    return (url.protocol === "https:" || url.protocol === "http:") && url.username === "" && url.password === "" ? url.href : null;
   } catch {
     return null;
   }
@@ -332,7 +351,7 @@ function publicBodyRow(body: JsonObject): PublicBodyRow {
     email: str(body["email"]) || null,
     requestNote: note === "" ? null : cut(note, 300),
     numberOfRequests: num(body["number_of_requests"]),
-    siteUrl: str(body["site_url"]),
+    siteUrl: platformLink(body["site_url"]),
   };
 }
 
@@ -373,7 +392,7 @@ function requestRow(request: JsonObject): RequestRow {
     lastMessage: str(request["last_message"]),
     dueDate: str(request["due_date"]),
     tags: arr(request["tags"]).filter((tag): tag is string => typeof tag === "string"),
-    url: siteUrl(request["url"], request["resource_uri"]),
+    url: platformLink(request["url"]),
   };
 }
 
@@ -403,9 +422,9 @@ function documentRow(document: JsonObject): DocumentRow {
     requestId: idFromUri(document["foirequest"]),
     publicBodyId: idFromUri(document["publicbody"]),
     numPages: num(document["num_pages"]),
-    fileUrl: str(document["file_url"]),
+    fileUrl: platformLink(document["file_url"]),
     fileSize: num(document["file_size"]),
-    siteUrl: str(document["site_url"]),
+    siteUrl: platformLink(document["site_url"]),
     lastModifiedAt: str(document["last_modified_at"]),
     author: str(obj(document["properties"])?.["author"]),
   };
@@ -464,7 +483,7 @@ function lawRow(law: JsonObject, jurisdictions: ReadonlyMap<number, string>): La
     deadline: deadlineOf(law["max_response_time"], law["max_response_time_unit"]),
     requiresSignature: law["requires_signature"] === true,
     hasLegalText: (str(law["legal_text"]) ?? "") !== "",
-    siteUrl: str(law["site_url"]),
+    siteUrl: platformLink(law["site_url"]),
   };
 }
 
@@ -537,8 +556,8 @@ function profileOf(body: JsonObject): PublicBodyProfile {
     contact: str(body["contact"]) || null,
     address: str(body["address"])?.replace(/\r\n/g, "\n") || null,
     fax: str(body["fax"]) || null,
-    url: str(body["url"]) || null,
-    siteUrl: str(body["site_url"]),
+    url: webLink(body["url"]),
+    siteUrl: platformLink(body["site_url"]),
     numberOfRequests: num(body["number_of_requests"]),
     laws: arr(body["laws"]).map(obj).filter((l): l is JsonObject => l !== null).map((l) => ({ id: num(l["id"]) ?? 0, name: str(l["name"]) ?? "", meta: l["meta"] === true })),
     parentId: idFromUri(body["parent"]),
@@ -1246,7 +1265,7 @@ export async function getRequest(client: FragDenStaatClient, input: { id: number
         size: num(a["size"]),
         isRedacted: a["is_redacted"] === true,
         documentId: idFromUri(a["document"]) ?? num(obj(a["document"])?.["id"]),
-        siteUrl: str(a["site_url"]),
+        siteUrl: platformLink(a["site_url"]),
       })),
     };
   });
