@@ -105,6 +105,12 @@ loses its middle, never its end, where the reason is).
 --log-format <text|jsonl>  the log records on stderr (default text)
 ```
 
+`--max-pages` bounds the pages of 50 a tool reads of a list it reads whole: the jurisdictions and
+campaigns names are resolved from (and searchReference lists), a meta law's jurisdiction and the
+bundled laws it looks up one by one (findLaws), and the documents of one campaign request past its
+first 50 (findDocuments). A list cut there is said so in the answer. Every other list comes one page
+per call (`offset`, `limit`).
+
 ## What it does and doesn't do
 
 - **Read-only.** No tool changes anything, here or upstream.

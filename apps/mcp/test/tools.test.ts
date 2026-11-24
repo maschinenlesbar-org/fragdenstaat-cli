@@ -10,7 +10,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { listTools } from "../src/mcp/server.js";
 import { connect } from "./harness.js";
-import { fdsApi } from "./helpers.js";
+import { CAMPAIGNS, fdsApi, variant } from "./helpers.js";
+import type { JsonObject } from "@maschinenlesbar.org/fragdenstaat-client";
 
 const API = "https://fragdenstaat.de";
 
@@ -126,4 +127,20 @@ test("searchReference: tags as exact names; tags without a word is a tool error"
   assert.deepEqual(content["items"], [{ name: "Videoüberwachung" }]);
   assert.equal((await connection.call("searchReference", { kind: "tags" })).isError, true);
   await connection.close();
+});
+
+test("--max-pages bounds the pages of 50 a tool reads of a list it reads whole: the campaigns", async () => {
+  const topf = CAMPAIGNS.find((c) => c["id"] === 4) as JsonObject;
+  const campaigns = [...Array.from({ length: 77 }, (_, i) => variant(topf, { id: 1000 + i, name: `Kampagne ${i}`, slug: `kampagne-${i}` })), topf];
+  const transport = fdsApi({ campaigns });
+  const one = await connect({ transport, config: { maxPages: 1 } });
+  const cut = (await one.call("searchReference", { kind: "campaigns" })).structuredContent ?? {};
+  assert.equal(cut["total"], 50);
+  assert.match(JSON.stringify(cut["notes"]), /first 50 of 78 campaigns/);
+  assert.equal(transport.calls.length, 1);
+  await one.close();
+  const all = await connect({ transport: fdsApi({ campaigns }) });
+  const whole = (await all.call("searchReference", { kind: "campaigns", query: "Topf" })).structuredContent ?? {};
+  assert.deepEqual((whole["items"] as { id: number }[]).map((c) => c.id), [4]);
+  await all.close();
 });

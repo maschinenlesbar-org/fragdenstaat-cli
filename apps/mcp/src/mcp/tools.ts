@@ -20,6 +20,7 @@ import {
   RequestStatusValues,
   requestsOf,
   searchReference,
+  type OperationOptions,
   type ReferenceKind,
   type RequestFilters,
   type RequestResolution,
@@ -123,6 +124,9 @@ const filtersOf = (args: Record<string, unknown>): RequestFilters => ({
   costsMax: num(args, "costsMax"),
 });
 
+/** `--max-pages`: the pages of 50 an operation reads of a list it reads whole, per list and call. */
+const pages = (context: { maxPages: number }): OperationOptions => ({ maxPages: context.maxPages });
+
 /** What a call answered, by its arguments: the source names the requests that answer made. */
 const answers = new WeakMap<Record<string, unknown>, object>();
 const remember = (args: Record<string, unknown>, answer: object): Record<string, unknown> => {
@@ -186,7 +190,7 @@ export const TOOLS: readonly ToolDefinition[] = [
           point: str(args, "point"),
           offset: num(args, "offset"),
           limit: num(args, "limit"),
-        }),
+        }, pages(context)),
       );
     },
   },
@@ -219,7 +223,7 @@ export const TOOLS: readonly ToolDefinition[] = [
           ...filtersOf(args),
           offset: num(args, "offset"),
           limit: num(args, "limit"),
-        }),
+        }, pages(context)),
       );
     },
   },
@@ -235,7 +239,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     outputSchema: output({ total: int, resolved: int, open: int, outcomes: obj, successRate: nullableNum, refusalRate: nullableNum, verdict: str_ }),
     source,
     async run(args, context) {
-      return remember(args, await getRequestOutcomes(context.client, filtersOf(args)));
+      return remember(args, await getRequestOutcomes(context.client, filtersOf(args), pages(context)));
     },
   },
   {
@@ -277,7 +281,7 @@ export const TOOLS: readonly ToolDefinition[] = [
           createdBefore: str(args, "createdBefore"),
           offset: num(args, "offset"),
           limit: num(args, "limit"),
-        }),
+        }, pages(context)),
       );
     },
   },
@@ -303,7 +307,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     async run(args, context) {
       return remember(
         args,
-        await findLaws(context.client, { law: str(args, "law"), jurisdiction: str(args, "jurisdiction"), query: str(args, "query"), meta: flag(args, "meta"), offset: num(args, "offset"), limit: num(args, "limit") }),
+        await findLaws(context.client, { law: str(args, "law"), jurisdiction: str(args, "jurisdiction"), query: str(args, "query"), meta: flag(args, "meta"), offset: num(args, "offset"), limit: num(args, "limit") }, pages(context)),
       );
     },
   },
@@ -320,7 +324,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     source,
     paged: (args) => ({ list: "messages", offset: num(args, "offset") ?? 0 }),
     async run(args, context) {
-      const answer = remember(args, await getRequest(context.client, { id: num(args, "id") ?? -1 }));
+      const answer = remember(args, await getRequest(context.client, { id: num(args, "id") ?? -1 }, pages(context)));
       return answer["status"] === "ok" ? pageOf(answer, "messages", "messageCount", num(args, "offset") ?? 0, num(args, "limit") ?? 20) : answer;
     },
   },
@@ -337,7 +341,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     source,
     paged: (args) => ({ list: "pages", offset: num(args, "offset") ?? 0 }),
     async run(args, context) {
-      const answer = remember(args, await getDocument(context.client, { id: num(args, "id") ?? -1 }));
+      const answer = remember(args, await getDocument(context.client, { id: num(args, "id") ?? -1 }, pages(context)));
       return answer["status"] === "ok" ? pageOf(answer, "pages", "pageCount", num(args, "offset") ?? 0, num(args, "limit") ?? 5) : answer;
     },
   },
@@ -362,7 +366,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     source,
     paged: (args) => ({ list: "items", offset: num(args, "offset") ?? 0 }),
     async run(args, context) {
-      return remember(args, await searchReference(context.client, { kind: str(args, "kind") as ReferenceKind, query: str(args, "query"), offset: num(args, "offset"), limit: num(args, "limit") }));
+      return remember(args, await searchReference(context.client, { kind: str(args, "kind") as ReferenceKind, query: str(args, "query"), offset: num(args, "offset"), limit: num(args, "limit") }, pages(context)));
     },
   },
 ];
