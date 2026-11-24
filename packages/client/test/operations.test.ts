@@ -532,3 +532,34 @@ test("campaigns and jurisdictions are read on past the first page of 50, up to m
   assert.match((listed.notes ?? []).join(" "), /first 50 of 78/);
   await assert.rejects(searchReference(client, { kind: "campaigns" }, { maxPages: 0 }), /Invalid maxPages/);
 });
+
+test("findDocuments by campaign: one total for the requests looked through, whatever the page; every document of them reachable", async () => {
+  const campaign = "https://fragdenstaat.de/api/v1/campaign/4/";
+  const requests = Array.from({ length: 12 }, (_, i) => variant(REQUESTS[0] as JsonObject, { id: 900000 + i, campaign }));
+  const documents = requests.flatMap((r, i) =>
+    Array.from({ length: i === 0 ? 60 : 2 }, (_, k) => variant(DOCUMENTS[0] as JsonObject, { id: 50000 + i * 100 + k, foirequest: `https://fragdenstaat.de/api/v1/request/${r["id"] as number}/` })),
+  );
+  const { client } = setup({ requests, documents });
+  const seen: number[] = [];
+  const totals = new Set<number>();
+  let offset: number | undefined = 0;
+  while (offset !== undefined) {
+    const page = await findDocuments(client, { campaign: "Topf Secret", limit: 20, offset });
+    assert.ok("documents" in page, "reason" in page ? page.reason : "");
+    totals.add(page.total);
+    seen.push(...page.documents.map((d) => d.id));
+    assert.equal(page.requestsScanned, 10);
+    offset = page.nextOffset;
+  }
+  assert.deepEqual([...totals], [78], "60 + 9 × 2, the same on every page");
+  assert.equal(new Set(seen).size, 78, "documents 51–60 of the first request too");
+  const small = await findDocuments(client, { campaign: "Topf Secret", limit: 5 });
+  assert.ok("documents" in small);
+  assert.equal(small.total, 78);
+  assert.equal(small.nextOffset, 5);
+  const late = await findDocuments(client, { campaign: "Topf Secret", offset: 50, limit: 50 });
+  assert.ok("documents" in late);
+  assert.equal(late.documents.length, 28);
+  assert.equal(late.nextOffset, undefined);
+  assert.ok(requestsOf(late).includes("/api/v1/document/?foirequest=900000&offset=50&limit=50"), "the first request's second page");
+});

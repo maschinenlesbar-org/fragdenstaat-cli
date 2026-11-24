@@ -1157,24 +1157,42 @@ export async function findDocuments(client: FragDenStaatClient, input: FindDocum
     if (!("ref" in r)) return t.done(unresolved({ ...searched, campaign }, r));
     searched["campaign"] = r.ref;
     const requests = await t.list("/api/v1/request/", REQUEST_LIST_PARAMS, { campaign: r.ref.id, limit: CAMPAIGN_REQUESTS_SCANNED }, (p) => client.requests.list(p));
-    const documents: DocumentRow[] = [];
-    let scanned = 0;
-    let found = 0;
+    // Each scanned request's first page of documents gives its count, so the total is the same
+    // on every page; the documents are the requests' in order, and a page that reaches past a
+    // request's first 50 reads on in that request (at most maxPages pages of it).
+    const scanned: { id: number; count: number; rows: JsonObject[] }[] = [];
     for (const request of requests.objects) {
-      if (documents.length >= offset + limit) break;
-      scanned += 1;
-      const page = await t.list("/api/v1/document/", DOCUMENT_LIST_PARAMS, { ...params, foirequest: request.id, limit: MAX_PAGE_SIZE }, (p) => client.documents.list(p)).catch(unknownTag);
-      if (page === undefined) return t.done(noSuchTag(searched, tag));
-      found += page.meta.total_count;
-      documents.push(...(page.objects as unknown as JsonObject[]).map(documentRow));
+      const first = await t.list("/api/v1/document/", DOCUMENT_LIST_PARAMS, { ...params, foirequest: request.id, limit: MAX_PAGE_SIZE }, (p) => client.documents.list(p)).catch(unknownTag);
+      if (first === undefined) return t.done(noSuchTag(searched, tag));
+      scanned.push({ id: request.id, count: first.meta.total_count, rows: first.objects as unknown as JsonObject[] });
     }
-    const pageRows = documents.slice(offset, offset + limit);
-    if (requests.meta.total_count > scanned) notes.push(`The campaign has ${requests.meta.total_count} public requests; the documents of ${scanned} were looked through (newest first by the API's order). For more, page findRequests with campaign and ask for documents per request.`);
+    const found = scanned.reduce((sum, request) => sum + request.count, 0);
+    const pageRows: DocumentRow[] = [];
+    let start = 0;
+    let unread = false;
+    for (const request of scanned) {
+      const from = Math.max(offset, start) - start;
+      const to = Math.min(offset + limit, start + request.count) - start;
+      start += request.count;
+      if (from >= to) continue;
+      for (let pages = 1; request.rows.length < to && pages < t.maxPages; pages++) {
+        const more = await t.list("/api/v1/document/", DOCUMENT_LIST_PARAMS, { ...params, foirequest: request.id, offset: request.rows.length, limit: MAX_PAGE_SIZE }, (p) => client.documents.list(p));
+        if (more.objects.length === 0) break;
+        request.rows.push(...(more.objects as unknown as JsonObject[]));
+      }
+      pageRows.push(...request.rows.slice(from, to).map(documentRow));
+      if (request.rows.length < to) {
+        unread = true;
+        notes.push(`Request ${request.id} has ${request.count} documents; only its first ${request.rows.length} were read (maxPages): findDocuments with request ${request.id} pages through them.`);
+        break;
+      }
+    }
+    if (requests.meta.total_count > scanned.length) notes.push(`The campaign has ${requests.meta.total_count} public requests; the documents of ${scanned.length} were looked through (newest first by the API's order): total counts theirs. For more, page findRequests with campaign and ask for documents per request.`);
     if (pageRows.length === 0) {
-      return t.done({ status: "empty", searched, reason: `None of the ${scanned} requests looked through (of ${requests.meta.total_count} in campaign ${r.ref.name}) has public documents${offset > 0 ? ` past offset ${offset}` : ""}. Documents usually come as attachments: getRequest shows them.` });
+      return t.done({ status: "empty", searched, reason: offset > 0 && found > 0 ? `The ${scanned.length} requests looked through hold ${found} documents; offset ${offset} is past the end.` : `None of the ${scanned.length} requests looked through (of ${requests.meta.total_count} in campaign ${r.ref.name}) has public documents. Documents usually come as attachments: getRequest shows them.` });
     }
     const next = offset + pageRows.length;
-    return t.done({ status: "ok", searched, total: found, offset, documents: pageRows, ...(next < documents.length ? { nextOffset: next } : {}), campaignRequests: requests.meta.total_count, requestsScanned: scanned, notes });
+    return t.done({ status: "ok", searched, total: found, offset, documents: pageRows, ...(next < found && !unread ? { nextOffset: next } : {}), campaignRequests: requests.meta.total_count, requestsScanned: scanned.length, notes });
   }
   const page = await t.list("/api/v1/document/", DOCUMENT_LIST_PARAMS, { ...params, offset, limit }, (p) => client.documents.list(p)).catch(unknownTag);
   if (page === undefined) return t.done(noSuchTag(searched, tag));
