@@ -9,6 +9,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { listTools } from "../src/mcp/server.js";
+import { DEADLINE_HINT, SIZE_HINT, TOOLS } from "../src/mcp/tools.js";
 import { connect } from "./harness.js";
 import { CAMPAIGNS, DOCUMENTS, fdsApi, REQUEST_373204, variant } from "./helpers.js";
 import type { JsonObject } from "@maschinenlesbar.org/fragdenstaat-client";
@@ -182,4 +183,20 @@ test("getRequest: the request's text, its summary and each message come whole up
   assert.equal(answer?.contentChars, 4945);
   assert.equal(content["truncated"], undefined);
   await connection.close();
+});
+
+test("the deadline and size advice name each option with the tools that take it, and every one of them does", () => {
+  for (const hint of [DEADLINE_HINT, SIZE_HINT]) {
+    const named = [...hint.matchAll(/\(([a-zA-Z]+(?:, [a-zA-Z]+)*): ([a-zA-Z]+(?:, [a-zA-Z]+)*)\)/g)];
+    assert.ok(named.length > 0, hint);
+    for (const [, options, tools] of named) {
+      for (const tool of (tools as string).split(", ")) {
+        const schema = TOOLS.find((t) => t.name === tool)?.inputSchema as { properties: Record<string, unknown> } | undefined;
+        assert.ok(schema !== undefined, `${tool} is a tool`);
+        for (const option of (options as string).split(", ")) assert.ok(option in schema.properties, `${tool} takes ${option}`);
+      }
+    }
+  }
+  assert.doesNotMatch(DEADLINE_HINT, /getRequestOutcomes\)[^.]*limit/);
+  assert.match(DEADLINE_HINT, /getRequestOutcomes/, "the tool that makes the most requests gets its own advice");
 });
