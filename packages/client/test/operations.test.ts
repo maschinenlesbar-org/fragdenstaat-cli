@@ -64,10 +64,10 @@ test("findPublicBody by a name that fits several: ambiguous with the candidates,
   assert.ok("ambiguous" in answer);
   assert.equal(answer.ambiguous.field, "name");
   assert.equal(answer.ambiguous.total, 4);
-  assert.equal(mock.calls.length, 1);
+  assert.equal(mock.calls.length, 2, "the autocomplete, then the other names (no profile)");
   const none = await findPublicBody(client, { name: "Bundesamt für Magie" });
   assert.equal(none.status, "empty");
-  assert.match("reason" in none ? none.reason : "", /No public body's name holds/);
+  assert.match("reason" in none ? none.reason : "", /No public body's name or other name holds/);
 });
 
 test("findPublicBody by an id goes straight to the profile; an unknown id is empty, not an error", async () => {
@@ -463,4 +463,25 @@ test("getRequestOutcomes: counts that can't be true together are an error, never
   assert.ok("outcomes" in answer);
   assert.equal(answer.open, 2);
   assert.match(answer.notes.join(" "), /^2 resolved requests carry no listed resolution/);
+});
+
+test("a body by its abbreviation or other name (UBA, BMVg): found through its other names, not taken for a body whose name holds the letters", async () => {
+  const laubach = variant(PUBLIC_BODIES[1] as JsonObject, { id: 777, name: "Stadtverwaltung Laubach", other_names: "" });
+  const bmvg = variant(PUBLIC_BODIES[0] as JsonObject, { id: 86, name: "Bundesministerium der Verteidigung", other_names: "BMVg,Verteidigungsministerium,bundeswehr" });
+  const { client, mock } = setup({ publicBodies: [...PUBLIC_BODIES, laubach, bmvg] });
+  const uba = await findPublicBody(client, { name: "UBA" });
+  assert.equal(uba.status, "ok", "reason" in uba ? uba.reason : "");
+  assert.ok("body" in uba);
+  assert.equal(uba.body.id, 875);
+  assert.deepEqual(assertTraced(uba, mock), ["/api/v1/publicbody/autocomplete/?limit=50&q=UBA", "/api/v1/publicbody/search/?q=UBA&limit=50", "/api/v1/publicbody/875/"]);
+  const requests = await findRequests(client, { publicBody: "bmvg" });
+  assert.deepEqual(requests.searched["publicBody"], { id: 86, name: "Bundesministerium der Verteidigung" });
+  const both = variant(laubach, { id: 778, other_names: "UBA" });
+  const several = await findPublicBody(setup({ publicBodies: [...PUBLIC_BODIES, both] }).client, { name: "UBA" });
+  assert.equal(several.status, "ambiguous", "two bodies called UBA");
+  assert.ok("ambiguous" in several);
+  assert.deepEqual(several.ambiguous.candidates.map((c) => c.id).sort(), [778, 875]);
+  const none = await findPublicBody(client, { name: "XYZQ" });
+  assert.equal(none.status, "empty");
+  assert.match("reason" in none ? none.reason : "", /No public body's name or other name holds/);
 });

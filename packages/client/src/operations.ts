@@ -320,16 +320,31 @@ async function resolveTaxonomy(t: Trace, kind: "category" | "classification", va
   return { none: `No ${kind} is named ${quoteValue(value)}. ${kind === "category" ? "Categories are topics (Umwelt, Digitales, Verkehr)" : "Classifications are types of body (Ministerium, Polizei, Grundschule)"}; look one up with searchReference.` };
 }
 
-/** A public body by id or name: the id as given, a name through the autocomplete. */
+/**
+ * A public body by id or name: the id as given; a name through the autocomplete, which searches
+ * the names only (as parts: "UBA" fits Laubach and the Bremer Aufbaubank, not the UBA). So when no
+ * name is the value exactly, the full-text search, which also holds the bodies' other names (UBA,
+ * BMVg, Verteidigungsministerium), is asked for a body whose other name it is; only then is a single
+ * part-of-name hit taken.
+ */
 async function resolvePublicBody(t: Trace, value: string, field = "publicBody"): Promise<Resolution<Ref>> {
   if (isDigits(value)) return { ref: { id: Number(value), name: "" } };
+  const want = foldName(value);
   const hits = await t.autocomplete("/api/v1/publicbody/autocomplete/", value, { limit: MAX_PAGE_SIZE }, (q, page) => t.api.publicBodies.autocomplete(q, page));
   const refs = hits.objects.filter((hit) => typeof hit.value === "number").map((hit) => ({ id: hit.value as number, name: hit.label }));
-  if (refs.length === 1) return { ref: refs[0] as Ref };
-  const exact = refs.filter((ref) => foldName(ref.name) === foldName(value));
+  const exact = refs.filter((ref) => foldName(ref.name) === want);
   if (exact.length === 1) return { ref: exact[0] as Ref };
+  if (exact.length === 0) {
+    const found = await t.list("/api/v1/publicbody/search/", PUBLICBODY_SEARCH_PARAMS, { q: value, limit: MAX_PAGE_SIZE }, (p) => t.api.publicBodies.search(p));
+    const named = (found.objects as unknown as JsonObject[])
+      .filter((body) => (str(body["other_names"]) ?? "").split(/[,;]/).some((other) => foldName(other) === want))
+      .map((body) => ({ id: num(body["id"]) ?? 0, name: str(body["name"]) ?? "" }));
+    if (named.length === 1) return { ref: named[0] as Ref };
+    if (named.length > 1) return { ambiguous: { field, value, candidates: named.slice(0, 20), total: named.length } };
+  }
+  if (refs.length === 1) return { ref: refs[0] as Ref };
   if (refs.length > 1) return { ambiguous: { field, value, candidates: [...exact, ...refs.filter((r) => !exact.includes(r))].slice(0, 20), total: hits.meta.total_count } };
-  return { none: `No public body's name holds ${quoteValue(value)}. Try a shorter part of the name, the body's abbreviation (UBA, BMVg), or search by topic and place (findPublicBody with query and jurisdiction).` };
+  return { none: `No public body's name or other name holds ${quoteValue(value)}. Try a shorter part of the name, or search by topic and place (findPublicBody with query and jurisdiction).` };
 }
 
 /** A request tag by its name: the exact one (case-sensitive), else the one equal but for case. */
