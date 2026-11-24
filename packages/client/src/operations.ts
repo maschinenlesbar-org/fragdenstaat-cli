@@ -136,10 +136,20 @@ class Trace {
     return checkedPage(path, Number(query["offset"] ?? 0), await call(params as never));
   }
 
-  async get(path: string, id: number | string, call: (id: string) => Promise<JsonObject>): Promise<JsonObject> {
+  /**
+   * One record, checked to be the one asked for: its `id` is the id, and each of `fields` is a
+   * string (a request's title and status, a body's name). An answer without them would read as a
+   * record with nothing in it; it is an FdsParseError instead.
+   */
+  async get(path: string, id: number | string, fields: readonly string[], call: (id: string) => Promise<JsonObject>): Promise<JsonObject> {
     const key = normalizeResourceId(id);
-    this.note(`${path}${key}/`, {});
-    return call(key);
+    const at = `${path}${key}/`;
+    this.note(at, {});
+    const record = await call(key);
+    if (record["id"] !== Number(key)) throw new FdsParseError(`The API's answer to ${at} holds record ${JSON.stringify(record["id"] ?? null)}, not ${key}.`);
+    const missing = fields.filter((field) => typeof record[field] !== "string");
+    if (missing.length > 0) throw new FdsParseError(`The API's answer to ${at} is no record of its kind: it has no ${missing.join(", ")}.`);
+    return record;
   }
 
   async autocomplete(path: string, q: string, page: Pagination, call: (q: string, page: Pagination) => Promise<TastypieList<{ value: number | string; label: string }>>) {
@@ -374,7 +384,7 @@ async function resolveTaxonomy(t: Trace, kind: "category" | "classification", va
   const resource = kind === "category" ? t.api.categories : t.api.classifications;
   if (isDigits(value)) {
     try {
-      const item = await t.get(path, value, (id) => resource.get(id));
+      const item = await t.get(path, value, ["name"], (id) => resource.get(id));
       return { ref: { id: Number(item["id"]), name: String(item["name"]), ...(typeof item["slug"] === "string" ? { slug: item["slug"] } : {}) } };
     } catch (err) {
       if (isApiNotFound(err)) return { none: `No ${kind} has the id ${value}. Look it up by name (searchReference).` };
@@ -713,7 +723,7 @@ export async function findPublicBody(client: FragDenStaatClient, input: FindPubl
     if (!("ref" in resolved)) return t.done(unresolved(searched, resolved));
     let detail: JsonObject;
     try {
-      detail = await t.get("/api/v1/publicbody/", resolved.ref.id, (id) => client.publicBodies.get(id));
+      detail = await t.get("/api/v1/publicbody/", resolved.ref.id, ["name"], (id) => client.publicBodies.get(id));
     } catch (err) {
       if (isApiNotFound(err)) return t.done({ status: "empty", searched, reason: `No public body has the id ${resolved.ref.id}. Look the body up by its name.` });
       throw err;
@@ -1311,7 +1321,7 @@ export async function findLaws(client: FragDenStaatClient, input: FindLawsInput,
     }
     let detail: JsonObject;
     try {
-      detail = await t.get("/api/v1/law/", id, (key) => client.laws.get(key));
+      detail = await t.get("/api/v1/law/", id, ["name"], (key) => client.laws.get(key));
     } catch (err) {
       if (isApiNotFound(err)) return t.done({ status: "empty", searched, reason: `No law has the id ${id}. Look it up by name or list a jurisdiction's laws.` });
       throw err;
@@ -1435,7 +1445,7 @@ export async function getRequest(client: FragDenStaatClient, input: { id: number
   const searched = { id };
   let detail: JsonObject;
   try {
-    detail = await t.get("/api/v1/request/", id, (key) => client.requests.get(key));
+    detail = await t.get("/api/v1/request/", id, ["title", "status"], (key) => client.requests.get(key));
   } catch (err) {
     if (isApiNotFound(err)) return t.done({ status: "empty", searched, reason: `No public request has the id ${id}: it doesn't exist or isn't public. Find requests with findRequests.` });
     throw err;
@@ -1496,7 +1506,7 @@ export async function getDocument(client: FragDenStaatClient, input: { id: numbe
   const searched = { id };
   let detail: JsonObject;
   try {
-    detail = await t.get("/api/v1/document/", id, (key) => client.documents.get(key));
+    detail = await t.get("/api/v1/document/", id, ["title"], (key) => client.documents.get(key));
   } catch (err) {
     if (isApiNotFound(err)) return t.done({ status: "empty", searched, reason: `No public document has the id ${id}. Find documents with findDocuments.` });
     throw err;

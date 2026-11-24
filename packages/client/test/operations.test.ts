@@ -609,3 +609,13 @@ test("getRequest: a message the platform hides passes no text, even when the API
   assert.doesNotMatch(JSON.stringify(answer), /versteckter Text/);
   assert.match(answer.notes.join(" "), /platform hides/);
 });
+
+test("a record that isn't the one asked for, or lacks the fields that make it one, is a parse error, not a blank record", async () => {
+  const answering = (body: unknown) => new FragDenStaatClient({ transport: makeMockTransport(() => jsonResponse(body)).transport });
+  await assert.rejects(getRequest(answering({ id: 666, title: "after retry" }), { id: 666 }), (err: unknown) => err instanceof FdsParseError && /\/api\/v1\/request\/666\/ .*status/.test(err.message));
+  await assert.rejects(getRequest(answering(REQUEST_373204), { id: 1 }), /holds record 373204, not 1/);
+  await assert.rejects(getDocument(answering({ id: 890 }), { id: 890 }), FdsParseError);
+  await assert.rejects(findPublicBody(answering({ id: 875, title: "x" }), { name: "875" }), FdsParseError);
+  const fine = await getRequest(setup().client, { id: 373204 });
+  assert.equal(fine.status, "ok");
+});
