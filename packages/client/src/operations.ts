@@ -193,13 +193,17 @@ export function foldName(value: string): string {
     .trim();
 }
 
-/** The one item whose name (or slug) is `wanted`, else the one containing it, else several or none. */
+/**
+ * The one item whose name (or slug) is `wanted`, else the one with a word that starts it (Anhalt,
+ * "baden w"), else several or none. Never a part inside a word: Essen is not Hessen, Berg not
+ * Baden-Württemberg, so a town's name isn't taken for a jurisdiction that happens to hold it.
+ */
 function pick<T>(items: readonly T[], wanted: string, names: (item: T) => (string | undefined | null)[]): { one: T } | { several: T[] } | { none: true } {
   const want = foldName(wanted);
   const exact = items.filter((item) => names(item).some((name) => typeof name === "string" && foldName(name) === want));
   if (exact.length === 1) return { one: exact[0] as T };
   if (exact.length > 1) return { several: exact };
-  const partial = items.filter((item) => names(item).some((name) => typeof name === "string" && foldName(name).includes(want)));
+  const partial = items.filter((item) => names(item).some((name) => typeof name === "string" && ` ${foldName(name)}`.includes(` ${want}`)));
   if (partial.length === 1) return { one: partial[0] as T };
   if (partial.length > 1) return { several: partial };
   return { none: true };

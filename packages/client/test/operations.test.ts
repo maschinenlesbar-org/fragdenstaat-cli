@@ -118,14 +118,24 @@ test("findPublicBody by a point: lng,lat checked; a body found through two regio
   await assert.rejects(findPublicBody(client, {}), /give a name, or what to search by/);
 });
 
-test("a jurisdiction is matched exactly before by part: Sachsen is Sachsen, not Sachsen-Anhalt; 'sachs' fits several", async () => {
+test("a jurisdiction is matched exactly before by the start of a word: Sachsen is Sachsen, not Sachsen-Anhalt; 'sachs' fits several", async () => {
   const { client } = setup();
   const exact = await findLaws(client, { jurisdiction: "sachsen" });
   assert.deepEqual(exact.searched["jurisdiction"], { id: 89, name: "Sachsen", slug: "sachsen" });
   const several = await findPublicBody(client, { jurisdiction: "sachs" });
   assert.equal(several.status, "ambiguous");
   assert.ok("ambiguous" in several);
-  assert.deepEqual(several.ambiguous.candidates.map((c) => c.name), ["Niedersachsen", "Sachsen", "Sachsen-Anhalt"]);
+  assert.deepEqual(several.ambiguous.candidates.map((c) => c.name), ["Sachsen", "Sachsen-Anhalt"], "Niedersachsen holds 'sachs' inside a word only");
+  const anhalt = await findPublicBody(client, { jurisdiction: "Anhalt" });
+  assert.deepEqual(anhalt.searched["jurisdiction"], { id: 13, name: "Sachsen-Anhalt", slug: "sachsen-anhalt" }, "a whole word of the name");
+  for (const town of ["Essen", "Berg"]) {
+    const laws = await findLaws(client, { jurisdiction: town });
+    assert.equal(laws.status, "empty", `${town} is no part of Hessen or Baden-Württemberg`);
+    assert.match("reason" in laws ? laws.reason : "", /For a town, give it as query/);
+    const requests = await findRequests(client, { jurisdiction: town });
+    assert.equal(requests.status, "empty");
+    assert.match("reason" in requests ? requests.reason : "", /A town or district is no jurisdiction/);
+  }
   const unknown = await findPublicBody(client, { jurisdiction: "München" });
   assert.equal(unknown.status, "empty");
   assert.match("reason" in unknown ? unknown.reason : "", /A town or district is no jurisdiction/);
