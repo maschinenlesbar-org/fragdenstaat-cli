@@ -406,3 +406,16 @@ test("links from upstream: the platform's pages and files only as https links on
   assert.ok("body" in own);
   assert.equal(own.body.url, "https://www.umweltbundesamt.de/");
 });
+
+test("a 404 that isn't the API's own answer (an HTML page, a wrong path) is an error, not a record that doesn't exist", async () => {
+  const html = makeMockTransport(() => ({ status: 404, headers: { "content-type": "text/html" }, body: Buffer.from("<html><body>Not Found</body></html>") }));
+  const client = new FragDenStaatClient({ transport: html.transport });
+  await assert.rejects(getRequest(client, { id: 373204 }), /HTTP 404/);
+  await assert.rejects(getDocument(client, { id: 890 }), /HTTP 404/);
+  await assert.rejects(findPublicBody(client, { name: "875" }), /HTTP 404/);
+  const { client: api } = setup();
+  const missing = await getRequest(api, { id: 1 });
+  assert.equal(missing.status, "empty", "the API's own 404 ({detail}) still means: no such record");
+  assert.equal((await getDocument(api, { id: 1 })).status, "empty");
+  assert.equal((await findPublicBody(api, { name: "999999" })).status, "empty");
+});

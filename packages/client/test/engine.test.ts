@@ -239,6 +239,16 @@ test("a base URL with a query or fragment is rejected at construction", () => {
   }
 });
 
+test("a base URL that already ends in the API's path /api/v1 is rejected at construction; a mirror under a path is fine", () => {
+  for (const baseUrl of ["https://fragdenstaat.de/api/v1", "https://fragdenstaat.de/api/v1/", "https://mirror.example/fds/API/V1//"]) {
+    assert.throws(() => new RequestEngine({ baseUrl }), {
+      name: "FdsValidationError",
+      message: 'Invalid baseUrl: A base URL ends before the API\'s path: drop "/api/v1" (the client adds it).',
+    });
+  }
+  assert.doesNotThrow(() => new RequestEngine({ baseUrl: "https://mirror.example/fds/api/" }));
+});
+
 test("redactUrl hides userinfo and leaves other URLs alone", () => {
   assert.equal(redactUrl("https://u:p@h.example/x?q=1"), "https://***@h.example/x?q=1");
   assert.equal(redactUrl("https://h.example/x"), "https://h.example/x");

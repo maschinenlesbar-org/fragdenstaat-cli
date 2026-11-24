@@ -381,6 +381,9 @@ export const baseUrlProblem: Problem<unknown> = (value) => {
   // WHATWG skips any slashes after "http:" and repairs `http:host`, `http:/host` and
   // `http:///host` into `http://host` silently: the host requested would not be the one typed.
   if (!/^https?:\/\/[^/]/i.test(value)) return 'Expected an absolute http(s) URL ("https://" and the host).';
+  // The client puts the API's path (/api/v1/…) after the base: a base that ends in it doubles it,
+  // and every request then reaches a path the API doesn't have (a 404 for every record).
+  if (/\/api\/v1\/*$/i.test(url.pathname)) return 'A base URL ends before the API\'s path: drop "/api/v1" (the client adds it).';
   return undefined;
 };
 

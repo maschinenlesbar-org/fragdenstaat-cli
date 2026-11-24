@@ -188,6 +188,21 @@ function pick<T>(items: readonly T[], wanted: string, names: (item: T) => (strin
   return { none: true };
 }
 
+/**
+ * True for the API's own "not found": a 404 with its JSON error body (`{"detail": "Nicht
+ * gefunden."}`). Any other 404 (an HTML page from a proxy, a base URL with the wrong path) is a
+ * failure of the service, not an answer about the record, and is thrown on.
+ */
+function isApiNotFound(err: unknown): boolean {
+  if (!(err instanceof FdsApiError) || err.status !== 404) return false;
+  try {
+    const body: unknown = JSON.parse(err.body);
+    return body !== null && typeof body === "object" && !Array.isArray(body) && typeof (body as Record<string, unknown>)["detail"] === "string";
+  } catch {
+    return false;
+  }
+}
+
 const isDigits = (value: string): boolean => /^\d{1,12}$/.test(value);
 const str = (value: JsonValue | undefined): string | null => (typeof value === "string" ? value : null);
 const num = (value: JsonValue | undefined): number | null => (typeof value === "number" ? value : null);
@@ -272,7 +287,7 @@ async function resolveTaxonomy(t: Trace, kind: "category" | "classification", va
       const item = await t.get(path, value, (id) => resource.get(id));
       return { ref: { id: Number(item["id"]), name: String(item["name"]), ...(typeof item["slug"] === "string" ? { slug: item["slug"] } : {}) } };
     } catch (err) {
-      if (err instanceof FdsApiError && err.status === 404) return { none: `No ${kind} has the id ${value}. Look it up by name (searchReference).` };
+      if (isApiNotFound(err)) return { none: `No ${kind} has the id ${value}. Look it up by name (searchReference).` };
       throw err;
     }
   }
@@ -593,7 +608,7 @@ export async function findPublicBody(client: FragDenStaatClient, input: FindPubl
     try {
       detail = await t.get("/api/v1/publicbody/", resolved.ref.id, (id) => client.publicBodies.get(id));
     } catch (err) {
-      if (err instanceof FdsApiError && err.status === 404) return t.done({ status: "empty", searched, reason: `No public body has the id ${resolved.ref.id}. Look the body up by its name.` });
+      if (isApiNotFound(err)) return t.done({ status: "empty", searched, reason: `No public body has the id ${resolved.ref.id}. Look the body up by its name.` });
       throw err;
     }
     const body = profileOf(detail);
@@ -1123,7 +1138,7 @@ export async function findLaws(client: FragDenStaatClient, input: FindLawsInput)
     try {
       detail = await t.get("/api/v1/law/", id, (key) => client.laws.get(key));
     } catch (err) {
-      if (err instanceof FdsApiError && err.status === 404) return t.done({ status: "empty", searched, reason: `No law has the id ${id}. Look it up by name or list a jurisdiction's laws.` });
+      if (isApiNotFound(err)) return t.done({ status: "empty", searched, reason: `No law has the id ${id}. Look it up by name or list a jurisdiction's laws.` });
       throw err;
     }
     const row = lawRow(detail, names);
@@ -1243,7 +1258,7 @@ export async function getRequest(client: FragDenStaatClient, input: { id: number
   try {
     detail = await t.get("/api/v1/request/", id, (key) => client.requests.get(key));
   } catch (err) {
-    if (err instanceof FdsApiError && err.status === 404) return t.done({ status: "empty", searched, reason: `No public request has the id ${id}: it doesn't exist or isn't public. Find requests with findRequests.` });
+    if (isApiNotFound(err)) return t.done({ status: "empty", searched, reason: `No public request has the id ${id}: it doesn't exist or isn't public. Find requests with findRequests.` });
     throw err;
   }
   const law = obj(detail["law"]);
@@ -1301,7 +1316,7 @@ export async function getDocument(client: FragDenStaatClient, input: { id: numbe
   try {
     detail = await t.get("/api/v1/document/", id, (key) => client.documents.get(key));
   } catch (err) {
-    if (err instanceof FdsApiError && err.status === 404) return t.done({ status: "empty", searched, reason: `No public document has the id ${id}. Find documents with findDocuments.` });
+    if (isApiNotFound(err)) return t.done({ status: "empty", searched, reason: `No public document has the id ${id}. Find documents with findDocuments.` });
     throw err;
   }
   const pages = arr(detail["pages"]).map(obj).filter((p): p is JsonObject => p !== null).map((p) => ({ number: num(p["number"]) ?? 0, content: (str(p["content"]) ?? "").replace(/\r\n/g, "\n") }));
