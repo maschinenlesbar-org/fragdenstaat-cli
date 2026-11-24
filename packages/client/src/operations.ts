@@ -1296,14 +1296,17 @@ export async function findLaws(client: FragDenStaatClient, input: FindLawsInput,
     const combinedIds = arr(detail["combined"]).map(idFromUri).filter((v): v is number => v !== null);
     const combinedNames = new Map<number, string>();
     if (combinedIds.length > 0 && row.jurisdictionId !== null) {
-      const siblings = await t.list("/api/v1/law/", LAW_LIST_PARAMS, { jurisdiction: row.jurisdictionId, limit: MAX_PAGE_SIZE }, (p) => client.laws.list(p));
+      const siblings = await t.all("/api/v1/law/", LAW_LIST_PARAMS, { jurisdiction: row.jurisdictionId }, (p) => client.laws.list(p));
       for (const sibling of siblings.objects) combinedNames.set(sibling.id, sibling.name);
     }
-    // A town's statute has no jurisdiction but bundles its Land's laws: those by id, a few at most.
-    for (const cid of combinedIds.filter((c) => !combinedNames.has(c)).slice(0, 5)) {
+    // A town's statute has no jurisdiction but bundles its Land's laws, and a law can bundle one
+    // of another jurisdiction: those by id, one request each, at most maxPages of them.
+    const unnamed = combinedIds.filter((c) => !combinedNames.has(c));
+    for (const cid of unnamed.slice(0, t.maxPages)) {
       const one = await t.list("/api/v1/law/", LAW_LIST_PARAMS, { id: cid, limit: 1 }, (p) => client.laws.list(p));
       for (const law of one.objects) combinedNames.set(law.id, law.name);
     }
+    const left = combinedIds.filter((c) => !combinedNames.has(c));
     const legal = str(detail["legal_text"]) ?? "";
     // The refusal reasons come as one text, a reason per line (a list in older answers).
     const rawReasons = detail["refusal_reasons"];
@@ -1326,6 +1329,7 @@ export async function findLaws(client: FragDenStaatClient, input: FindLawsInput,
       `Deadline: ${full.deadline.text}${full.requiresSignature ? "; filing needs a handwritten signature" : ""}.`,
       legal === "" ? "The catalogue holds no statute text for this law (usual): the law's page (siteUrl) links it." : `The statute has ${full.legalTextChars} characters; the excerpt is its start.`,
       ...(full.combined.length > 0 ? ["A meta law: one request can invoke the laws it bundles (combined)."] : []),
+      ...(left.length > 0 ? [`${left.length} of the ${combinedIds.length} bundled laws ${unnamed.length > t.maxPages ? "were not looked up (maxPages)" : "were not found"}: their names are null; findLaws with law and the id gives each (${left.join(", ")}).`] : []),
       ...(row.jurisdictionId === null ? ["A local statute: it belongs to no jurisdiction."] : []),
     ];
     return t.done({ status: "ok", searched, law: full, notes });

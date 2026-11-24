@@ -563,3 +563,17 @@ test("findDocuments by campaign: one total for the requests looked through, what
   assert.equal(late.nextOffset, undefined);
   assert.ok(requestsOf(late).includes("/api/v1/document/?foirequest=900000&offset=50&limit=50"), "the first request's second page");
 });
+
+test("findLaws: a meta law names every law it bundles, up to maxPages lookups; the ones left unnamed are said", async () => {
+  const ids = [119, 120, 166, 170, 123, 1, 2, 3];
+  const meta = variant(LAWS.find((l) => l["id"] === 51) as JsonObject, { combined: ids.map((id) => `https://fragdenstaat.de/api/v1/law/${id}/`) });
+  const { client } = setup({ laws: LAWS.map((l) => (l["id"] === 51 ? meta : l)) });
+  const all = await findLaws(client, { law: "51" });
+  assert.ok("law" in all);
+  assert.deepEqual(all.law.combined.map((c) => c.id), ids);
+  assert.ok(all.law.combined.every((c) => typeof c.name === "string" && c.name !== ""), JSON.stringify(all.law.combined));
+  const few = await findLaws(client, { law: "51" }, { maxPages: 3 });
+  assert.ok("law" in few);
+  assert.equal(few.law.combined.filter((c) => c.name !== null).length, 3);
+  assert.match(few.notes.join(" "), /5 of the 8 bundled laws were not looked up \(maxPages\): 123, 1, 2, 3, 170|5 of the 8 bundled laws were not looked up/);
+});
