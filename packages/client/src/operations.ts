@@ -939,10 +939,16 @@ export async function getRequestOutcomes(client: FragDenStaatClient, input: Requ
   if (done > 0) {
     for (const resolution of RequestResolutionValues) outcomes[resolution] = await count({ status: "resolved", resolution });
   }
+  // The counts come from separate requests; an upstream that drops a filter answers the whole set
+  // to one of them. Counts that can't be true together give no rate at all.
+  const counted = RequestResolutionValues.reduce((sum, r) => sum + outcomes[r], 0);
+  if (done > total || counted > done) {
+    const each = RequestResolutionValues.map((r) => `${r} ${outcomes[r]}`).join(", ");
+    throw new FdsParseError(`The API's counts don't fit together: ${done} resolved of ${total} in all; per resolution ${each} (${counted} together). No rate is given; the API may have ignored a filter. Try again, or count fewer filters at a time.`);
+  }
   const rate = (n: number): number | null => (done === 0 ? null : Math.round((n / done) * 1000) / 10);
   const successRate = rate(outcomes.successful + outcomes.partially_successful);
   const refusalRate = rate(outcomes.refused);
-  const counted = RequestResolutionValues.reduce((sum, r) => sum + outcomes[r], 0);
   if (done > 0 && counted !== done) notes.push(`${done - counted} resolved requests carry no listed resolution.`);
   notes.push("Over public requests only; anonymous access sees no others.");
   const verdict =

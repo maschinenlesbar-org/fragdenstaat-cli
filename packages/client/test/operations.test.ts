@@ -433,3 +433,24 @@ test("a page that counts rows but sends none, or sends a row that isn't a record
   assert.equal(past.status, "empty", "an offset past the end is still the empty answer that says so");
   assert.match("reason" in past ? past.reason : "", /past the end/);
 });
+
+test("getRequestOutcomes: counts that can't be true together are an error, never a rate over 100% or a negative open count", async () => {
+  const counts = (answer: (url: URL) => number) =>
+    makeMockTransport((request) => {
+      const url = new URL(request.url);
+      if (url.pathname !== "/api/v1/request/" || url.searchParams.get("limit") !== "1") return fdsAnswer(request);
+      return jsonResponse({ meta: { limit: 1, offset: 0, total_count: answer(url), next: null, previous: null }, objects: [REQUESTS[0]] });
+    });
+  // Every resolution counted as the whole resolved set: the API ignored the resolution filter.
+  const ignored = counts((url) => (url.searchParams.get("status") === null ? 400 : 308));
+  await assert.rejects(getRequestOutcomes(new FragDenStaatClient({ transport: ignored.transport }), { publicBody: "875" }), (err: unknown) => err instanceof FdsParseError && /don't fit together/.test(err.message) && /successful 308/.test(err.message));
+  // More resolved than in all.
+  const more = counts((url) => (url.searchParams.get("status") === null ? 3 : url.searchParams.get("resolution") === null ? 9 : 1));
+  await assert.rejects(getRequestOutcomes(new FragDenStaatClient({ transport: more.transport }), { publicBody: "4023" }), /9 resolved of 3 in all/);
+  // Fewer listed than resolved is possible (a resolution the API has and the list doesn't): a note.
+  const fewer = counts((url) => (url.searchParams.get("status") === null ? 10 : url.searchParams.get("resolution") === null ? 8 : 1));
+  const answer = await getRequestOutcomes(new FragDenStaatClient({ transport: fewer.transport }), { publicBody: "875" });
+  assert.ok("outcomes" in answer);
+  assert.equal(answer.open, 2);
+  assert.match(answer.notes.join(" "), /^2 resolved requests carry no listed resolution/);
+});
