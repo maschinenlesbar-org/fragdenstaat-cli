@@ -19,7 +19,7 @@
 import type { FragDenStaatClient } from "./client.js";
 import type { RequestResolution, RequestStatus } from "./enums.js";
 import { RequestResolutionValues, RequestStatusValues } from "./enums.js";
-import { FdsApiError, FdsValidationError, quoteValue } from "./errors.js";
+import { FdsApiError, FdsParseError, FdsValidationError, quoteValue } from "./errors.js";
 import {
   assertParams,
   CATEGORY_LIST_PARAMS,
@@ -53,6 +53,21 @@ export function requestsOf(answer: object): readonly string[] {
   return REQUESTS.get(answer) ?? [];
 }
 
+/**
+ * `page` when its rows are records and it sends rows wherever its total says there are some: a page
+ * that counts rows past `offset` but sends none, or sends a row that isn't an object, is an upstream
+ * fault (an FdsParseError), never "nothing matched" or an internal error.
+ */
+function checkedPage<T>(path: string, offset: number, page: TastypieList<T>): TastypieList<T> {
+  const bad = page.objects.findIndex((row) => row === null || typeof row !== "object" || Array.isArray(row));
+  if (bad >= 0) throw new FdsParseError(`The API's answer to ${path} is malformed: row ${offset + bad + 1} isn't a record (${row(page.objects[bad])}).`);
+  const total = page.meta.total_count;
+  if (page.objects.length === 0 && total > offset) throw new FdsParseError(`The API's answer to ${path} is malformed: it counts ${total} from offset ${offset} on but sends none.`);
+  return page;
+}
+
+const row = (value: unknown): string => (value === null ? "null" : Array.isArray(value) ? "a list" : typeof value);
+
 /** The requests of one operation call, recorded as the client sends them. */
 class Trace {
   readonly paths: string[] = [];
@@ -76,8 +91,9 @@ class Trace {
     params: object,
     call: (params: never) => Promise<TastypieList<T>>,
   ): Promise<TastypieList<T>> {
-    this.note(path, assertParams(params, spec));
-    return call(params as never);
+    const query = assertParams(params, spec);
+    this.note(path, query);
+    return checkedPage(path, Number(query["offset"] ?? 0), await call(params as never));
   }
 
   async get(path: string, id: number | string, call: (id: string) => Promise<JsonObject>): Promise<JsonObject> {
@@ -87,8 +103,9 @@ class Trace {
   }
 
   async autocomplete(path: string, q: string, page: Pagination, call: (q: string, page: Pagination) => Promise<TastypieList<{ value: number | string; label: string }>>) {
-    this.note(path, { ...assertParams(page, PAGINATION_PARAMS), q: normalizeText(q) });
-    return call(q, page);
+    const query = assertParams(page, PAGINATION_PARAMS);
+    this.note(path, { ...query, q: normalizeText(q) });
+    return checkedPage(path, Number(query["offset"] ?? 0), await call(q, page));
   }
 
   get api(): FragDenStaatClient {

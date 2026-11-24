@@ -9,7 +9,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { FragDenStaatClient } from "../src/client.js";
-import { FdsValidationError } from "../src/errors.js";
+import { FdsParseError, FdsValidationError } from "../src/errors.js";
 import {
   deadlineOf,
   findDocuments,
@@ -24,7 +24,7 @@ import {
   requestsOf,
   searchReference,
 } from "../src/operations.js";
-import { DOCUMENTS, fdsApi, LAWS, PUBLIC_BODIES, REQUEST_373204, REQUESTS, variant } from "./fds.js";
+import { DOCUMENTS, fdsAnswer, fdsApi, LAWS, PUBLIC_BODIES, REQUEST_373204, REQUESTS, variant } from "./fds.js";
 import { jsonResponse, makeMockTransport, type MockTransport } from "./helpers.js";
 import type { JsonObject } from "../src/types.js";
 
@@ -418,4 +418,18 @@ test("a 404 that isn't the API's own answer (an HTML page, a wrong path) is an e
   assert.equal(missing.status, "empty", "the API's own 404 ({detail}) still means: no such record");
   assert.equal((await getDocument(api, { id: 1 })).status, "empty");
   assert.equal((await findPublicBody(api, { name: "999999" })).status, "empty");
+});
+
+test("a page that counts rows but sends none, or sends a row that isn't a record, is a parse error, not 'nothing matched'", async () => {
+  const counted = makeMockTransport((request) =>
+    request.url.includes("/api/v1/request/?") ? jsonResponse({ meta: { limit: 20, offset: 0, total_count: 50, next: null, previous: null }, objects: [] }) : fdsAnswer(request),
+  );
+  await assert.rejects(findRequests(new FragDenStaatClient({ transport: counted.transport }), { jurisdiction: "Bremen" }), (err: unknown) => err instanceof FdsParseError && /counts 50 .* sends none/.test(err.message));
+  const nulls = makeMockTransport((request) =>
+    request.url.includes("/api/v1/request/?") ? jsonResponse({ meta: { limit: 20, offset: 0, total_count: 2, next: null, previous: null }, objects: [REQUESTS[0], null] }) : fdsAnswer(request),
+  );
+  await assert.rejects(findRequests(new FragDenStaatClient({ transport: nulls.transport }), { jurisdiction: "Bremen" }), (err: unknown) => err instanceof FdsParseError && /isn't a record/.test(err.message));
+  const past = await findRequests(setup().client, { publicBody: "875", offset: 500 });
+  assert.equal(past.status, "empty", "an offset past the end is still the empty answer that says so");
+  assert.match("reason" in past ? past.reason : "", /past the end/);
 });
