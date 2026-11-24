@@ -598,3 +598,14 @@ test("contradicting ranges and days that don't exist are refused before any requ
   const same = await findRequests(client, { publicBody: "875", costsMin: 0, costsMax: 0, createdAfter: "2024-02-29", createdBefore: "2024-02-29" });
   assert.notEqual(same.status, undefined, "a range of one value or one day is fine");
 });
+
+test("getRequest: a message the platform hides passes no text, even when the API sends one", async () => {
+  const messages = (REQUEST_373204["messages"] as JsonObject[]).map((m, i) => (i === 2 ? variant(m, { content_hidden: true, content: "versteckter Text", redacted_content: [[false, "versteckter Text"]] }) : m));
+  const answer = await getRequest(setup({ requests: [variant(REQUEST_373204, { messages })] }).client, { id: 373204 });
+  assert.ok("messages" in answer);
+  assert.equal(answer.messages[2]?.contentHidden, true);
+  assert.equal(answer.messages[2]?.content, "");
+  assert.equal(answer.messages[2]?.contentChars, 0);
+  assert.doesNotMatch(JSON.stringify(answer), /versteckter Text/);
+  assert.match(answer.notes.join(" "), /platform hides/);
+});

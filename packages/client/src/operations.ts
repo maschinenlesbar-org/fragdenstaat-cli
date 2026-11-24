@@ -1404,7 +1404,7 @@ export interface MessageRow {
   /** The published text (redactions marked), whole. */
   content: string;
   contentChars: number;
-  /** True when the platform hides the text. */
+  /** True when the platform hides the text: content is then empty. */
   contentHidden: boolean;
   attachments: { id: number; name: string; filetype: string | null; size: number | null; isRedacted: boolean; documentId: number | null; siteUrl: string | null }[];
 }
@@ -1442,7 +1442,9 @@ export async function getRequest(client: FragDenStaatClient, input: { id: number
   }
   const law = obj(detail["law"]);
   const messages = arr(detail["messages"]).map(obj).filter((m): m is JsonObject => m !== null).map((m): MessageRow => {
-    const content = redactedText(m["redacted_content"], m["content"]).replace(/\r\n/g, "\n");
+    // A text the platform hides (content_hidden) is not passed on, even when the API sends it.
+    const hidden = m["content_hidden"] === true;
+    const content = hidden ? "" : redactedText(m["redacted_content"], m["content"]).replace(/\r\n/g, "\n");
     return {
       id: num(m["id"]) ?? 0,
       timestamp: str(m["timestamp"]),
@@ -1451,7 +1453,7 @@ export async function getRequest(client: FragDenStaatClient, input: { id: number
       subject: redactedText(m["redacted_subject"], m["subject"]),
       content,
       contentChars: [...content].length,
-      contentHidden: m["content_hidden"] === true,
+      contentHidden: hidden,
       attachments: arr(m["attachments"]).map(obj).filter((a): a is JsonObject => a !== null).map((a) => ({
         id: num(a["id"]) ?? 0,
         name: str(a["name"]) ?? "",
@@ -1477,6 +1479,7 @@ export async function getRequest(client: FragDenStaatClient, input: { id: number
     "Texts are as published, redactions marked; they hold personal data: quote the redacted text, never try to restore it.",
     ...(row.status === "resolved" ? ["resolved_on is not filled upstream: lastMessage approximates when the request closed."] : []),
     "Attachments link to their page (siteUrl); one that became a document has a documentId for getDocument.",
+    ...(messages.some((m) => m.contentHidden) ? ["A message the platform hides (contentHidden) has no text here: don't guess it."] : []),
   ];
   return t.done({ status: "ok", searched, request, messages, messageCount: messages.length, notes });
 }
