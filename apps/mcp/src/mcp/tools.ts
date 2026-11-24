@@ -49,6 +49,9 @@ export const INSTRUCTIONS = [
 /** The deadline's error says what to ask instead. */
 export const DEADLINE_HINT = "Ask a narrower question: one body or request by its id, fewer filters resolved by name (give ids), fewer results (limit).";
 
+/** The longest page text getDocument passes whole (other texts are cut at 2000 characters). */
+export const PAGE_TEXT_LENGTH = 20_000;
+
 /** An answer over the size cap says what to ask instead. */
 export const SIZE_HINT = "Ask for less: fewer results (limit), a page (offset, limit), fewer messages or pages of one request or document.";
 
@@ -333,13 +336,16 @@ export const TOOLS: readonly ToolDefinition[] = [
     title: "One released document with its text",
     description: [
       'One document released through FOI, with the text of its pages (OCR or the file\'s text layer). Use it for "lies das Dokument 890", "was steht im Ablehnungsbescheid?", "Text des Dokuments", "read document 890", "what does the released document say?", "summarise this FOI document".',
-      "Take the id from findDocuments or an attachment's documentId in getRequest. Pages come a page range at a time (offset, limit; nextOffset), pageCount is the number of pages with text. OCR text can garble figures and names: check against the file (fileUrl) before quoting numbers. No page text means only the file has it. Documents can hold personal data.",
+      "Take the id from findDocuments or an attachment's documentId in getRequest. Pages come a page range at a time (offset, limit; nextOffset), each page's text whole (up to 20000 characters; a longer one is marked cut), so fewer pages may come than asked: follow nextOffset. pageCount is the number of pages with text. OCR text can garble figures and names: check against the file (fileUrl) before quoting numbers. No page text means only the file has it. Documents can hold personal data.",
       RULES,
     ].join("\n\n"),
     inputSchema: input({ id: id("The document's id."), offset, limit: limit(50, 5, "pages") }, ["id"]),
     outputSchema: output({ document: obj, pages: arr, pageCount: int, nextOffset: int }),
     source,
     paged: (args) => ({ list: "pages", offset: num(args, "offset") ?? 0 }),
+    // A page's text is the answer: whole up to PAGE_TEXT_LENGTH (a dense page holds about 5000);
+    // the size cap then moves pages to the next call rather than cutting them.
+    maxFieldLength: PAGE_TEXT_LENGTH,
     async run(args, context) {
       const answer = remember(args, await getDocument(context.client, { id: num(args, "id") ?? -1 }, pages(context)));
       return answer["status"] === "ok" ? pageOf(answer, "pages", "pageCount", num(args, "offset") ?? 0, num(args, "limit") ?? 5) : answer;

@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { listTools } from "../src/mcp/server.js";
 import { connect } from "./harness.js";
-import { CAMPAIGNS, fdsApi, variant } from "./helpers.js";
+import { CAMPAIGNS, DOCUMENTS, fdsApi, variant } from "./helpers.js";
 import type { JsonObject } from "@maschinenlesbar.org/fragdenstaat-client";
 
 const API = "https://fragdenstaat.de";
@@ -143,4 +143,27 @@ test("--max-pages bounds the pages of 50 a tool reads of a list it reads whole: 
   const whole = (await all.call("searchReference", { kind: "campaigns", query: "Topf" })).structuredContent ?? {};
   assert.deepEqual((whole["items"] as { id: number }[]).map((c) => c.id), [4]);
   await all.close();
+});
+
+test("getDocument: a page's text comes whole up to 20000 characters; the size cap pages through pages, never cutting one that fits", async () => {
+  const doc = DOCUMENTS.find((d) => d["id"] === 890) as JsonObject;
+  const text = (n: number, end: string): string => `${"Seite ".repeat(Math.ceil(n / 6)).slice(0, n - end.length)}${end}`;
+  const pages = [
+    { number: 1, content: text(9000, "Ergebnis: 4711 Euro.") },
+    { number: 2, content: text(9000, "Fazit zwei.") },
+    { number: 3, content: text(30000, "unerreichbar") },
+  ];
+  const connection = await connect({ transport: fdsApi({ documents: [variant(doc, { pages })] }) });
+  const first = (await connection.call("getDocument", { id: 890 })).structuredContent ?? {};
+  const got = first["pages"] as { number: number; content: string }[];
+  assert.equal(got[0]?.content.length, 9000);
+  assert.match(got[0]?.content ?? "", /Ergebnis: 4711 Euro\.$/);
+  assert.equal(first["nextOffset"], got.length, "the cap moved the rest to the next page");
+  const second = (await connection.call("getDocument", { id: 890, offset: 1, limit: 1 })).structuredContent ?? {};
+  assert.match((second["pages"] as { content: string }[])[0]?.content ?? "", /Fazit zwei\.$/);
+  assert.equal(second["truncated"], undefined);
+  const long = (await connection.call("getDocument", { id: 890, offset: 2, limit: 1 })).structuredContent ?? {};
+  assert.equal(long["truncated"], true);
+  assert.match((long["pages"] as { content: string }[])[0]?.content ?? "", /…\[cut, 30000 characters in all\]$/);
+  await connection.close();
 });
