@@ -106,6 +106,9 @@ Key `objects[]` fields:
 >   400). `request --tags` takes the tag *name* (`request list --tags lobbyismus`);
 >   `fragdenstaat request tags "lob"` autocompletes those names, which for simple
 >   lower-case tags are the slug too. A 0 under `--tag` means "check the slug" first.
+>   The site slugs a name by dropping the marks of umlauts and accents and any other
+>   non-ASCII letter: `Videoüberwachung` is `videouberwachung` (not `videoueberwachung`,
+>   a 400; checked 2026-11-24).
 > - **All other `document list` scope ids are numeric.** Resolve authority/collection/
 >   portal names to ids (Step 1); the CLI rejects a non-numeric id (exit 1).
 > - **`--ids` must be numbers only.** `26,27` (or `26, 27`) works; one bad element

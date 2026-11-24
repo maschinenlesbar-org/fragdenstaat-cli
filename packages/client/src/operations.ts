@@ -980,6 +980,40 @@ export async function getRequestOutcomes(client: FragDenStaatClient, input: Requ
 // ---------------------------------------------------------------------------------------------
 // findDocuments (fds-document-digger)
 
+/**
+ * A tag's slug as the site makes it (Django's slugify): accents and umlauts lose their marks and
+ * any other character that isn't ASCII goes (Videoüberwachung is videouberwachung, Straße strae),
+ * lower case, punctuation dropped, spaces and dashes one dash. The document list takes only a
+ * slug the site has, and answers anything else with HTTP 400.
+ */
+export function slugOf(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[^\x00-\x7f]/g, "")
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[-\s]+/g, "-")
+    .replace(/^[-_]+|[-_]+$/g, "");
+}
+
+/** undefined for the document list's answer to a tag slug it doesn't have (HTTP 400 on `tag`); any other error is thrown on. */
+function unknownTag(err: unknown): undefined {
+  if (err instanceof FdsApiError && err.status === 400) {
+    try {
+      const body: unknown = JSON.parse(err.body);
+      if (body !== null && typeof body === "object" && !Array.isArray(body) && Object.keys(body).length === 1 && "tag" in body) return undefined;
+    } catch {
+      // not the API's field error: thrown below
+    }
+  }
+  throw err;
+}
+
+/** The answer for a tag slug the site doesn't have. */
+function noSuchTag(searched: Record<string, unknown>, tag: string | undefined): NotResolved {
+  return { status: "empty", searched, reason: `No document tag has the slug ${quoteValue(tag ?? "")}. Document tags are slugs (lobbyismus, videouberwachung); a request's tags are names (findRequests, searchReference kind tags): try the word another way, or another scope.` };
+}
+
 /** The input of {@link findDocuments}: at least one scope. */
 export interface FindDocumentsInput {
   /** The publishing authority: its id or name. */
@@ -1042,7 +1076,8 @@ export async function findDocuments(client: FragDenStaatClient, input: FindDocum
   if (campaign !== undefined && input.request !== undefined) throw new FdsValidationError("Invalid input: campaign goes through its requests; give campaign or request, not both.");
   if (tag !== undefined) {
     if (/^\d+$/.test(tag)) throw new FdsValidationError(`Invalid tag: ${quoteValue(tag)} is a number; the tag filter takes a slug (lobbyismus), and a number matches nothing.`);
-    const slug = tag.toLocaleLowerCase("de").replace(/\s+/g, "-");
+    const slug = slugOf(tag);
+    if (slug === "") throw new FdsValidationError(`Invalid tag: ${quoteValue(tag)} has no letter or digit a slug keeps (lobbyismus, videouberwachung).`);
     if (slug !== tag) notes.push(`The tag is matched by its slug: ${quoteValue(slug)}.`);
     tag = slug;
   }
@@ -1074,7 +1109,8 @@ export async function findDocuments(client: FragDenStaatClient, input: FindDocum
     for (const request of requests.objects) {
       if (documents.length >= offset + limit) break;
       scanned += 1;
-      const page = await t.list("/api/v1/document/", DOCUMENT_LIST_PARAMS, { ...params, foirequest: request.id, limit: MAX_PAGE_SIZE }, (p) => client.documents.list(p));
+      const page = await t.list("/api/v1/document/", DOCUMENT_LIST_PARAMS, { ...params, foirequest: request.id, limit: MAX_PAGE_SIZE }, (p) => client.documents.list(p)).catch(unknownTag);
+      if (page === undefined) return t.done(noSuchTag(searched, tag));
       found += page.meta.total_count;
       documents.push(...(page.objects as unknown as JsonObject[]).map(documentRow));
     }
@@ -1086,7 +1122,8 @@ export async function findDocuments(client: FragDenStaatClient, input: FindDocum
     const next = offset + pageRows.length;
     return t.done({ status: "ok", searched, total: found, offset, documents: pageRows, ...(next < documents.length ? { nextOffset: next } : {}), campaignRequests: requests.meta.total_count, requestsScanned: scanned, notes });
   }
-  const page = await t.list("/api/v1/document/", DOCUMENT_LIST_PARAMS, { ...params, offset, limit }, (p) => client.documents.list(p));
+  const page = await t.list("/api/v1/document/", DOCUMENT_LIST_PARAMS, { ...params, offset, limit }, (p) => client.documents.list(p)).catch(unknownTag);
+  if (page === undefined) return t.done(noSuchTag(searched, tag));
   const total = page.meta.total_count;
   const documents = (page.objects as unknown as JsonObject[]).map(documentRow);
   if (documents.length === 0) {

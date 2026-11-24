@@ -485,3 +485,24 @@ test("a body by its abbreviation or other name (UBA, BMVg): found through its ot
   assert.equal(none.status, "empty");
   assert.match("reason" in none ? none.reason : "", /No public body's name or other name holds/);
 });
+
+test("findDocuments: a tag is sent as the site's slug (umlauts lose their dots, as the site's slugs do); a slug the site doesn't have is empty, not an HTTP 400", async () => {
+  const tagged = variant(DOCUMENTS[2] as JsonObject, { tags: ["videouberwachung"] });
+  const rejecting = makeMockTransport((request) => {
+    const tag = new URL(request.url).searchParams.get("tag");
+    if (tag !== null && tag !== "videouberwachung") return jsonResponse({ tag: ["Bitte eine gültige Auswahl treffen. Dies ist keine gültige Auswahl."] }, 400);
+    return fdsAnswer(request, { documents: [tagged] });
+  });
+  const client = new FragDenStaatClient({ transport: rejecting.transport });
+  const answer = await findDocuments(client, { tag: "Videoüberwachung" });
+  assert.equal(answer.status, "ok", "reason" in answer ? answer.reason : "");
+  assert.equal(rejecting.last().url, `${API}/api/v1/document/?tag=videouberwachung&offset=0&limit=20`);
+  assert.match(answer.notes.join(" "), /matched by its slug: "videouberwachung"/);
+  const unknown = await findDocuments(client, { tag: "Straßen Bau!" });
+  assert.equal(unknown.status, "empty");
+  assert.match(rejecting.last().url, /tag=straen-bau&/);
+  assert.match("reason" in unknown ? unknown.reason : "", /No document tag has the slug "straen-bau"/);
+  await assert.rejects(findDocuments(client, { tag: "€€" }), /no letter or digit/);
+  const other = makeMockTransport(() => jsonResponse({ created_at_after: ["Ungültiges Datum"] }, 400));
+  await assert.rejects(findDocuments(new FragDenStaatClient({ transport: other.transport }), { tag: "lobbyismus" }), /HTTP 400/, "another 400 stays an error");
+});
