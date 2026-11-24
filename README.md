@@ -235,7 +235,8 @@ autocomplete. Errors are typed (`FdsApiError` with `.status`/`.detail`,
 `FdsNetworkError`, `FdsParseError`). The skills' use cases are library functions too:
 `findPublicBody`, `findRequests`, `getRequestOutcomes`, `findDocuments`, `findLaws`,
 `getRequest`, `getDocument` and `searchReference` take the client and resolve names for you
-(`await getRequestOutcomes(fds, { tag: "Videoüberwachung" })`). The full API docs build with
+(`await getRequestOutcomes(fds, { tag: "Videoüberwachung" })`); a third argument
+`{ maxPages }` (default 10) bounds the pages of 50 they read of a list they read whole. The full API docs build with
 `npm run docs`.
 
 ## Skills

@@ -24,7 +24,7 @@ import {
   requestsOf,
   searchReference,
 } from "../src/operations.js";
-import { DOCUMENTS, fdsAnswer, fdsApi, LAWS, PUBLIC_BODIES, REQUEST_373204, REQUESTS, variant } from "./fds.js";
+import { CAMPAIGNS, DOCUMENTS, fdsAnswer, fdsApi, LAWS, PUBLIC_BODIES, REQUEST_373204, REQUESTS, variant } from "./fds.js";
 import { jsonResponse, makeMockTransport, type MockTransport } from "./helpers.js";
 import type { JsonObject } from "../src/types.js";
 
@@ -505,4 +505,30 @@ test("findDocuments: a tag is sent as the site's slug (umlauts lose their dots, 
   await assert.rejects(findDocuments(client, { tag: "€€" }), /no letter or digit/);
   const other = makeMockTransport(() => jsonResponse({ created_at_after: ["Ungültiges Datum"] }, 400));
   await assert.rejects(findDocuments(new FragDenStaatClient({ transport: other.transport }), { tag: "lobbyismus" }), /HTTP 400/, "another 400 stays an error");
+});
+
+test("campaigns and jurisdictions are read on past the first page of 50, up to maxPages pages; a list cut there says so", async () => {
+  const topf = CAMPAIGNS.find((c) => c["id"] === 4) as JsonObject;
+  const others = Array.from({ length: 77 }, (_, i) => variant(topf, { id: 1000 + i, name: `Kampagne ${i}`, slug: `kampagne-${i}` }));
+  const request = variant(REQUESTS[0] as JsonObject, { id: 157764, campaign: "https://fragdenstaat.de/api/v1/campaign/4/" });
+  const { client, mock } = setup({ campaigns: [...others, topf], requests: [request] });
+  const all = await searchReference(client, { kind: "campaigns" });
+  assert.ok("items" in all);
+  assert.equal(all.total, 78);
+  assert.equal(all.nextOffset, 50);
+  assert.deepEqual(requestsOf(all), ["/api/v1/campaign/?limit=50", "/api/v1/campaign/?offset=50&limit=50"]);
+  const topfOnly = await searchReference(client, { kind: "campaigns", query: "Topf" });
+  assert.ok("items" in topfOnly);
+  assert.deepEqual(topfOnly.items.map((c) => c.id), [4]);
+  const requests = await findRequests(client, { campaign: "Topf Secret" });
+  assert.deepEqual(requests.searched["campaign"], { id: 4, name: "Topf Secret", slug: "topf-secret" });
+  const before = mock.calls.length;
+  const cut = await findRequests(client, { campaign: "Topf Secret" }, { maxPages: 1 });
+  assert.equal(cut.status, "empty");
+  assert.match("reason" in cut ? cut.reason : "", /Only the first 50 of 78 campaigns were read/);
+  assert.equal(mock.calls.length - before, 1);
+  const listed = await searchReference(client, { kind: "campaigns" }, { maxPages: 1 });
+  assert.ok("items" in listed);
+  assert.match((listed.notes ?? []).join(" "), /first 50 of 78/);
+  await assert.rejects(searchReference(client, { kind: "campaigns" }, { maxPages: 0 }), /Invalid maxPages/);
 });

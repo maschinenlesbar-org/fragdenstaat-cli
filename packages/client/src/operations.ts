@@ -68,11 +68,51 @@ function checkedPage<T>(path: string, offset: number, page: TastypieList<T>): Ta
 
 const row = (value: unknown): string => (value === null ? "null" : Array.isArray(value) ? "a list" : typeof value);
 
+/** What every operation takes besides its input. */
+export interface OperationOptions {
+  /**
+   * The most pages of 50 an operation reads of one list it reads whole (the jurisdictions, the
+   * campaigns, a law's siblings, a request's documents), per list and call: 1 to 100, default 10.
+   * A list cut there is said so in the answer.
+   */
+  maxPages?: number | undefined;
+}
+
+/** The default of {@link OperationOptions.maxPages}. */
+export const DEFAULT_MAX_PAGES = 10;
+
+/** A list read page by page: its rows, its total and whether all of them were read. */
+interface WholeList<T> {
+  objects: T[];
+  total: number;
+  complete: boolean;
+}
+
 /** The requests of one operation call, recorded as the client sends them. */
 class Trace {
   readonly paths: string[] = [];
+  readonly maxPages: number;
 
-  constructor(private readonly client: FragDenStaatClient) {}
+  constructor(
+    private readonly client: FragDenStaatClient,
+    options: OperationOptions = {},
+  ) {
+    this.maxPages = assertValid("maxPages", options?.maxPages ?? DEFAULT_MAX_PAGES, (v: number) => (Number.isSafeInteger(v) && v >= 1 && v <= 100 ? undefined : "Expected a whole number from 1 to 100."));
+  }
+
+  /** Every row of a list, a page of 50 at a time, up to maxPages pages. */
+  async all<T>(path: string, spec: ParamSpec, params: object, call: (params: never) => Promise<TastypieList<T>>): Promise<WholeList<T>> {
+    const objects: T[] = [];
+    let total = 0;
+    for (let n = 0; n < this.maxPages; n++) {
+      const offset = objects.length;
+      const page = await this.list(path, spec, { ...params, ...(offset === 0 ? {} : { offset }), limit: MAX_PAGE_SIZE }, call);
+      total = page.meta.total_count;
+      objects.push(...page.objects);
+      if (page.objects.length === 0 || objects.length >= total) break;
+    }
+    return { objects, total, complete: objects.length >= total };
+  }
 
   /** `answer`, with this call's requests kept for `requestsOf`. */
   done<T extends object>(answer: T): T {
@@ -285,18 +325,30 @@ function several(field: string, value: string, items: readonly Ref[]): { ambiguo
 // ---------------------------------------------------------------------------------------------
 // Name → id resolvers
 
-/** A jurisdiction by id, name or slug ("Bayern", "nrw", 92): the list of all 18, one request. */
+/** What a list cut at maxPages leaves out, for a reason or a note ("" for a list read whole). */
+function cutNote(list: WholeList<unknown>, what: string): string {
+  return list.complete ? "" : ` Only the first ${list.objects.length} of ${list.total} ${what} were read (maxPages).`;
+}
+
+/** The jurisdictions, all of them (18: one request). */
+async function jurisdictionsOf(t: Trace): Promise<WholeList<Ref>> {
+  const list = await t.all("/api/v1/jurisdiction/", PAGE_ONLY_PARAMS, {}, (p) => t.api.jurisdictions.list(p));
+  return { ...list, objects: list.objects.map(refOf) };
+}
+
+/** A jurisdiction by id, name or slug ("Bayern", "nrw", 92): from the list of all 18. */
 async function resolveJurisdiction(t: Trace, value: string): Promise<Resolution<Ref>> {
-  const all = (await t.list("/api/v1/jurisdiction/", PAGE_ONLY_PARAMS, { limit: MAX_PAGE_SIZE }, (p) => t.api.jurisdictions.list(p))).objects;
-  const refs = all.map(refOf);
+  const list = await jurisdictionsOf(t);
+  const refs = list.objects;
+  const cut = cutNote(list, "jurisdictions");
   if (isDigits(value)) {
     const found = refs.find((ref) => ref.id === Number(value));
-    return found === undefined ? { none: `No jurisdiction has the id ${value}. The jurisdictions: ${refs.map((r) => `${r.name} (${r.id})`).join(", ")}.` } : { ref: found };
+    return found === undefined ? { none: `No jurisdiction has the id ${value}. The jurisdictions: ${refs.map((r) => `${r.name} (${r.id})`).join(", ")}.${cut}` } : { ref: found };
   }
   const match = pick(refs, value, (ref) => [ref.name, ref.slug]);
   if ("one" in match) return { ref: match.one };
   if ("several" in match) return several("jurisdiction", value, match.several);
-  return { none: `No jurisdiction is named ${quoteValue(value)}. The jurisdictions: ${refs.map((r) => `${r.name} (${r.id})`).join(", ")}. A town or district is no jurisdiction: its local statutes have none (search them by the town's name).` };
+  return { none: `No jurisdiction is named ${quoteValue(value)}. The jurisdictions: ${refs.map((r) => `${r.name} (${r.id})`).join(", ")}. A town or district is no jurisdiction: its local statutes have none (search them by the town's name).${cut}` };
 }
 
 /** A category or classification by id or name, from its list's `q` search. */
@@ -358,17 +410,19 @@ async function resolveTag(t: Trace, value: string): Promise<Resolution<string> &
   return { none: `No request tag is exactly ${quoteValue(value)} (tags match exactly, case-sensitive). Tags holding it: ${names.slice(0, 15).map((n) => quoteValue(n)).join(", ")}${names.length > 15 ? ", …" : ""}.` };
 }
 
-/** A campaign by id or name: the list of all (about 18), one request. */
+/** A campaign by id or name: from the list of all (about 18: one request). */
 async function resolveCampaign(t: Trace, value: string): Promise<Resolution<Ref>> {
-  const all = (await t.list("/api/v1/campaign/", PAGE_ONLY_PARAMS, { limit: MAX_PAGE_SIZE }, (p) => t.api.campaigns.list(p))).objects.map(refOf);
+  const list = await t.all("/api/v1/campaign/", PAGE_ONLY_PARAMS, {}, (p) => t.api.campaigns.list(p));
+  const all = list.objects.map(refOf);
+  const cut = cutNote(list, "campaigns");
   if (isDigits(value)) {
     const found = all.find((ref) => ref.id === Number(value));
-    return found === undefined ? { none: `No campaign has the id ${value}. The campaigns: ${all.map((r) => `${r.name} (${r.id})`).join(", ")}.` } : { ref: found };
+    return found === undefined ? { none: `No campaign has the id ${value}. The campaigns: ${all.map((r) => `${r.name} (${r.id})`).join(", ")}.${cut}` } : { ref: found };
   }
   const match = pick(all, value, (ref) => [ref.name, ref.slug]);
   if ("one" in match) return { ref: match.one };
   if ("several" in match) return several("campaign", value, match.several);
-  return { none: `No campaign is named ${quoteValue(value)}. The campaigns: ${all.map((r) => `${r.name} (${r.id})`).join(", ")}.` };
+  return { none: `No campaign is named ${quoteValue(value)}. The campaigns: ${all.map((r) => `${r.name} (${r.id})`).join(", ")}.${cut}` };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -623,8 +677,8 @@ function profileOf(body: JsonObject): PublicBodyProfile {
  * bodies whose regions contain it, not the nearest; a body found through several regions is
  * listed once.
  */
-export async function findPublicBody(client: FragDenStaatClient, input: FindPublicBodyInput): Promise<PublicBodyLookup> {
-  const t = new Trace(client);
+export async function findPublicBody(client: FragDenStaatClient, input: FindPublicBodyInput, options: OperationOptions = {}): Promise<PublicBodyLookup> {
+  const t = new Trace(client, options);
   const name = textInput("name", input.name);
   const query = textInput("query", input.query);
   const jurisdiction = textInput("jurisdiction", input.jurisdiction);
@@ -847,8 +901,8 @@ const FACETS_ONLY: (keyof FindRequestsInput)[] = ["status", "resolution", "law",
  * doesn't exist is `empty` with the tags holding the word). A resolution implies status resolved;
  * an open request's resolution is null.
  */
-export async function findRequests(client: FragDenStaatClient, input: FindRequestsInput): Promise<RequestSearch> {
-  const t = new Trace(client);
+export async function findRequests(client: FragDenStaatClient, input: FindRequestsInput, options: OperationOptions = {}): Promise<RequestSearch> {
+  const t = new Trace(client, options);
   const query = textInput("query", input.query);
   const limit = pageSize(input.limit, 20);
   const offset = pageStart(input.offset);
@@ -942,8 +996,8 @@ export type RequestOutcomes =
  * per resolution (one counting request each, `limit=1`), with the success rate over the resolved
  * ones only: an open request has no outcome.
  */
-export async function getRequestOutcomes(client: FragDenStaatClient, input: RequestOutcomesInput): Promise<RequestOutcomes> {
-  const t = new Trace(client);
+export async function getRequestOutcomes(client: FragDenStaatClient, input: RequestOutcomesInput, options: OperationOptions = {}): Promise<RequestOutcomes> {
+  const t = new Trace(client, options);
   const resolved = await resolveFilters(t, input);
   if ("status" in resolved) return t.done(resolved);
   const { params, searched, notes } = resolved;
@@ -1059,8 +1113,8 @@ export const CAMPAIGN_REQUESTS_SCANNED = 10;
  * directory, a tag slug, a date window. Metadata and file links only, nothing is downloaded;
  * getDocument reads a document's pages.
  */
-export async function findDocuments(client: FragDenStaatClient, input: FindDocumentsInput): Promise<DocumentSearch> {
-  const t = new Trace(client);
+export async function findDocuments(client: FragDenStaatClient, input: FindDocumentsInput, options: OperationOptions = {}): Promise<DocumentSearch> {
+  const t = new Trace(client, options);
   const publicBody = textInput("publicBody", input.publicBody);
   const campaign = textInput("campaign", input.campaign);
   let tag = textInput("tag", input.tag);
@@ -1182,8 +1236,8 @@ export type LawLookup =
  * unit in words. A jurisdiction's laws never include the local statutes (Satzungen): they have no
  * jurisdiction, so they are found by the town's name (`query`).
  */
-export async function findLaws(client: FragDenStaatClient, input: FindLawsInput): Promise<LawLookup> {
-  const t = new Trace(client);
+export async function findLaws(client: FragDenStaatClient, input: FindLawsInput, options: OperationOptions = {}): Promise<LawLookup> {
+  const t = new Trace(client, options);
   const law = textInput("law", input.law);
   const jurisdiction = textInput("jurisdiction", input.jurisdiction);
   const query = textInput("query", input.query);
@@ -1194,7 +1248,7 @@ export async function findLaws(client: FragDenStaatClient, input: FindLawsInput)
     throw new FdsValidationError("Invalid input: law looks one law up; jurisdiction, query and meta list laws. Give one or the other.");
   }
   // The jurisdictions' names, for every row (18 of them: one request).
-  const all = (await t.list("/api/v1/jurisdiction/", PAGE_ONLY_PARAMS, { limit: MAX_PAGE_SIZE }, (p) => client.jurisdictions.list(p))).objects.map(refOf);
+  const all = (await jurisdictionsOf(t)).objects;
   const names = new Map(all.map((ref) => [ref.id, ref.name]));
   if (law !== undefined) {
     const searched = { law };
@@ -1329,8 +1383,8 @@ export type RequestDetail =
   | { status: "empty"; searched: { id: number }; reason: string };
 
 /** One FOI request with its correspondence: the messages, each with its attachments. */
-export async function getRequest(client: FragDenStaatClient, input: { id: number | string }): Promise<RequestDetail> {
-  const t = new Trace(client);
+export async function getRequest(client: FragDenStaatClient, input: { id: number | string }, options: OperationOptions = {}): Promise<RequestDetail> {
+  const t = new Trace(client, options);
   const id = Number(normalizeResourceId(input.id));
   const searched = { id };
   let detail: JsonObject;
@@ -1387,8 +1441,8 @@ export type DocumentDetail =
   | { status: "empty"; searched: { id: number }; reason: string };
 
 /** One document with the text of its pages (OCR or the file's text layer), page by page. */
-export async function getDocument(client: FragDenStaatClient, input: { id: number | string }): Promise<DocumentDetail> {
-  const t = new Trace(client);
+export async function getDocument(client: FragDenStaatClient, input: { id: number | string }, options: OperationOptions = {}): Promise<DocumentDetail> {
+  const t = new Trace(client, options);
   const id = Number(normalizeResourceId(input.id));
   const searched = { id };
   let detail: JsonObject;
@@ -1420,15 +1474,15 @@ export interface ReferenceItem {
 
 /** The answer of {@link searchReference}. */
 export type ReferenceSearch =
-  | { status: "ok"; searched: { kind: ReferenceKind; query?: string }; total: number; offset: number; items: ReferenceItem[]; nextOffset?: number }
+  | { status: "ok"; searched: { kind: ReferenceKind; query?: string }; total: number; offset: number; items: ReferenceItem[]; nextOffset?: number; notes?: string[] }
   | { status: "empty"; searched: { kind: ReferenceKind; query?: string }; reason: string };
 
 /**
  * The names and ids the filters take: jurisdictions (all 18), categories and classifications (by
  * words), campaigns (all), request tags (by words; a tag's value is its exact name).
  */
-export async function searchReference(client: FragDenStaatClient, input: { kind: ReferenceKind; query?: string | undefined; offset?: number | undefined; limit?: number | undefined }): Promise<ReferenceSearch> {
-  const t = new Trace(client);
+export async function searchReference(client: FragDenStaatClient, input: { kind: ReferenceKind; query?: string | undefined; offset?: number | undefined; limit?: number | undefined }, options: OperationOptions = {}): Promise<ReferenceSearch> {
+  const t = new Trace(client, options);
   const kind = assertValid("kind", input.kind, (v) => (REFERENCE_KINDS.includes(v) ? undefined : `Allowed choices are ${REFERENCE_KINDS.join(", ")}.`));
   const query = textInput("query", input.query);
   const limit = pageSize(input.limit, 50);
@@ -1436,6 +1490,7 @@ export async function searchReference(client: FragDenStaatClient, input: { kind:
   const searched = { kind, ...(query === undefined ? {} : { query }) };
   let items: ReferenceItem[];
   let total: number;
+  const notes: string[] = [];
   if (kind === "tags") {
     if (query === undefined) throw new FdsValidationError("Invalid query: tags are looked up by a word (query).");
     const hits = await t.autocomplete("/api/v1/request/tags/autocomplete/", query, { offset, limit }, (q, page) => client.requests.tagsAutocomplete(q, page));
@@ -1451,8 +1506,10 @@ export async function searchReference(client: FragDenStaatClient, input: { kind:
     const path = kind === "jurisdictions" ? "/api/v1/jurisdiction/" : "/api/v1/campaign/";
     const list = (p: never): Promise<TastypieList<JsonObject>> =>
       (kind === "jurisdictions" ? client.jurisdictions.list(p) : client.campaigns.list(p)) as unknown as Promise<TastypieList<JsonObject>>;
-    const page = await t.list(path, PAGE_ONLY_PARAMS, { limit: MAX_PAGE_SIZE }, list);
-    let rows = (page.objects as unknown as JsonObject[]).map((o) => ({
+    const whole = await t.all(path, PAGE_ONLY_PARAMS, {}, list);
+    const cut = cutNote(whole, kind).trim();
+    if (cut !== "") notes.push(`${cut} Raise --max-pages (maxPages) to read them all.`);
+    let rows = (whole.objects as unknown as JsonObject[]).map((o) => ({
       id: num(o["id"]) ?? 0,
       name: str(o["name"]) ?? "",
       slug: str(o["slug"]) ?? "",
@@ -1469,5 +1526,5 @@ export async function searchReference(client: FragDenStaatClient, input: { kind:
     return t.done({ status: "empty", searched, reason: offset > 0 && total > 0 ? `There are ${total}; offset ${offset} is past the end.` : `No ${kind} match ${quoteValue(query ?? "")}. Try another word or a shorter one.` });
   }
   const next = offset + items.length;
-  return t.done({ status: "ok", searched, total, offset, items, ...(next < total ? { nextOffset: next } : {}) });
+  return t.done({ status: "ok", searched, total, offset, items, ...(next < total ? { nextOffset: next } : {}), ...(notes.length > 0 ? { notes } : {}) });
 }
