@@ -586,3 +586,15 @@ test("getRequest: a message's text comes whole, with its length", async () => {
   assert.equal(answer.messages[1]?.content, text);
   assert.equal(answer.messages[1]?.contentChars, text.length);
 });
+
+test("contradicting ranges and days that don't exist are refused before any request", async () => {
+  const { client, mock } = setup();
+  await assert.rejects(findRequests(client, { publicBody: "875", costsMin: 100, costsMax: 10 }), /Invalid input: costsMin \(100\) is over costsMax \(10\)/);
+  await assert.rejects(getRequestOutcomes(client, { createdAfter: "2025-06-01", createdBefore: "2025-01-01" }), /Invalid input: createdAfter \(2025-06-01\) is after createdBefore \(2025-01-01\)/);
+  await assert.rejects(findDocuments(client, { publicBody: "Umweltbundesamt", createdAfter: "2025-02-30" }), /Invalid createdAfter: 2025-02-30 is no day/);
+  await assert.rejects(findRequests(client, { publicBody: "Umweltbundesamt", jurisdiction: "Bund", costsMin: 5, costsMax: 1 }), /costsMin/);
+  await assert.rejects(findRequests(client, { createdBefore: "1.1.2025" }), /Invalid createdBefore: Expected a day as YYYY-MM-DD/);
+  assert.equal(mock.calls.length, 0);
+  const same = await findRequests(client, { publicBody: "875", costsMin: 0, costsMax: 0, createdAfter: "2024-02-29", createdBefore: "2024-02-29" });
+  assert.notEqual(same.status, undefined, "a range of one value or one day is fine");
+});

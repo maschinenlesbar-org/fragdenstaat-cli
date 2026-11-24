@@ -282,6 +282,23 @@ function textInput(name: string, value: string | undefined): string | undefined 
   return normalizeText(assertValid(name, value, textProblem));
 }
 
+/** A checked day (`YYYY-MM-DD`, one that exists), or undefined when not given. */
+function dayInput(name: string, value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  const day = assertValid(name, value, (v: string) => (typeof v === "string" && /^\s*\d{4}-\d{2}-\d{2}\s*$/.test(v) ? undefined : "Expected a day as YYYY-MM-DD.")).trim();
+  const [y, m, d] = day.split("-").map(Number) as [number, number, number];
+  const date = new Date(Date.UTC(y, m - 1, d));
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) throw new FdsValidationError(`Invalid ${name}: ${day} is no day of the calendar.`);
+  return day;
+}
+
+/** Refuses a range whose start is after its end: the API answers it with nothing, as if no record matched. */
+function assertRange(low: [string, string | number | undefined], high: [string, string | number | undefined], words: string): void {
+  if (low[1] !== undefined && high[1] !== undefined && low[1] > high[1]) {
+    throw new FdsValidationError(`Invalid input: ${low[0]} (${low[1]}) is ${words} ${high[0]} (${high[1]}): nothing can match both. Swap them or drop one.`);
+  }
+}
+
 /** A checked page size (1–max, default `fallback`). */
 function pageSize(value: number | undefined, fallback: number, max = MAX_PAGE_SIZE): number {
   return assertValid("limit", value ?? fallback, (v: number) => (Number.isSafeInteger(v) && v >= 1 && v <= max ? undefined : `Expected a whole number from 1 to ${max}.`));
@@ -842,6 +859,10 @@ async function resolveFilters(t: Trace, filters: RequestFilters): Promise<{ para
   const classification = textInput("classification", filters.classification);
   const tag = textInput("tag", filters.tag);
   const campaign = textInput("campaign", filters.campaign);
+  const createdAfter = dayInput("createdAfter", filters.createdAfter);
+  const createdBefore = dayInput("createdBefore", filters.createdBefore);
+  assertRange(["createdAfter", createdAfter], ["createdBefore", createdBefore], "after");
+  assertRange(["costsMin", filters.costsMin], ["costsMax", filters.costsMax], "over");
   if (jurisdiction !== undefined) {
     const r = await resolveJurisdiction(t, jurisdiction);
     if (!("ref" in r)) return unresolved({ ...searched, jurisdiction }, r);
@@ -884,8 +905,8 @@ async function resolveFilters(t: Trace, filters: RequestFilters): Promise<{ para
     params.campaign = r.ref.id;
     searched["campaign"] = r.ref;
   }
-  if (filters.createdAfter !== undefined) params.created_at_after = searched["createdAfter"] = filters.createdAfter;
-  if (filters.createdBefore !== undefined) params.created_at_before = searched["createdBefore"] = filters.createdBefore;
+  if (createdAfter !== undefined) params.created_at_after = searched["createdAfter"] = createdAfter;
+  if (createdBefore !== undefined) params.created_at_before = searched["createdBefore"] = createdBefore;
   if (filters.costsMin !== undefined) params.costs_min = searched["costsMin"] = filters.costsMin;
   if (filters.costsMax !== undefined) params.costs_max = searched["costsMax"] = filters.costsMax;
   return { params, searched, notes };
@@ -1135,6 +1156,9 @@ export async function findDocuments(client: FragDenStaatClient, input: FindDocum
     if (slug !== tag) notes.push(`The tag is matched by its slug: ${quoteValue(slug)}.`);
     tag = slug;
   }
+  const createdAfter = dayInput("createdAfter", input.createdAfter);
+  const createdBefore = dayInput("createdBefore", input.createdBefore);
+  assertRange(["createdAfter", createdAfter], ["createdBefore", createdBefore], "after");
   if (publicBody !== undefined) {
     const r = await resolvePublicBody(t, publicBody);
     if (!("ref" in r)) return t.done(unresolved({ publicBody }, r));
@@ -1149,8 +1173,8 @@ export async function findDocuments(client: FragDenStaatClient, input: FindDocum
     }
   }
   if (tag !== undefined) params.tag = searched["tag"] = tag;
-  if (input.createdAfter !== undefined) params.created_at_after = searched["createdAfter"] = input.createdAfter;
-  if (input.createdBefore !== undefined) params.created_at_before = searched["createdBefore"] = input.createdBefore;
+  if (createdAfter !== undefined) params.created_at_after = searched["createdAfter"] = createdAfter;
+  if (createdBefore !== undefined) params.created_at_before = searched["createdBefore"] = createdBefore;
   notes.push("Metadata and file links only: nothing is downloaded. getDocument gives a document's pages as text.");
   if (campaign !== undefined) {
     const r = await resolveCampaign(t, campaign);
